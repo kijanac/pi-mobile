@@ -21,7 +21,6 @@ import {
 import { connectStream } from "~/lib/api";
 import {
   getBridgeUrl,
-  getCursor,
   setCursor as persistCursor,
 } from "~/lib/settings";
 import { resumeTick } from "~/lib/lifecycle";
@@ -45,7 +44,12 @@ export default function Session(): JSX.Element {
 
         const start = async () => {
           const baseUrl = await getBridgeUrl();
-          const startCursor = await getCursor(id);
+          // The mobile app does not persist the full message log locally. If
+          // we reconnect with a previously persisted high-water cursor after
+          // a cold screen mount, the bridge correctly sends only newer events
+          // and the screen appears empty. Always replay from zero; the reducer
+          // dedupes stale seqs during same-screen reconnects.
+          const startCursor = 0;
           if (closed) return;
 
           const stream = connectStream(baseUrl, id, startCursor, {

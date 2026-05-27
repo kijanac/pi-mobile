@@ -80,6 +80,11 @@ const mutate = (fn: (arr: LogEntry[]) => void): void =>
  * and any test/mock streams. Pure with respect to the network.
  */
 export function applyWireEvent(e: WireEvent): void {
+  // Ignore replayed events we've already applied. This makes reconnects safe
+  // even when the socket asks the bridge to replay from an older cursor.
+  // Hello carries seq=0 and is metadata, so it is always allowed through.
+  if (e.t !== "hello" && e.seq > 0 && e.seq <= log.cursor) return;
+
   // Track the high-water cursor for every event with a positive seq.
   // Hello carries seq=0 and we never want to set cursor to that.
   if (e.seq > log.cursor) setLog("cursor", e.seq);

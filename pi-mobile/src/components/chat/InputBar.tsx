@@ -5,6 +5,7 @@ import { activeSend } from "~/stores/connection";
 import { createSpeechRecognition } from "~/lib/speech";
 import { chooseFromGallery } from "~/lib/image-picker";
 import { haptic } from "~/lib/haptics";
+import { ensureKeyboardTracking, keyboardHeight } from "~/lib/keyboard";
 import type { ImageAttachment } from "@pi-mobile/protocol";
 import SlashPalette from "./SlashPalette";
 import ImageTray from "./ImageTray";
@@ -28,6 +29,8 @@ export default function InputBar(): JSX.Element {
   const [holding, setHolding] = createSignal(false);
   const [paletteOpen, setPaletteOpen] = createSignal(false);
   const [images, setImages] = createSignal<ImageAttachment[]>([]);
+
+  ensureKeyboardTracking();
 
   // Speech-to-text. Available on native (iOS/Android) only; on web the
   // mic button is hidden.
@@ -184,8 +187,11 @@ export default function InputBar(): JSX.Element {
 
   return (
     <div
-      class="hairline-t sticky bottom-0 bg-[color:var(--color-bg)]/95 backdrop-blur-md"
-      style={{ "padding-bottom": "env(safe-area-inset-bottom)" }}
+      class="hairline-t sticky bottom-0 z-20 bg-[color:var(--color-bg)]/95 backdrop-blur-md transition-transform duration-200 ease-out"
+      style={{
+        "padding-bottom": "env(safe-area-inset-bottom)",
+        transform: `translateY(-${keyboardHeight()}px)`,
+      }}
     >
       <ImageTray images={images()} onRemove={removeImage} />
 

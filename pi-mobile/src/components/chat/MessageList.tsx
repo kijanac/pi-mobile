@@ -1,5 +1,6 @@
 import { For, createEffect, on, onMount, onCleanup, type JSX } from "solid-js";
 import { entries } from "~/stores/sessions";
+import { ensureKeyboardTracking, keyboardHeight } from "~/lib/keyboard";
 import UserMessageView from "./UserMessage";
 import AssistantMessageView from "./AssistantMessage";
 import ToolCallView from "./ToolCall";
@@ -11,6 +12,8 @@ const STICK_THRESHOLD_PX = 64;
 export default function MessageList(): JSX.Element {
   let scroller!: HTMLDivElement;
   let stick = true;
+
+  ensureKeyboardTracking();
 
   // Track whether the user is near the bottom. If they scroll up, we stop
   // auto-scrolling so they can read past output without getting yanked.
@@ -43,7 +46,11 @@ export default function MessageList(): JSX.Element {
   );
 
   return (
-    <div ref={scroller} class="scroll-momentum flex-1 overflow-y-auto py-2">
+    <div
+      ref={scroller}
+      class="scroll-momentum flex-1 overflow-y-auto py-2"
+      style={{ "padding-bottom": `calc(${keyboardHeight()}px + 0.5rem)` }}
+    >
       <For each={entries()}>
         {(entry) => {
           switch (entry.kind) {

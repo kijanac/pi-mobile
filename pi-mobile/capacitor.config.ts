@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import { KeyboardResize, KeyboardStyle } from "@capacitor/keyboard";
 
 const config: CapacitorConfig = {
   appId: "dev.pi.mobile",
@@ -20,6 +21,14 @@ const config: CapacitorConfig = {
     // url: "http://192.168.1.42:5173",
     // cleartext: true,
     androidScheme: "https",
+  },
+  plugins: {
+    Keyboard: {
+      // Keep the WebView stable and let our chat chrome move above the
+      // keyboard. This avoids iOS resizing `dvh` and jumping the whole app.
+      resize: KeyboardResize.None,
+      style: KeyboardStyle.Dark,
+    },
   },
 };
 
