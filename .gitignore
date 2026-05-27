@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+/dist/
+build/
+.out/
+.vite/
+.cache/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env/config
+.env
+.env.*
+!.env.example
+
+# Bridge runtime state
+bridge/data/
+data/
+*.db
+*.db-*
+
+# Capacitor/native generated build artifacts
+pi-mobile/android/.gradle/
+pi-mobile/android/app/build/
+pi-mobile/android/build/
+pi-mobile/ios/App/build/
+pi-mobile/ios/App/Pods/
+pi-mobile/ios/App/DerivedData/
+
+# Tarball snapshots/import artifacts
+*.tar
+*.tar.gz
+*.tgz
+*.tar.bz2
+*.tbz2
+*.tar.xz
+*.txz
+
+# Agent/local scratch
+.claude/
+.DS_Store

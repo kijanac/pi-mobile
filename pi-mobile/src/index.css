@@ -1,0 +1,326 @@
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────────────────────
+   pi — terminal-native mobile aesthetic
+   single mono typeface, deep neutral surface, one sharp lime accent,
+   hairline borders, no shadows. weight + opacity carry hierarchy.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  --font-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--font-mono);
+
+  /* surfaces — warm-neutral near-black, not pure black */
+  --color-bg: #0a0a0a;
+  --color-surface: #131313;
+  --color-surface-2: #1a1a1a;
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.12);
+
+  /* foreground — warm white with disciplined opacity ramp */
+  --color-fg: #ededed;
+  --color-fg-muted: rgba(237, 237, 237, 0.55);
+  --color-fg-faint: rgba(237, 237, 237, 0.32);
+
+  /* the one accent. used sparingly: status, focus, the cursor caret. */
+  --color-accent: #d4ff3a;
+  --color-accent-dim: rgba(212, 255, 58, 0.18);
+
+  /* semantic */
+  --color-danger: #ff6b6b;
+  --color-warn: #f5c451;
+
+  /* diff tones — calm, terminal-native; the gutter sign carries most of
+     the signal, the background is a hint */
+  --color-diff-add: #5fb55f;
+  --color-diff-add-bg: rgba(80, 200, 120, 0.08);
+  --color-diff-remove: #e07070;
+  --color-diff-remove-bg: rgba(224, 112, 112, 0.08);
+
+  /* radii — small and sharp, this is a technical surface */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-mono);
+    font-feature-settings: "calt", "liga", "ss01";
+    font-variant-ligatures: contextual;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    /* honour the notch */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* selection that matches the accent */
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-bg);
+  }
+
+  /* scrollbar — invisible until used */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* default focus ring */
+  :focus-visible {
+    outline: 1px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  button,
+  [role="button"] {
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* native-ish bouncy scroll inside our chat */
+  .scroll-momentum {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@layer utilities {
+  /* hairline divider — 1 device pixel where supported */
+  .hairline-b {
+    border-bottom: 1px solid var(--color-border);
+  }
+  .hairline-t {
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* a blinking caret for streaming output */
+  .caret::after {
+    content: "▍";
+    color: var(--color-accent);
+    margin-left: 2px;
+    animation: caret-blink 1.1s steps(2, start) infinite;
+  }
+  @keyframes caret-blink {
+    to {
+      visibility: hidden;
+    }
+  }
+
+  /* a soft pulse for "thinking" state */
+  .pulse-accent {
+    animation: pulse-accent 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse-accent {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+  }
+
+  /* tiny uppercase metadata labels */
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-fg-muted);
+  }
+}
+
+/* ── Markdown rendering (terminal-native) ──────────────────────────── */
+/* Targets DOM produced by streaming-markdown's default_renderer. */
+@layer components {
+  .streaming-md {
+    word-break: break-word;
+  }
+
+  /* Top-and-bottom rhythm without dramatic gaps */
+  .streaming-md > * + * {
+    margin-top: 0.6em;
+  }
+
+  /* Headings — bold weight, slight size lift, never huge on mobile */
+  .streaming-md h1,
+  .streaming-md h2,
+  .streaming-md h3,
+  .streaming-md h4,
+  .streaming-md h5,
+  .streaming-md h6 {
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 1em;
+  }
+  .streaming-md h1 { font-size: 1.18em; }
+  .streaming-md h2 { font-size: 1.10em; }
+  .streaming-md h3 { font-size: 1.04em; }
+  .streaming-md h4,
+  .streaming-md h5,
+  .streaming-md h6 { font-size: 1em; }
+
+  /* Strong & emphasis */
+  .streaming-md strong { font-weight: 700; }
+  .streaming-md em { font-style: italic; }
+  .streaming-md del { text-decoration: line-through; opacity: 0.7; }
+
+  /* Inline code */
+  .streaming-md code {
+    background: var(--color-surface);
+    padding: 0 0.3em;
+    border-radius: var(--radius-sm);
+    font-size: 0.92em;
+    border: 1px solid var(--color-border);
+  }
+
+  /* Fenced code blocks */
+  .streaming-md pre {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.7em 0.8em;
+    overflow-x: auto;
+    font-size: 0.9em;
+    line-height: 1.5;
+    /* Mobile: scroll horizontally rather than wrap */
+    white-space: pre;
+  }
+  .streaming-md pre code {
+    background: transparent;
+    padding: 0;
+    border: 0;
+    font-size: 1em;
+  }
+
+  /* Lists */
+  .streaming-md ul,
+  .streaming-md ol {
+    padding-left: 1.4em;
+  }
+  .streaming-md ul { list-style: disc; }
+  .streaming-md ol { list-style: decimal; }
+  .streaming-md li::marker { color: var(--color-fg-muted); }
+  .streaming-md li + li { margin-top: 0.25em; }
+
+  /* Links */
+  .streaming-md a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+
+  /* Blockquote */
+  .streaming-md blockquote {
+    border-left: 2px solid var(--color-border-strong);
+    padding-left: 0.8em;
+    color: var(--color-fg-muted);
+  }
+
+  /* Horizontal rule */
+  .streaming-md hr {
+    border: 0;
+    border-top: 1px solid var(--color-border);
+    margin: 1em 0;
+  }
+
+  /* Tables — basic; mobile users will scroll */
+  .streaming-md table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92em;
+  }
+  .streaming-md th,
+  .streaming-md td {
+    border: 1px solid var(--color-border);
+    padding: 0.35em 0.6em;
+    text-align: left;
+  }
+  .streaming-md th {
+    background: var(--color-surface);
+    font-weight: 600;
+  }
+
+  /* Images */
+  .streaming-md img {
+    max-width: 100%;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Tight first/last margins */
+  .streaming-md > :first-child { margin-top: 0; }
+  .streaming-md > :last-child { margin-bottom: 0; }
+}
+
+/* ── Shiki output — keep colors, match our chrome ─────────────────────── */
+@layer components {
+  .streaming-md pre.shiki {
+    background: var(--color-surface) !important;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.7em 0.8em;
+    overflow-x: auto;
+    font-size: 0.9em;
+    line-height: 1.5;
+    white-space: pre;
+  }
+  .streaming-md pre.shiki code {
+    background: transparent;
+    padding: 0;
+    border: 0;
+    font-size: 1em;
+    font-family: inherit; /* keep JetBrains Mono everywhere */
+  }
+}
+
+/* ── Shiki overrides ───────────────────────────────────────────────────
+   Shiki injects its own <pre class="shiki ..."> with inline color styles
+   from github-dark-default. We override box-model props to match the
+   plain .streaming-md pre and keep the terminal-native look. Colors stay
+   from Shiki. */
+@layer components {
+  .streaming-md pre.shiki {
+    /* Override Shiki's transparent + 0-padding defaults with our box */
+    background: var(--color-surface) !important;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.7em 0.8em;
+    overflow-x: auto;
+    font-size: 0.9em;
+    line-height: 1.5;
+    white-space: pre;
+  }
+  .streaming-md pre.shiki code {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-size: 1em;
+  }
+  /* Shiki emits .line spans for each line; ensure no extra wrap */
+  .streaming-md pre.shiki .line {
+    display: block;
+  }
+}

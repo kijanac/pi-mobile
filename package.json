@@ -1,0 +1,20 @@
+{
+  "name": "pi-mobile-workspace",
+  "private": true,
+  "version": "0.0.1",
+  "packageManager": "pnpm@10.5.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev:bridge": "pnpm --filter pi-bridge dev",
+    "dev:bridge:mock": "PI_USE_MOCK=1 pnpm --filter pi-bridge dev",
+    "dev:mobile": "pnpm --filter pi-mobile dev",
+    "typecheck": "pnpm --filter pi-bridge typecheck",
+    "build:mobile": "pnpm --filter pi-mobile build",
+    "check": "pnpm --filter pi-bridge typecheck && pnpm --filter pi-mobile build"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}
