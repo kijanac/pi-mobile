@@ -27,9 +27,6 @@ export function ensureKeyboardTracking(): void {
 
   void Keyboard.setResizeMode({ mode: KeyboardResize.None }).catch(() => {});
   void Keyboard.setStyle({ style: KeyboardStyle.Dark }).catch(() => {});
-  // Prevent WebKit from auto-scrolling the page in addition to our own chrome
-  // offset. Not fatal if unsupported on a given platform/version.
-  void Keyboard.setScroll({ isDisabled: true }).catch(() => {});
 
   void Keyboard.addListener("keyboardWillShow", (info) => {
     setKeyboardHeight(info.keyboardHeight ?? 0);

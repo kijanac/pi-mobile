@@ -48,7 +48,7 @@ export default function MessageList(): JSX.Element {
   return (
     <div
       ref={scroller}
-      class="scroll-momentum flex-1 overflow-y-auto py-2"
+      class="scroll-momentum min-h-0 flex-1 overflow-y-auto py-2"
       style={{ "padding-bottom": `calc(${keyboardHeight()}px + 0.5rem)` }}
     >
       <For each={entries()}>

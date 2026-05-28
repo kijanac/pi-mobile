@@ -134,7 +134,7 @@ export default function Session(): JSX.Element {
   );
 
   return (
-    <div class="flex min-h-dvh flex-col">
+    <div class="flex h-dvh min-h-0 flex-col overflow-hidden">
       <Header
         back="/"
         trailing={<SessionAgentActions sessionId={params.id} />}
