@@ -60,7 +60,7 @@ jobs:
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
           CERTIFICATE_PATH="$RUNNER_TEMP/certificate.p12"
 
-          echo "$CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
+          printf '%s' "$CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
 
           security create-keychain -p "" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -76,7 +76,7 @@ jobs:
         run: |
           PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
           PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
-          echo "$PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+          printf '%s' "$PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
 
           security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$PROFILE_PLIST")
