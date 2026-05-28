@@ -8,6 +8,7 @@ import {
 } from "~/components/ui/drawer";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/cn";
+import { keyboardHeight } from "~/lib/keyboard";
 
 export default function BottomSheet(props: {
   open: boolean;
@@ -36,7 +37,9 @@ export default function BottomSheet(props: {
             props.maxHeightClass ?? "max-h-[86dvh]",
             props.contentClass,
           )}
-          style={{ "padding-bottom": "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
+          style={{
+            "padding-bottom": `calc(env(safe-area-inset-bottom) + ${keyboardHeight()}px + 0.5rem)`,
+          }}
         >
           <div class="mt-2 h-1 w-10 shrink-0 self-center rounded-full bg-[color:var(--color-border-strong)]" />
           <Show when={props.title !== undefined || props.onBack !== undefined || props.headerTrailing !== undefined}>

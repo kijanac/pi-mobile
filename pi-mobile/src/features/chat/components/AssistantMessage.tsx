@@ -60,7 +60,7 @@ export default function AssistantMessageView(props: {
       </Show>
 
       <Show when={showActions()}>
-        <div class="mt-1 flex justify-end gap-1 text-[color:var(--color-fg-faint)]">
+        <div class="mt-1 flex justify-start gap-1 text-[color:var(--color-fg-faint)]">
           <IconButton
             label={copied() ? "Copied" : "Copy message"}
             onClick={copyText}

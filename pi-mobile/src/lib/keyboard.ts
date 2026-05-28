@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createSignal, onCleanup, onMount } from "solid-js";
 import { Capacitor } from "@capacitor/core";
 import {
   Keyboard,
@@ -9,23 +9,25 @@ import {
 const [keyboardHeight, setKeyboardHeight] = createSignal(0);
 export { keyboardHeight };
 
-let initialized = false;
+let listenersInitialized = false;
+let chatResizeLocks = 0;
+
+function isNative(): boolean {
+  return Capacitor.isNativePlatform();
+}
 
 /**
- * Native chat-style keyboard handling.
- *
- * Capacitor's default iOS behavior resizes the whole WebView, which makes
- * `dvh` layouts and sticky app chrome jump. We keep the WebView stable and
- * expose the keyboard height so the input bar/message list can move/space
- * themselves explicitly.
+ * Global keyboard event tracking. This deliberately does not choose a resize
+ * mode; individual screens opt into manual keyboard avoidance only while they
+ * need it. Leaving resize mode at `none` globally causes normal forms/settings
+ * sheets to be covered by the keyboard.
  */
 export function ensureKeyboardTracking(): void {
-  if (initialized) return;
-  initialized = true;
+  if (listenersInitialized) return;
+  listenersInitialized = true;
 
-  if (!Capacitor.isNativePlatform()) return;
+  if (!isNative()) return;
 
-  void Keyboard.setResizeMode({ mode: KeyboardResize.None }).catch(() => {});
   void Keyboard.setStyle({ style: KeyboardStyle.Dark }).catch(() => {});
 
   void Keyboard.addListener("keyboardWillShow", (info) => {
@@ -40,4 +42,28 @@ export function ensureKeyboardTracking(): void {
   void Keyboard.addListener("keyboardDidHide", () => {
     setKeyboardHeight(0);
   });
+}
+
+function acquireManualResize(): void {
+  ensureKeyboardTracking();
+  if (!isNative()) return;
+  chatResizeLocks += 1;
+  if (chatResizeLocks === 1) {
+    void Keyboard.setResizeMode({ mode: KeyboardResize.None }).catch(() => {});
+  }
+}
+
+function releaseManualResize(): void {
+  if (!isNative()) return;
+  chatResizeLocks = Math.max(0, chatResizeLocks - 1);
+  if (chatResizeLocks === 0) {
+    setKeyboardHeight(0);
+    void Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => {});
+  }
+}
+
+/** Enable chat-style manual keyboard avoidance for this component lifetime. */
+export function useManualKeyboardAvoidance(): void {
+  onMount(acquireManualResize);
+  onCleanup(releaseManualResize);
 }

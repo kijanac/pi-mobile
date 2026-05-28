@@ -5,7 +5,7 @@ import { activeSend } from "~/stores/connection";
 import { createSpeechRecognition } from "~/lib/speech";
 import { chooseFromGallery } from "~/lib/image-picker";
 import { haptic } from "~/lib/haptics";
-import { ensureKeyboardTracking, keyboardHeight } from "~/lib/keyboard";
+import { keyboardHeight, useManualKeyboardAvoidance } from "~/lib/keyboard";
 import { createLongPress } from "~/lib/long-press";
 import { clearSessionQueue, getSessionQueue } from "~/lib/api";
 import { getBridgeUrl } from "~/lib/settings";
@@ -37,7 +37,7 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
   const [queueRefresh, setQueueRefresh] = createSignal(0);
   const [images, setImages] = createSignal<ImageAttachment[]>([]);
 
-  ensureKeyboardTracking();
+  useManualKeyboardAvoidance();
 
   // Speech-to-text. Available on native (iOS/Android) only; on web the
   // mic button is hidden.
