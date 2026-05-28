@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { ManagedRuntime } from "effect";
-import { mountSystemRoutes } from "./routes/system.ts";
-import { mountSessionRoutes } from "./routes/sessions.ts";
-import { mountSessionActionRoutes } from "./routes/session-actions.ts";
-import { mountAuthRoutes } from "./routes/auth.ts";
-import { mountCommandRoutes } from "./routes/commands.ts";
-import { mountFsRoutes } from "./routes/fs.ts";
+import { mountSystemRoutes } from "./system.ts";
+import { mountSessionRoutes } from "./sessions.ts";
+import { mountSessionActionRoutes } from "./session-actions.ts";
+import { mountAuthRoutes } from "./auth.ts";
+import { mountCommandRoutes } from "./commands.ts";
+import { mountFsRoutes } from "./fs.ts";
 
 export function makeHttpApp(runtime: ManagedRuntime.ManagedRuntime<any, never>): Hono {
   const app = new Hono();

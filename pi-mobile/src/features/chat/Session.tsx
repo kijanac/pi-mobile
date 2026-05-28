@@ -3,10 +3,10 @@ import { useParams, A } from "@solidjs/router";
 import EdgeSwipeBack from "~/components/EdgeSwipeBack";
 import Header from "~/components/Header";
 import StatusDot from "~/components/StatusDot";
-import RetryBanner from "~/components/chat/RetryBanner";
-import MessageList from "~/components/chat/MessageList";
-import InputBar from "~/components/chat/InputBar";
-import SessionAgentActions from "~/components/chat/SessionAgentActions";
+import RetryBanner from "~/features/chat/components/RetryBanner";
+import MessageList from "~/features/chat/components/MessageList";
+import InputBar from "~/features/chat/components/InputBar";
+import SessionAgentActions from "~/features/chat/components/SessionAgentActions";
 import {
   activeStatus,
   applyWireEvent,

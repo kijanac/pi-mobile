@@ -4,9 +4,9 @@ import { Plus, GitBranch, Settings as SettingsIcon } from "lucide-solid";
 import Header from "~/components/Header";
 import StatusDot from "~/components/StatusDot";
 import PullToRefresh from "~/components/PullToRefresh";
-import NewSessionSheet from "~/components/sessions/NewSessionSheet";
-import SessionActions from "~/components/sessions/SessionActions";
-import RenameSheet from "~/components/sessions/RenameSheet";
+import NewSessionSheet from "~/features/sessions/components/NewSessionSheet";
+import SessionActions from "~/features/sessions/components/SessionActions";
+import RenameSheet from "~/features/sessions/components/RenameSheet";
 import { sessions, loadSessions } from "~/stores/sessions";
 import { connState, setConnState } from "~/stores/connection";
 import {

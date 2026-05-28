@@ -1,9 +1,9 @@
 import { Effect, type ManagedRuntime } from "effect";
 import type { Hono } from "hono";
 import * as v from "valibot";
-import { SessionManager } from "../../session.ts";
-import { CreateBody, PatchBody } from "../schemas.ts";
-import { runJson, runNoContent } from "../run.ts";
+import { SessionManager } from "../session.ts";
+import { CreateBody, PatchBody } from "./schemas.ts";
+import { runJson, runNoContent } from "./run.ts";
 
 export function mountSessionRoutes(app: Hono, runtime: ManagedRuntime.ManagedRuntime<any, never>): void {
   app.get("/sessions", async (c) =>
