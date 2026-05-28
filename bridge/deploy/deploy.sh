@@ -69,12 +69,13 @@ ssh "$HOST" "install -o root -g root -m 0644 $REMOTE/current/bridge/deploy/pi-br
   systemctl daemon-reload"
 
 step "restart"
-ssh "$HOST" "systemctl restart pi-bridge && sleep 2 && systemctl is-active pi-bridge"
+ssh "$HOST" "systemctl restart pi-bridge && systemctl is-active pi-bridge"
 
 step "verify"
 # Health-check via tailscale (works whether or not `tailscale serve` is
-# proxying yet, since we hit the box from its own loopback over ssh).
-if ssh "$HOST" "curl -fsS --max-time 3 http://127.0.0.1:7777/healthz" >/dev/null; then
+# proxying yet, since we hit the box from its own loopback over ssh). The
+# service can be systemd-active before Node has bound the HTTP port, so retry.
+if ssh "$HOST" "for i in {1..30}; do curl -fsS --max-time 3 http://127.0.0.1:7777/healthz >/dev/null && exit 0; sleep 1; done; exit 1"; then
   echo "  /healthz ok"
 else
   echo "  /healthz FAILED — check 'journalctl -u pi-bridge -n 30'" >&2

@@ -130,8 +130,7 @@ if ! systemctl restart pi-bridge; then
   fatal "restart failed; rolled back"
 fi
 
-sleep 2
-if ! curl -fsS --max-time 5 http://127.0.0.1:7777/healthz >/dev/null; then
+if ! sh -c 'for i in $(seq 1 30); do curl -fsS --max-time 5 http://127.0.0.1:7777/healthz >/dev/null && exit 0; sleep 1; done; exit 1'; then
   log "health check failed; rolling back"
   [[ -z "$PREVIOUS" ]] || ln -sfn "$PREVIOUS" "$CURRENT_LINK"
   systemctl restart pi-bridge || true
