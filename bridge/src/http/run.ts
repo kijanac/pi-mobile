@@ -56,10 +56,10 @@ export function failureJson<E>(
   return c.json(body, 500);
 }
 
-export async function runJson<R, E, A>(
-  runtime: ManagedRuntime.ManagedRuntime<R, never>,
+export async function runJson<E, A>(
+  runtime: ManagedRuntime.ManagedRuntime<any, never>,
   c: HonoContext,
-  effect: Effect.Effect<A, E, R>,
+  effect: Effect.Effect<A, E, any>,
   errorCode: ApiErrorCode,
 ): Promise<Response> {
   const result = await runtime.runPromiseExit(effect);
@@ -67,10 +67,10 @@ export async function runJson<R, E, A>(
   return failureJson(c, errorCode, result.cause);
 }
 
-export async function runNoContent<R, E>(
-  runtime: ManagedRuntime.ManagedRuntime<R, never>,
+export async function runNoContent<E>(
+  runtime: ManagedRuntime.ManagedRuntime<any, never>,
   c: HonoContext,
-  effect: Effect.Effect<void, E, R>,
+  effect: Effect.Effect<void, E, any>,
   errorCode: ApiErrorCode,
 ): Promise<Response> {
   const result = await runtime.runPromiseExit(effect);
