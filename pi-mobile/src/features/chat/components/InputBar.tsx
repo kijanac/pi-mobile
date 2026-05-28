@@ -5,7 +5,6 @@ import { activeSend } from "~/stores/connection";
 import { createSpeechRecognition } from "~/lib/speech";
 import { chooseFromGallery } from "~/lib/image-picker";
 import { haptic } from "~/lib/haptics";
-import { useKeyboardInset } from "~/lib/keyboard";
 import { createLongPress } from "~/lib/long-press";
 import { clearSessionQueue, getSessionQueue } from "~/lib/api";
 import { getBridgeUrl } from "~/lib/settings";
@@ -36,8 +35,6 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
   const [queueOpen, setQueueOpen] = createSignal(false);
   const [queueRefresh, setQueueRefresh] = createSignal(0);
   const [images, setImages] = createSignal<ImageAttachment[]>([]);
-
-  const keyboardInset = useKeyboardInset();
 
   // Speech-to-text. Available on native (iOS/Android) only; on web the
   // mic button is hidden.
@@ -182,11 +179,8 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
 
   return (
     <div
-      class="hairline-t sticky bottom-0 z-20 bg-[color:var(--color-bg)]/95 backdrop-blur-md transition-transform duration-200 ease-out"
-      style={{
-        "padding-bottom": "env(safe-area-inset-bottom)",
-        transform: `translateY(-${keyboardInset()}px)`,
-      }}
+      class="hairline-t sticky bottom-0 z-20 bg-[color:var(--color-bg)]/95 backdrop-blur-md"
+      style={{ "padding-bottom": "env(safe-area-inset-bottom)" }}
     >
       <ImageTray images={images()} onRemove={removeImage} />
 

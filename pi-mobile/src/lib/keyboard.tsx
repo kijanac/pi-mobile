@@ -8,8 +8,9 @@ import {
 
 export type KeyboardAvoidanceMode = "native" | "manual";
 
-const [keyboardHeight, setKeyboardHeight] = createSignal(0);
-export { keyboardHeight };
+const [nativeKeyboardHeight, setNativeKeyboardHeight] = createSignal(0);
+const [viewportKeyboardHeight, setViewportKeyboardHeight] = createSignal(0);
+export const keyboardHeight = () => Math.max(nativeKeyboardHeight(), viewportKeyboardHeight());
 
 const KeyboardAvoidanceContext = createContext<KeyboardAvoidanceMode>("native");
 
@@ -20,6 +21,20 @@ function isNative(): boolean {
   return Capacitor.isNativePlatform();
 }
 
+function updateViewportKeyboardHeight(): void {
+  const vv = window.visualViewport;
+  if (!vv) {
+    setViewportKeyboardHeight(0);
+    return;
+  }
+
+  // When the keyboard overlays the WebView, visualViewport shrinks while
+  // window.innerHeight remains the layout viewport. offsetTop accounts for
+  // browsers that pan the visual viewport instead of only resizing it.
+  const occluded = window.innerHeight - vv.height - vv.offsetTop;
+  setViewportKeyboardHeight(Math.max(0, Math.round(occluded)));
+}
+
 /**
  * Global keyboard event tracking. This only tracks keyboard frame changes;
  * resize strategy is selected explicitly by KeyboardAvoidance.
@@ -28,21 +43,28 @@ export function ensureKeyboardTracking(): void {
   if (listenersInitialized) return;
   listenersInitialized = true;
 
+  window.visualViewport?.addEventListener("resize", updateViewportKeyboardHeight);
+  window.visualViewport?.addEventListener("scroll", updateViewportKeyboardHeight);
+  window.addEventListener("resize", updateViewportKeyboardHeight);
+  updateViewportKeyboardHeight();
+
   if (!isNative()) return;
 
   void Keyboard.setStyle({ style: KeyboardStyle.Dark }).catch(() => {});
 
   void Keyboard.addListener("keyboardWillShow", (info) => {
-    setKeyboardHeight(info.keyboardHeight ?? 0);
+    setNativeKeyboardHeight(info.keyboardHeight ?? 0);
   });
   void Keyboard.addListener("keyboardDidShow", (info) => {
-    setKeyboardHeight(info.keyboardHeight ?? 0);
+    setNativeKeyboardHeight(info.keyboardHeight ?? 0);
   });
   void Keyboard.addListener("keyboardWillHide", () => {
-    setKeyboardHeight(0);
+    setNativeKeyboardHeight(0);
+    updateViewportKeyboardHeight();
   });
   void Keyboard.addListener("keyboardDidHide", () => {
-    setKeyboardHeight(0);
+    setNativeKeyboardHeight(0);
+    updateViewportKeyboardHeight();
   });
 }
 
@@ -59,7 +81,8 @@ function releaseManualResize(): void {
   if (!isNative()) return;
   manualResizeLocks = Math.max(0, manualResizeLocks - 1);
   if (manualResizeLocks === 0) {
-    setKeyboardHeight(0);
+    setNativeKeyboardHeight(0);
+    setViewportKeyboardHeight(0);
     void Keyboard.setResizeMode({ mode: KeyboardResize.Native }).catch(() => {});
   }
 }
@@ -79,7 +102,12 @@ export function KeyboardAvoidance(props: {
 
   return (
     <KeyboardAvoidanceContext.Provider value={props.mode}>
-      {props.children}
+      <div
+        class="flex h-dvh min-h-0 flex-col overflow-hidden"
+        style={{ "padding-bottom": props.mode === "manual" ? `${keyboardHeight()}px` : "0px" }}
+      >
+        {props.children}
+      </div>
     </KeyboardAvoidanceContext.Provider>
   );
 }

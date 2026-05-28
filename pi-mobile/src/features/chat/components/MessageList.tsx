@@ -11,7 +11,6 @@ import {
 } from "solid-js";
 import { ArrowDown } from "lucide-solid";
 import { activeRetry, activeStatus, entries } from "~/stores/sessions";
-import { ensureKeyboardTracking, keyboardHeight } from "~/lib/keyboard";
 import UserMessageView from "./UserMessage";
 import AssistantMessageView from "./AssistantMessage";
 import ToolCallView from "./ToolCall";
@@ -26,7 +25,6 @@ export default function MessageList(): JSX.Element {
   const [hasNewActivity, setHasNewActivity] = createSignal(false);
   const [showWorkingPlaceholder, setShowWorkingPlaceholder] = createSignal(false);
 
-  ensureKeyboardTracking();
 
   function distanceFromBottom(): number {
     return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
@@ -111,7 +109,7 @@ export default function MessageList(): JSX.Element {
       <div
         ref={scroller}
         class="scroll-momentum h-full overflow-y-auto py-2"
-        style={{ "padding-bottom": `calc(${keyboardHeight()}px + 0.5rem)` }}
+        style={{ "padding-bottom": "0.5rem" }}
       >
         <For each={entries()}>
           {(entry) => {
@@ -133,7 +131,7 @@ export default function MessageList(): JSX.Element {
       <Show when={showWorkingPlaceholder()}>
         <div
           class="pointer-events-none absolute left-3 z-30 inline-flex items-center gap-2 rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)]/95 px-2.5 py-1.5 text-[12px] text-[color:var(--color-fg-muted)] shadow-lg backdrop-blur-md"
-          style={{ bottom: `calc(${keyboardHeight()}px + 0.75rem)` }}
+          style={{ bottom: "0.75rem" }}
           aria-live="polite"
         >
           <span class="pulse-accent h-1.5 w-1.5 rounded-full bg-[color:var(--color-accent)]" />
@@ -146,7 +144,7 @@ export default function MessageList(): JSX.Element {
           type="button"
           onClick={() => scrollToLatest()}
           class="absolute right-3 z-30 flex items-center gap-1.5 rounded-full border border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)]/95 px-3 py-1.5 text-[11px] text-[color:var(--color-fg)] shadow-lg backdrop-blur-md active:bg-[color:var(--color-surface-2)]"
-          style={{ bottom: `calc(${keyboardHeight()}px + 0.75rem)` }}
+          style={{ bottom: "0.75rem" }}
           aria-label="Scroll to latest message"
         >
           <ArrowDown size={13} />
