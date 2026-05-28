@@ -51,10 +51,13 @@ jobs:
             node -e "console.log('MARKETING_VERSION='+require('./package.json').version)" >> "$GITHUB_ENV"
           fi
 
-      - name: Resolve TestFlight build number
-        run: |
-          echo "BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
-          echo "MARKETING_VERSION=${MARKETING_VERSION} BUILD_NUMBER=${GITHUB_RUN_NUMBER}"
+      - name: Resolve next TestFlight build number
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
+        run: node scripts/resolve-testflight-build-number.mjs
 
       - name: Install signing certificate
         env:
