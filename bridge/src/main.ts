@@ -15,6 +15,12 @@ import { WebSocketServer } from "ws";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import * as v from "valibot";
+import {
+  MIN_MOBILE_VERSION,
+  PRODUCT_VERSION,
+  PROTOCOL_VERSION,
+  RECOMMENDED_MOBILE_VERSION,
+} from "@pi-mobile/protocol";
 import { PiClientFromEnv } from "./pi-env.ts";
 import { SessionManager, SessionManagerLive } from "./session.ts";
 import { StoreLive } from "./store.ts";
@@ -86,6 +92,17 @@ app.use(
 );
 
 app.get("/healthz", (c) => c.text("ok"));
+
+app.get("/system/info", (c) =>
+  c.json({
+    bridgeVersion: PRODUCT_VERSION,
+    protocolVersion: PROTOCOL_VERSION,
+    minMobileVersion: MIN_MOBILE_VERSION,
+    recommendedMobileVersion: RECOMMENDED_MOBILE_VERSION,
+    updateChannel: process.env.PI_BRIDGE_UPDATE_CHANNEL ?? "manual",
+    autoUpdate: process.env.PI_BRIDGE_AUTO_UPDATE === "1",
+  }),
+);
 
 app.get("/sessions", async (c) => {
   const list = await runtime.runPromise(

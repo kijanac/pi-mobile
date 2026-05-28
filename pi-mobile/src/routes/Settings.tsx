@@ -1,8 +1,9 @@
 import { createMemo, createSignal, onMount, Show, type JSX } from "solid-js";
 import { Check, Copy, Loader2, X } from "lucide-solid";
+import { PRODUCT_VERSION, PROTOCOL_VERSION, type SystemInfo } from "@pi-mobile/protocol";
 import EdgeSwipeBack from "~/components/EdgeSwipeBack";
 import Header from "~/components/Header";
-import { healthcheck } from "~/lib/api";
+import { getSystemInfo, healthcheck } from "~/lib/api";
 import { getBridgeUrl, setBridgeUrl } from "~/lib/settings";
 
 type Probe = "idle" | "checking" | "ok" | "fail";
@@ -19,10 +20,22 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+function compareVersion(a: string, b: string): number {
+  const aa = a.split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const bb = b.split(".").map((n) => Number.parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(aa.length, bb.length); i += 1) {
+    const diff = (aa[i] ?? 0) - (bb[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
 export default function Settings(): JSX.Element {
   const [url, setUrl] = createSignal("");
   const [saved, setSaved] = createSignal(false);
   const [probe, setProbe] = createSignal<Probe>("idle");
+  const [systemInfo, setSystemInfo] = createSignal<SystemInfo | null>(null);
+  const [systemInfoError, setSystemInfoError] = createSignal<string | null>(null);
   const [copied, setCopied] = createSignal<string | null>(null);
 
   const [tsAuthKey, setTsAuthKey] = createSignal("");
@@ -41,6 +54,30 @@ export default function Settings(): JSX.Element {
     return host && suffix ? `https://${host}.${suffix}` : "";
   });
 
+  const compatibility = createMemo(() => {
+    const info = systemInfo();
+    if (!info) return null;
+    if (info.protocolVersion !== PROTOCOL_VERSION) {
+      return {
+        level: "danger" as const,
+        text: `protocol mismatch: mobile ${PROTOCOL_VERSION}, bridge ${info.protocolVersion}`,
+      };
+    }
+    if (compareVersion(PRODUCT_VERSION, info.minMobileVersion) < 0) {
+      return {
+        level: "danger" as const,
+        text: `mobile ${PRODUCT_VERSION} is too old for this bridge`,
+      };
+    }
+    if (compareVersion(PRODUCT_VERSION, info.recommendedMobileVersion) < 0) {
+      return {
+        level: "warn" as const,
+        text: `mobile update recommended: ${info.recommendedMobileVersion}`,
+      };
+    }
+    return { level: "ok" as const, text: "compatible" };
+  });
+
   const cloudInit = createMemo(() => {
     const lines = [
       "#cloud-config",
@@ -57,6 +94,7 @@ export default function Settings(): JSX.Element {
       "    export TAILSCALE_TAG=tag:pi-bridge",
       "    export TAILSCALE_SERVE=1",
       "    export PI_BRIDGE_AUTO_DEPLOY=1",
+      "    export PI_BRIDGE_AUTO_UPDATE=1",
     ];
 
     lines.push(
@@ -70,8 +108,17 @@ export default function Settings(): JSX.Element {
 
   async function test() {
     setProbe("checking");
-    const ok = await healthcheck(url().trim());
+    setSystemInfo(null);
+    setSystemInfoError(null);
+    const base = url().trim();
+    const ok = await healthcheck(base);
     setProbe(ok ? "ok" : "fail");
+    if (!ok) return;
+    try {
+      setSystemInfo(await getSystemInfo(base));
+    } catch (error) {
+      setSystemInfoError(error instanceof Error ? error.message : String(error));
+    }
   }
 
   async function save() {
@@ -160,6 +207,36 @@ export default function Settings(): JSX.Element {
               . for local dev, the default{" "}
               <span class="text-[color:var(--color-fg-muted)]">http://localhost:7777</span> works.
             </p>
+
+            <Show when={systemInfo()}>
+              {(info) => (
+                <div class="mt-3 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-2 text-[11px] leading-relaxed text-[color:var(--color-fg-muted)]">
+                  <div class="flex items-center justify-between gap-2">
+                    <span>bridge {info().bridgeVersion}</span>
+                    <span
+                      class={
+                        compatibility()?.level === "danger"
+                          ? "text-[color:var(--color-danger)]"
+                          : compatibility()?.level === "warn"
+                            ? "text-[color:var(--color-warning,#d97706)]"
+                            : "text-[color:var(--color-accent)]"
+                      }
+                    >
+                      {compatibility()?.text}
+                    </span>
+                  </div>
+                  <div class="mt-1">
+                    protocol {info().protocolVersion} · updates {info().autoUpdate ? "on" : "off"} ·{" "}
+                    {info().updateChannel}
+                  </div>
+                </div>
+              )}
+            </Show>
+            <Show when={systemInfoError()}>
+              <div class="mt-3 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-2 text-[11px] leading-relaxed text-[color:var(--color-fg-faint)]">
+                bridge is reachable, but does not expose system info yet. likely an older bridge.
+              </div>
+            </Show>
 
             <button
               type="button"

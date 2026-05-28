@@ -4,6 +4,7 @@ import type {
   ClientEvent,
   SessionMeta,
   SessionModelState,
+  SystemInfo,
   WireEvent,
 } from "@pi-mobile/protocol";
 
@@ -61,6 +62,9 @@ export async function healthcheck(baseUrl: string): Promise<boolean> {
     return false;
   }
 }
+
+export const getSystemInfo = (baseUrl: string): Promise<SystemInfo> =>
+  requestJson("getSystemInfo", `${baseUrl}/system/info`);
 
 export const listSessionModels = (
   baseUrl: string,

@@ -73,7 +73,7 @@ then run:
 
 ```sh
 ssh root@YOURBOX
-cd /opt/pi-mobile-workspace/bridge
+cd /opt/pi-mobile-workspace/current/bridge
 sudo -u pi-bridge HOME=/var/lib/pi-bridge pnpm exec pi
 # inside pi: /login, choose Claude / OpenAI Codex / GitHub Copilot,
 # complete the browser or device-code flow, then /quit
@@ -107,9 +107,67 @@ service, and hits `/healthz` to confirm the boot succeeded.
 `node_modules/`, build outputs, tarballs, and local scratch files are excluded.
 The mobile source is not deployed to the server; the box only runs the bridge.
 
-Re-run this script for every deploy. The bridge has no migration story
-yet (SQLite tables use `CREATE TABLE IF NOT EXISTS`); a schema change
-will require manual intervention until that's built out.
+Re-run this script for manual deploys. Self-service installs can instead
+use the release updater described below.
+
+## Release auto-updates
+
+Professional self-service installs use versioned bridge releases:
+
+```text
+/opt/pi-mobile-workspace/releases/<version>
+/opt/pi-mobile-workspace/current -> releases/<version>
+```
+
+`pi-bridge.service` runs from `current/bridge`. The updater downloads the
+latest GitHub Release manifest, verifies its signature when configured,
+checks the artifact SHA-256 from that manifest, extracts to a new release
+directory, switches the `current` symlink, restarts the bridge, health-checks
+`/healthz`, and rolls back the symlink if the new version fails.
+
+Release assets are produced by:
+
+```sh
+bridge/deploy/package-bridge.sh 0.2.2
+```
+
+The GitHub workflow `.github/workflows/bridge-release.yml` runs this for
+`v*` tags and uploads:
+
+```text
+pi-bridge-<version>.tar.gz
+bridge-release.json
+bridge-release.json.sig
+```
+
+Set `BRIDGE_RELEASE_SIGNING_KEY_PEM` in GitHub Actions secrets to sign the
+manifest. The matching public key is bundled at
+`bridge/deploy/update-public-key.pem` and installed to:
+
+```text
+/etc/pi-bridge/update-public-key.pem
+```
+
+Updater settings live in `/etc/pi-bridge/env`:
+
+```sh
+PI_BRIDGE_AUTO_UPDATE=1
+PI_BRIDGE_UPDATE_CHANNEL=stable
+PI_BRIDGE_RELEASE_REPO=kijanac/pi-mobile
+PI_BRIDGE_UPDATE_PUBLIC_KEY=/etc/pi-bridge/update-public-key.pem
+```
+
+Control the timer with:
+
+```sh
+systemctl status pi-bridge-update.timer
+systemctl start pi-bridge-update.service     # check now
+systemctl disable --now pi-bridge-update.timer
+```
+
+The bridge has no migration story yet (SQLite tables use `CREATE TABLE IF NOT
+EXISTS`); a schema change will require manual intervention until that's built
+out.
 
 ## Git workspaces on the box
 
@@ -232,7 +290,7 @@ userdel pi-bridge
 `/etc/pi-bridge/env` for API-key mode. For subscription auth, re-run:
 
 ```sh
-cd /opt/pi-mobile-workspace/bridge
+cd /opt/pi-mobile-workspace/current/bridge
 sudo -u pi-bridge HOME=/var/lib/pi-bridge pnpm exec pi
 ```
 

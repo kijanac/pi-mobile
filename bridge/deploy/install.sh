@@ -30,8 +30,21 @@ ETC_DIR=/etc/pi-bridge
 TAILSCALE_TAG="${TAILSCALE_TAG:-tag:pi-bridge}"
 TAILSCALE_SERVE="${TAILSCALE_SERVE:-0}"
 PI_BRIDGE_AUTO_DEPLOY="${PI_BRIDGE_AUTO_DEPLOY:-0}"
+PI_BRIDGE_AUTO_UPDATE="${PI_BRIDGE_AUTO_UPDATE:-0}"
 
 step() { printf '\n\033[1;36m== %s ==\033[0m\n' "$1"; }
+
+set_env_var() {
+  local key="$1"
+  local value="${2:-}"
+  [[ -n "$value" ]] || return 0
+  if grep -qE "^${key}=" "$ETC_DIR/env" 2>/dev/null; then
+    echo "  $key already set in $ETC_DIR/env (preserved)"
+  else
+    printf '\n%s=%q\n' "$key" "$value" >>"$ETC_DIR/env"
+    echo "  wrote $key to $ETC_DIR/env"
+  fi
+}
 
 step "system user"
 if ! id -u "$USER_NAME" >/dev/null 2>&1; then
@@ -95,10 +108,19 @@ else
   echo "  $(tailscale version | head -1)"
 fi
 
-step "systemd unit"
+step "systemd units"
 install -o root -g root -m 0644 "$HERE/pi-bridge.service" /etc/systemd/system/pi-bridge.service
+install -o root -g root -m 0644 "$HERE/pi-bridge-update.service" /etc/systemd/system/pi-bridge-update.service
+install -o root -g root -m 0644 "$HERE/pi-bridge-update.timer" /etc/systemd/system/pi-bridge-update.timer
+install -o root -g root -m 0755 "$HERE/update.sh" "$INSTALL_DIR/update.sh"
+if [[ -f "$HERE/update-public-key.pem" ]]; then
+  install -o root -g "$USER_NAME" -m 0640 "$HERE/update-public-key.pem" "$ETC_DIR/update-public-key.pem"
+fi
 systemctl daemon-reload
 systemctl enable pi-bridge >/dev/null
+if [[ "$PI_BRIDGE_AUTO_UPDATE" == "1" ]]; then
+  systemctl enable pi-bridge-update.timer >/dev/null
+fi
 echo "  installed + enabled"
 
 step "env file"
@@ -109,6 +131,11 @@ if [[ ! -f "$ETC_DIR/env" ]]; then
 else
   echo "  $ETC_DIR/env already exists (preserved)"
 fi
+set_env_var PI_BRIDGE_AUTO_UPDATE "$PI_BRIDGE_AUTO_UPDATE"
+set_env_var PI_BRIDGE_UPDATE_CHANNEL "${PI_BRIDGE_UPDATE_CHANNEL:-stable}"
+set_env_var PI_BRIDGE_RELEASE_REPO "${PI_BRIDGE_RELEASE_REPO:-kijanac/pi-mobile}"
+set_env_var PI_BRIDGE_UPDATE_PUBLIC_KEY "${PI_BRIDGE_UPDATE_PUBLIC_KEY:-/etc/pi-bridge/update-public-key.pem}"
+
 if [[ -n "${TS_AUTHKEY:-}" ]]; then
   step "tailscale up"
   systemctl enable --now tailscaled >/dev/null 2>&1 || true
@@ -123,22 +150,33 @@ fi
 if [[ "$PI_BRIDGE_AUTO_DEPLOY" == "1" ]]; then
   step "copy source"
   ROOT="$(cd "$HERE/../.." && pwd)"
-  rm -rf "$INSTALL_DIR/bridge" "$INSTALL_DIR/packages"
-  install -d -o "$USER_NAME" -g "$USER_NAME" -m 0755 "$INSTALL_DIR"
-  cp -a "$ROOT/package.json" "$ROOT/pnpm-lock.yaml" "$ROOT/pnpm-workspace.yaml" "$INSTALL_DIR/"
-  cp -a "$ROOT/bridge" "$ROOT/packages" "$INSTALL_DIR/"
-  chown -R "$USER_NAME:$USER_NAME" "$INSTALL_DIR"
-  echo "  copied workspace pieces from $ROOT"
+  VERSION="$(node -p "require('$ROOT/package.json').version")"
+  TARGET="$INSTALL_DIR/releases/$VERSION"
+  rm -rf "$TARGET.tmp" "$TARGET"
+  install -d -o "$USER_NAME" -g "$USER_NAME" -m 0755 "$INSTALL_DIR/releases"
+  mkdir -p "$TARGET.tmp"
+  cp -a "$ROOT/package.json" "$ROOT/pnpm-lock.yaml" "$ROOT/pnpm-workspace.yaml" "$TARGET.tmp/"
+  cp -a "$ROOT/bridge" "$ROOT/packages" "$TARGET.tmp/"
+  printf '%s\n' "$VERSION" >"$TARGET.tmp/VERSION"
+  chown -R "$USER_NAME:$USER_NAME" "$TARGET.tmp"
+  mv "$TARGET.tmp" "$TARGET"
+  ln -sfn "$TARGET" "$INSTALL_DIR/current"
+  echo "  installed $VERSION to $TARGET"
 
   step "pnpm install (prod)"
-  cd "$INSTALL_DIR"
+  cd "$INSTALL_DIR/current"
   pnpm --filter pi-bridge... install --prod --frozen-lockfile
-  chown -R "$USER_NAME:$USER_NAME" "$INSTALL_DIR"
+  chown -R "$USER_NAME:$USER_NAME" "$TARGET"
 
   step "start bridge"
   systemctl restart pi-bridge
   sleep 2
   systemctl is-active pi-bridge
+
+  if [[ "$PI_BRIDGE_AUTO_UPDATE" == "1" ]]; then
+    step "auto update timer"
+    systemctl enable --now pi-bridge-update.timer
+  fi
 
   if [[ "$TAILSCALE_SERVE" == "1" ]]; then
     step "tailscale serve"
@@ -161,7 +199,7 @@ else
 Next steps:
   1. From your laptop, run bridge/deploy/deploy.sh to push the workspace
   2. Authenticate pi on the server:
-       cd /opt/pi-mobile-workspace/bridge
+       cd /opt/pi-mobile-workspace/current/bridge
        sudo -u pi-bridge HOME=/var/lib/pi-bridge pnpm exec pi
        # inside pi: /login, choose provider, complete browser/device flow, /quit
      Or edit /etc/pi-bridge/env for API-key mode.

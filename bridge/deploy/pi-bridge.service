@@ -12,7 +12,7 @@ StartLimitBurst=5
 Type=simple
 User=pi-bridge
 Group=pi-bridge
-WorkingDirectory=/opt/pi-mobile-workspace/bridge
+WorkingDirectory=/opt/pi-mobile-workspace/current/bridge
 
 # Secrets and runtime config live in /etc/pi-bridge/env (chmod 600).
 # See deploy/env.example for the keys.

@@ -1,0 +1,27 @@
+[Unit]
+Description=pi-bridge release updater
+Documentation=https://github.com/kijanac/pi-mobile
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/pi-bridge/env
+Environment=HOME=/var/lib/pi-bridge
+ExecStart=/opt/pi-mobile-workspace/update.sh
+
+# Needs to write /opt releases/current, restart pi-bridge, and update state.
+User=root
+Group=root
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/opt/pi-mobile-workspace /var/lib/pi-bridge
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pi-bridge-update

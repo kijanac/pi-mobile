@@ -6,6 +6,11 @@
  */
 import * as v from "valibot";
 
+export const PRODUCT_VERSION = "0.2.1";
+export const PROTOCOL_VERSION = 1;
+export const MIN_MOBILE_VERSION = "0.2.1";
+export const RECOMMENDED_MOBILE_VERSION = PRODUCT_VERSION;
+
 /* ── primitives ─────────────────────────────────────────────────────── */
 
 export const SessionStatus = v.picklist([
@@ -274,6 +279,16 @@ export const SessionModelState = v.object({
   models: v.array(ModelSummary),
 });
 export type SessionModelState = v.InferOutput<typeof SessionModelState>;
+
+export const SystemInfo = v.object({
+  bridgeVersion: v.string(),
+  protocolVersion: v.number(),
+  minMobileVersion: v.string(),
+  recommendedMobileVersion: v.string(),
+  updateChannel: v.string(),
+  autoUpdate: v.boolean(),
+});
+export type SystemInfo = v.InferOutput<typeof SystemInfo>;
 
 /* ── wire events — server → client ──────────────────────────────────── */
 

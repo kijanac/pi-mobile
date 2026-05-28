@@ -21,6 +21,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # deploy.sh lives in bridge/deploy; the source root is the workspace root.
 ROOT="$(cd "$HERE/../.." && pwd)"
 REMOTE=/opt/pi-mobile-workspace
+VERSION="$(node -p "require('$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/package.json').version")"
+REMOTE_RELEASE="$REMOTE/releases/$VERSION"
 
 step() { printf '\n\033[1;36m== %s ==\033[0m\n' "$1"; }
 
@@ -30,9 +32,9 @@ ssh -o ConnectTimeout=5 "$HOST" "test -d $REMOTE && id pi-bridge >/dev/null 2>&1
 echo "  $HOST:$REMOTE ready"
 
 step "rsync source"
-# Push only what the bridge needs from the workspace: root pnpm metadata,
-# the bridge package, and shared workspace packages. The mobile app is built
-# locally/on a Mac and is not needed on the server.
+# Push only what the bridge needs from the workspace into a versioned release.
+# The mobile app is built locally/on a Mac and is not needed on the server.
+ssh "$HOST" "rm -rf $REMOTE_RELEASE.tmp && mkdir -p $REMOTE_RELEASE.tmp"
 rsync -av --delete \
   --exclude='node_modules/' \
   --exclude='dist/' \
@@ -46,13 +48,24 @@ rsync -av --delete \
   --include='/bridge/***' \
   --include='/packages/***' \
   --exclude='*' \
-  "$ROOT/" "$HOST:$REMOTE/"
+  "$ROOT/" "$HOST:$REMOTE_RELEASE.tmp/"
+ssh "$HOST" "printf '%s\\n' '$VERSION' > $REMOTE_RELEASE.tmp/VERSION && \
+  rm -rf $REMOTE_RELEASE && \
+  mv $REMOTE_RELEASE.tmp $REMOTE_RELEASE && \
+  ln -sfn $REMOTE_RELEASE $REMOTE/current"
 
 step "pnpm install (prod)"
-ssh "$HOST" "cd $REMOTE && \
+ssh "$HOST" "cd $REMOTE/current && \
   corepack enable && \
   pnpm --filter pi-bridge... install --prod --frozen-lockfile && \
-  chown -R pi-bridge:pi-bridge $REMOTE"
+  chown -R pi-bridge:pi-bridge $REMOTE_RELEASE"
+
+step "systemd units"
+ssh "$HOST" "install -o root -g root -m 0644 $REMOTE/current/bridge/deploy/pi-bridge.service /etc/systemd/system/pi-bridge.service && \
+  install -o root -g root -m 0644 $REMOTE/current/bridge/deploy/pi-bridge-update.service /etc/systemd/system/pi-bridge-update.service && \
+  install -o root -g root -m 0644 $REMOTE/current/bridge/deploy/pi-bridge-update.timer /etc/systemd/system/pi-bridge-update.timer && \
+  install -o root -g root -m 0755 $REMOTE/current/bridge/deploy/update.sh $REMOTE/update.sh && \
+  systemctl daemon-reload"
 
 step "restart"
 ssh "$HOST" "systemctl restart pi-bridge && sleep 2 && systemctl is-active pi-bridge"

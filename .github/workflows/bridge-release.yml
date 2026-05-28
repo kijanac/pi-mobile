@@ -1,0 +1,70 @@
+name: Bridge Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bridge-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  bridge:
+    name: Package bridge release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10.5.2
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check bridge and protocol
+        run: pnpm typecheck
+
+      - name: Resolve version
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" =~ ^v(.+)$ ]]; then
+            echo "VERSION=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+          else
+            node -e "console.log('VERSION='+require('./package.json').version)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Require release signing key
+        run: |
+          if [[ -z "${{ secrets.BRIDGE_RELEASE_SIGNING_KEY_PEM }}" ]]; then
+            echo "BRIDGE_RELEASE_SIGNING_KEY_PEM is required for signed bridge releases" >&2
+            exit 1
+          fi
+
+      - name: Package bridge artifact
+        env:
+          RELEASE_SIGNING_KEY_PEM: ${{ secrets.BRIDGE_RELEASE_SIGNING_KEY_PEM }}
+        run: bridge/deploy/package-bridge.sh "$VERSION"
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          files: |
+            dist/bridge-release/pi-bridge-${{ env.VERSION }}.tar.gz
+            dist/bridge-release/bridge-release.json
+            dist/bridge-release/bridge-release.json.sig
+          fail_on_unmatched_files: true
