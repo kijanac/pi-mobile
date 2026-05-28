@@ -102,7 +102,6 @@ const appId = apps[0].id;
 const builds = await listAll("/builds", {
   "filter[app]": appId,
   "filter[version]": marketingVersion,
-  "filter[platform]": "IOS",
   "fields[builds]": "version",
   limit: "200",
 });
