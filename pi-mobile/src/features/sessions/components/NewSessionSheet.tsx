@@ -62,7 +62,7 @@ export default function NewSessionSheet(props: Props) {
     return c ? basename(c) : "";
   };
 
-  const canCreate = () => !!cwd() && !props.creating && !gitInfo.loading;
+  const canCreate = () => !!cwd() && !props.creating;
 
   function handleCreate() {
     const c = cwd();
