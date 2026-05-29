@@ -20,7 +20,8 @@ import {
 import * as v from "valibot";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { Readable } from "node:stream";
 import {
   BashToolArgs,
@@ -102,6 +103,7 @@ export interface SendImage {
 export interface ExportedHtml {
   readonly stream: ReadableStream<Uint8Array>;
   readonly size?: number;
+  readonly filename?: string;
 }
 
 export interface PiSession {
@@ -155,6 +157,28 @@ export class PiClient extends Context.Tag("PiClient")<
 
 
 const nextId = (prefix: string) => `${prefix}_${randomUUID()}`;
+
+const BRIDGE_DATA_DIR = process.env.BRIDGE_DATA_DIR ?? dirname(resolve(process.env.BRIDGE_DB ?? "data/bridge.db"));
+const EXPORT_DIR = join(BRIDGE_DATA_DIR, "exports");
+const EXPORT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+const safeFilenamePart = (value: string) =>
+  value.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "session";
+
+async function cleanupOldExports(now = Date.now()): Promise<void> {
+  const entries = await readdir(EXPORT_DIR, { withFileTypes: true }).catch(() => []);
+  await Promise.all(
+    entries
+      .filter((entry) => entry.isFile() && (entry.name.endsWith(".html") || entry.name.endsWith(".tmp")))
+      .map(async (entry) => {
+        const path = join(EXPORT_DIR, entry.name);
+        const info = await stat(path).catch(() => undefined);
+        if (info && now - info.mtimeMs > EXPORT_MAX_AGE_MS) {
+          await rm(path, { force: true }).catch(() => undefined);
+        }
+      }),
+  );
+}
 
 const textFromContent = (content: unknown): string => {
   if (typeof content === "string") return content;
@@ -531,10 +555,27 @@ const wirePiSession = (
       exportHtml: () =>
         Effect.tryPromise({
           try: async () => {
-            const path = await piSession.exportToHtml();
-            const info = await stat(path).catch(() => undefined);
+            await mkdir(EXPORT_DIR, { recursive: true });
+            await cleanupOldExports();
+
+            const base = `pi-session-${safeFilenamePart(piSession.sessionId)}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+            const tmpPath = join(EXPORT_DIR, `${base}-${randomUUID()}.html.tmp`);
+            const finalName = `${base}.html`;
+            const finalPath = join(EXPORT_DIR, finalName);
+
+            try {
+              const exportedPath = await piSession.exportToHtml(tmpPath);
+              await rename(exportedPath, finalPath);
+            } catch (e) {
+              await rm(tmpPath, { force: true }).catch(() => undefined);
+              await rm(finalPath, { force: true }).catch(() => undefined);
+              throw e;
+            }
+
+            const info = await stat(finalPath).catch(() => undefined);
             return {
-              stream: Readable.toWeb(createReadStream(path)) as ReadableStream<Uint8Array>,
+              stream: Readable.toWeb(createReadStream(finalPath)) as ReadableStream<Uint8Array>,
+              filename: finalName,
               ...(info ? { size: info.size } : {}),
             };
           },

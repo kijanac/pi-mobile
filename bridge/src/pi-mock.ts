@@ -211,6 +211,7 @@ const makeMockSession = (opts: {
         return Effect.succeed({
           stream: new Blob([html], { type: "text/html; charset=utf-8" }).stream(),
           size: new TextEncoder().encode(html).byteLength,
+          filename: "pi-session-mock.html",
         });
       },
       listCommands: () => Effect.succeed({ builtins: [], prompts: [], skills: [] }),

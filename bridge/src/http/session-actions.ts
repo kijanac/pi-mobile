@@ -50,6 +50,7 @@ export function mountSessionActionRoutes(app: Hono, runtime: ManagedRuntime.Mana
       (html) =>
         c.body(html.stream, 200, {
           "content-type": "text/html; charset=utf-8",
+          ...(html.filename ? { "content-disposition": `attachment; filename="${html.filename}"` } : {}),
           ...(html.size !== undefined ? { "content-length": String(html.size) } : {}),
         }),
       "export_failed",
