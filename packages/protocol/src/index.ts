@@ -1,9 +1,3 @@
-/**
- * Shared wire protocol — defined once with Valibot, types derived.
- *
- * Both the bridge and mobile client import this package so REST/WS payload
- * types and runtime validation stay in sync.
- */
 import * as v from "valibot";
 
 export const PRODUCT_VERSION = "0.4.3";
@@ -11,7 +5,6 @@ export const PROTOCOL_VERSION = 1;
 export const MIN_MOBILE_VERSION = "0.2.1";
 export const RECOMMENDED_MOBILE_VERSION = PRODUCT_VERSION;
 
-/* ── primitives ─────────────────────────────────────────────────────── */
 
 export const SessionStatus = v.picklist([
   "idle",
@@ -35,7 +28,6 @@ export const PermissionChoice = v.picklist([
 ]);
 export type PermissionChoice = v.InferOutput<typeof PermissionChoice>;
 
-/* ── log entries (server's view of a session log) ───────────────────── */
 
 const Base = {
   id: v.string(),
@@ -49,19 +41,6 @@ export const UserMessage = v.object({
 });
 export type UserMessage = v.InferOutput<typeof UserMessage>;
 
-/**
- * How an assistant turn ended. Mirrors pi-ai's StopReason:
- *
- *   stop     — model finished naturally
- *   length   — hit the model's max-output-tokens limit
- *   toolUse  — model is requesting tools; followed by tool_call entries
- *              and another assistant turn after the results
- *   error    — provider/network/internal failure; errorMessage explains
- *   aborted  — user (or our /interrupt) cancelled mid-stream
- *
- * The mobile renders "stop" and "toolUse" as normal completions; the
- * other three get an inline indicator on the assistant bubble.
- */
 export const StopReason = v.picklist([
   "stop",
   "length",
@@ -86,16 +65,12 @@ export const AssistantMessage = v.object({
   ...Base,
   text: v.string(),
   streaming: v.optional(v.boolean()),
-  /** Populated once the assistant turn ends. Absent while streaming. */
   stopReason: v.optional(StopReason),
-  /** Set when stopReason is "error" or "aborted"; explains the failure. */
   errorMessage: v.optional(v.string()),
-  /** Per-message usage/cost for this assistant response. */
   usage: v.optional(MessageUsage),
 });
 export type AssistantMessage = v.InferOutput<typeof AssistantMessage>;
 
-/* ── tool arguments ─────────────────────────────────────────────────── */
 
 export const ReadToolArgs = v.object({
   path: v.string(),
@@ -254,7 +229,6 @@ export const LogEntry = v.union([
 ]);
 export type LogEntry = v.InferOutput<typeof LogEntry>;
 
-/* ── session metadata (REST surface) ────────────────────────────────── */
 
 export const SessionMeta = v.object({
   id: v.string(),
@@ -265,10 +239,6 @@ export const SessionMeta = v.object({
   updatedAt: v.number(),
   tokens: v.object({ in: v.number(), out: v.number() }),
   costUsd: v.number(),
-  /** True when the user has archived this session. Archived sessions
-   *  are excluded from the default list but the row is kept (and can
-   *  be restored by PATCHing archived: false). Hard delete is a
-   *  separate DELETE. */
   archived: v.optional(v.boolean()),
 });
 export type SessionMeta = v.InferOutput<typeof SessionMeta>;
@@ -449,13 +419,7 @@ export const SystemInfo = v.object({
 });
 export type SystemInfo = v.InferOutput<typeof SystemInfo>;
 
-/* ── wire events — server → client ──────────────────────────────────── */
 
-/**
- * Every wire event carries a monotonic `seq` set by the bridge. Clients
- * persist the last seq they saw so reconnects can `resume` and have the
- * bridge replay missed events.
- */
 const Seq = { seq: v.number() } as const;
 
 export const WireEvent = v.variant("t", [
@@ -463,7 +427,7 @@ export const WireEvent = v.variant("t", [
     t: v.literal("hello"),
     ...Seq,
     session: SessionMeta,
-    cursor: v.number(), // latest seq at the time of hello
+    cursor: v.number(),
   }),
   v.object({ t: v.literal("user_message"), ...Seq, entry: UserMessage }),
   v.object({
@@ -476,13 +440,8 @@ export const WireEvent = v.variant("t", [
     t: v.literal("assistant_end"),
     ...Seq,
     id: v.string(),
-    /** How the turn ended. Absent only for legacy events written before
-     *  this field existed; new code always sets it. */
     stopReason: v.optional(StopReason),
-    /** Provider/network/internal error explanation. Set when
-     *  stopReason is "error" or "aborted". */
     errorMessage: v.optional(v.string()),
-    /** Per-message usage/cost for this assistant response. */
     usage: v.optional(MessageUsage),
   }),
   v.object({ t: v.literal("tool_call"), ...Seq, entry: ToolCallMessage }),
@@ -503,10 +462,6 @@ export const WireEvent = v.variant("t", [
     tokensOut: v.number(),
     costUsd: v.number(),
   }),
-  // Pi auto-retries certain provider failures (rate limits, transient
-  // network errors). The mobile shows a transient "retrying N of M"
-  // pill between auto_retry_start and auto_retry_end. These events are
-  // intentionally not persisted as log entries — they're status-only.
   v.object({
     t: v.literal("auto_retry_start"),
     ...Seq,
@@ -525,12 +480,9 @@ export const WireEvent = v.variant("t", [
 ]);
 export type WireEvent = v.InferOutput<typeof WireEvent>;
 
-/* ── client events — client → server ────────────────────────────────── */
 
 export const ImageAttachment = v.object({
-  /** Base64-encoded image payload (no data: prefix). */
   data: v.string(),
-  /** MIME type, e.g. "image/jpeg" or "image/png". */
   mimeType: v.string(),
 });
 export type ImageAttachment = v.InferOutput<typeof ImageAttachment>;
@@ -539,13 +491,7 @@ export const ClientEvent = v.variant("t", [
   v.object({
     t: v.literal("send"),
     text: v.string(),
-    // When the agent is streaming, mode picks how to deliver:
-    //   "steer"     → after the current turn's tools finish (default)
-    //   "follow_up" → after the agent finishes all queued work
-    // Ignored when the agent is idle.
     mode: v.optional(v.picklist(["steer", "follow_up"])),
-    // Inline image attachments (camera/gallery). Sent through to pi's
-    // prompt/steer/followUp via the SDK's ImageContent shape.
     images: v.optional(v.array(ImageAttachment)),
   }),
   v.object({
@@ -557,7 +503,6 @@ export const ClientEvent = v.variant("t", [
 ]);
 export type ClientEvent = v.InferOutput<typeof ClientEvent>;
 
-/* ── decode helpers ──────────────────────────────────────────────────── */
 
 export const decodeClientEvent = (raw: unknown) =>
   v.safeParse(ClientEvent, raw);

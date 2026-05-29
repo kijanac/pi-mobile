@@ -1,20 +1,8 @@
-import { Show, type JSX } from "solid-js";
+import { Show } from "solid-js";
 import { Loader2 } from "lucide-solid";
-import { activeRetry } from "~/stores/sessions";
+import { activeRetry } from "@/stores/sessions";
 
-/**
- * Transient banner that appears while pi is in an auto-retry window
- * (between `auto_retry_start` and `auto_retry_end` wire events).
- *
- * Without this, the user sees the assistant streaming, then a silent
- * pause of `delayMs`, then either streaming resumes or an error
- * banner appears on the bubble. The pause is unexplained. The banner
- * fills the gap with "retrying N of M — <reason>".
- *
- * Renders nothing when `activeRetry()` is null, so it's safe to mount
- * unconditionally near the top of the chat view.
- */
-export default function RetryBanner(): JSX.Element {
+export default function RetryBanner() {
   return (
     <Show when={activeRetry()}>
       {(r) => (

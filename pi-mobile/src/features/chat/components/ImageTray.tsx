@@ -1,17 +1,11 @@
-import { For, Show, type JSX } from "solid-js";
+import { For, Show } from "solid-js";
 import { X } from "lucide-solid";
 import type { ImageAttachment } from "@pi-mobile/protocol";
 
-/**
- * Strip of picked-image thumbnails shown above the InputBar textarea.
- * Rendered only when there's at least one image. Each thumb is tappable
- * to remove; the underlying bytes are kept as base64 in the InputBar's
- * state until send.
- */
 export default function ImageTray(props: {
   images: ImageAttachment[];
   onRemove: (index: number) => void;
-}): JSX.Element {
+}) {
   return (
     <Show when={props.images.length > 0}>
       <div class="hairline-b flex gap-1.5 overflow-x-auto px-2 py-1.5">

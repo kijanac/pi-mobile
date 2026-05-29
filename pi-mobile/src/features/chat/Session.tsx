@@ -1,13 +1,13 @@
-import { createEffect, on, onCleanup, Show, type JSX } from "solid-js";
+import { createEffect, on, onCleanup, Show } from "solid-js";
 import { useParams, A } from "@solidjs/router";
-import EdgeSwipeBack from "~/components/EdgeSwipeBack";
-import Header from "~/components/Header";
-import StatusDot from "~/components/StatusDot";
-import RetryBanner from "~/features/chat/components/RetryBanner";
-import MessageList from "~/features/chat/components/MessageList";
-import InputBar from "~/features/chat/components/InputBar";
-import SessionAgentActions from "~/features/chat/components/SessionAgentActions";
-import SessionsPreview from "~/features/sessions/components/SessionsPreview";
+import EdgeSwipeBack from "@/components/EdgeSwipeBack";
+import Header from "@/components/Header";
+import StatusDot from "@/components/StatusDot";
+import RetryBanner from "@/features/chat/components/RetryBanner";
+import MessageList from "@/features/chat/components/MessageList";
+import InputBar from "@/features/chat/components/InputBar";
+import SessionAgentActions from "@/features/chat/components/SessionAgentActions";
+import SessionsPreview from "@/features/sessions/components/SessionsPreview";
 import {
   activeStatus,
   applyWireEvent,
@@ -15,24 +15,23 @@ import {
   resetActiveLog,
   useSession,
   setSessions,
-} from "~/stores/sessions";
+} from "@/stores/sessions";
 import {
   connState,
   setConnState,
   setActiveSend,
-} from "~/stores/connection";
-import { connectStream } from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
-import { resumeTick } from "~/lib/lifecycle";
-import { KeyboardAvoidance } from "~/lib/keyboard";
-import { formatCost, formatTokens, shortPath } from "~/lib/format";
+} from "@/stores/connection";
+import { connectStream } from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
+import { resumeTick } from "@/lib/lifecycle";
+import { KeyboardAvoidance } from "@/lib/keyboard";
+import { formatCost, formatTokens, shortPath } from "@/lib/format";
 import type { WireEvent } from "@pi-mobile/protocol";
 
-export default function Session(): JSX.Element {
+export default function Session() {
   const params = useParams<{ id: string }>();
   const session = useSession(() => params.id);
 
-  // Re-bind whenever the URL param changes (the router reuses the component).
   createEffect(
     on(
       () => params.id,
@@ -176,15 +175,7 @@ export default function Session(): JSX.Element {
   );
 }
 
-/**
- * Rendered in place of MessageList/InputBar when the server has told
- * us this session no longer exists (WS close code 4004). The user's
- * scrollback isn't useful here — it'd just be empty replay output —
- * so we explain and offer a route back to the list. The list itself
- * has already been pruned (see Session.tsx onClose) so navigating
- * away won't show the stale entry.
- */
-function SessionGonePane(): JSX.Element {
+function SessionGonePane() {
   return (
     <div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
       <div class="text-[13px] font-medium">session no longer available</div>

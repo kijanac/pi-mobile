@@ -190,7 +190,7 @@ export function lsFs(baseUrl: string, path?: string): Promise<FsListing> {
   return requestJson("lsFs", url);
 }
 
-export type { CommandEntry, Commands, QueueState } from "@pi-mobile/protocol";
+export type { CommandEntry, Commands } from "@pi-mobile/protocol";
 
 export const listCommands = async (baseUrl: string, sessionId?: string): Promise<Commands> =>
   parseCommands(
@@ -204,14 +204,14 @@ export const listCommands = async (baseUrl: string, sessionId?: string): Promise
 
 const TERMINAL_CLOSE_CODES = new Set<number>([4004]);
 
-export interface StreamHandlers {
+interface StreamHandlers {
   onOpen?: () => void;
   onClose?: (code: number, reason: string, terminal: boolean) => void;
   onError?: () => void;
   onEvent: (event: WireEvent) => void;
 }
 
-export interface StreamHandle {
+interface StreamHandle {
   send: (e: ClientEvent) => void;
   reconnect: () => void;
   close: () => void;
@@ -237,16 +237,15 @@ export function connectStream(
   });
 
   ws.addEventListener("open", () => handlers.onOpen?.());
-  ws.addEventListener("close", (e) => {
-    const close = e as CloseEvent;
-    const terminal = TERMINAL_CLOSE_CODES.has(close.code);
+  ws.addEventListener("close", (e: CloseEvent) => {
+    const terminal = TERMINAL_CLOSE_CODES.has(e.code);
     if (terminal) ws.close();
-    handlers.onClose?.(close.code, close.reason, terminal);
+    handlers.onClose?.(e.code, e.reason, terminal);
   });
   ws.addEventListener("error", () => handlers.onError?.());
-  ws.addEventListener("message", (e) => {
+  ws.addEventListener("message", (e: MessageEvent<string>) => {
     try {
-      const result = decodeWireEvent(JSON.parse((e as MessageEvent).data as string));
+      const result = decodeWireEvent(JSON.parse(e.data));
       if (result.success) handlers.onEvent(result.output);
       else console.error("invalid wire event:", result.issues);
     } catch (err) {

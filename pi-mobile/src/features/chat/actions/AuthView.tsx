@@ -1,15 +1,15 @@
-import { For, Show, createEffect, createResource, createSignal, type JSX } from "solid-js";
+import { For, Show, createEffect, createResource, createSignal } from "solid-js";
 import { Check, Loader2 } from "lucide-solid";
 import type { AuthLoginJob, AuthProvider } from "@pi-mobile/protocol";
-import { cancelAuthLogin, getAuthLoginJob, listAuthProviders, startAuthLogin, submitAuthLoginInput } from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
-import { haptic } from "~/lib/haptics";
-import { Button } from "~/components/ui/button";
-import { TextField, TextFieldLabel, TextFieldTextArea } from "~/components/ui/text-field";
+import { cancelAuthLogin, getAuthLoginJob, listAuthProviders, startAuthLogin, submitAuthLoginInput } from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
+import { haptic } from "@/lib/haptics";
+import { Button } from "@/components/ui/button";
+import { TextField, TextFieldLabel, TextFieldTextArea } from "@/components/ui/text-field";
 import { InfoRow } from "./shared";
 import type { ActionErrorHandler } from "./types";
 
-export default function AuthView(props: { sessionId: string; onError: ActionErrorHandler }): JSX.Element {
+export default function AuthView(props: { sessionId: string; onError: ActionErrorHandler }) {
   const [job, setJob] = createSignal<AuthLoginJob | null>(null);
   const [input, setInput] = createSignal("");
   const [starting, setStarting] = createSignal<string | null>(null);

@@ -3,23 +3,12 @@ import { dirname, resolve as resolvePath, sep as PATH_SEP } from "node:path";
 import { homedir } from "node:os";
 import type { Context } from "hono";
 
-/**
- * List directories at `path` (defaults to the user's home). Used by the
- * mobile cwd picker. We return only directories (not files) because the
- * picker exists to choose a working directory for a new pi session.
- *
- * Personal-use bridge behind Tailscale → no path sandboxing. If we ever
- * expose this publicly we'd want to bound it to a configured root.
- */
 export function handleFsLs(c: Context) {
   const raw = c.req.query("path");
   const showHidden = c.req.query("hidden") === "1";
 
   let target: string;
   try {
-    // Default the mobile picker to the agent workspace area rather than the
-    // service HOME. HOME also contains pi auth/session internals; the useful
-    // place for humans is where repos are cloned.
     target = raw
       ? resolvePath(raw)
       : resolvePath(process.env.PI_WORKSPACES_DIR ?? homedir());
@@ -48,12 +37,10 @@ export function handleFsLs(c: Context) {
         dirs.push({ name, hidden: name.startsWith(".") });
       }
     } catch {
-      // Skip entries we can't stat (broken symlinks, perms, etc.)
     }
   }
   dirs.sort((a, b) => a.name.localeCompare(b.name));
 
-  // Parent path — null at the filesystem root.
   const parent = (() => {
     const p = dirname(target);
     return p === target ? null : p;

@@ -1,4 +1,3 @@
-/** Persistent app settings backed by Capacitor Preferences. */
 import { Preferences } from "@capacitor/preferences";
 
 const DEFAULT_BRIDGE_URL = "http://localhost:7777";

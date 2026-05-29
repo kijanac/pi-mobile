@@ -1,13 +1,13 @@
-import { createMemo, createSignal, onMount, Show, type JSX } from "solid-js";
+import { createMemo, createSignal, onMount, Show } from "solid-js";
 import { Check, Copy, Loader2, X } from "lucide-solid";
 import { PRODUCT_VERSION, PROTOCOL_VERSION, type SystemInfo } from "@pi-mobile/protocol";
-import EdgeSwipeBack from "~/components/EdgeSwipeBack";
-import Header from "~/components/Header";
-import { Button } from "~/components/ui/button";
-import { TextField, TextFieldInput, TextFieldLabel, TextFieldTextArea } from "~/components/ui/text-field";
-import SessionsPreview from "~/features/sessions/components/SessionsPreview";
-import { getSystemInfo, healthcheck } from "~/lib/api";
-import { getBridgeUrl, setBridgeUrl } from "~/lib/settings";
+import EdgeSwipeBack from "@/components/EdgeSwipeBack";
+import Header from "@/components/Header";
+import { Button } from "@/components/ui/button";
+import { TextField, TextFieldInput, TextFieldLabel, TextFieldTextArea } from "@/components/ui/text-field";
+import SessionsPreview from "@/features/sessions/components/SessionsPreview";
+import { getSystemInfo, healthcheck } from "@/lib/api";
+import { getBridgeUrl, setBridgeUrl } from "@/lib/settings";
 
 type Probe = "idle" | "checking" | "ok" | "fail";
 
@@ -33,7 +33,7 @@ function compareVersion(a: string, b: string): number {
   return 0;
 }
 
-export default function Settings(): JSX.Element {
+export default function Settings() {
   const [url, setUrl] = createSignal("");
   const [saved, setSaved] = createSignal(false);
   const [probe, setProbe] = createSignal<Probe>("idle");
@@ -330,7 +330,7 @@ function Field(props: {
   onInput: (value: string) => void;
   placeholder: string;
   secret?: boolean;
-}): JSX.Element {
+}) {
   return (
     <TextField>
       <TextFieldLabel for={props.id}>{props.label}</TextFieldLabel>

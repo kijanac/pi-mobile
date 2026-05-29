@@ -9,28 +9,11 @@ import {
   type JSX,
 } from "solid-js";
 import { Search, Hash, FileText, Sparkles } from "lucide-solid";
-import BottomSheet from "~/components/BottomSheet";
-import { TextField, TextFieldInput } from "~/components/ui/text-field";
-import { listCommands, type CommandEntry, type Commands } from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
+import BottomSheet from "@/components/BottomSheet";
+import { TextField, TextFieldInput } from "@/components/ui/text-field";
+import { listCommands, type CommandEntry, type Commands } from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
 
-/**
- * Slash command palette.
- *
- * Lists every slash command pi knows about: built-ins (curated server-side
- * from pi 0.65+ docs), prompt templates (from ~/.pi/agent/prompts/), and
- * skills (from ~/.pi/agent/skills/<name>/SKILL.md). Picks insert
- *
- *   /name<space>           for builtins and templates with args
- *   /name                  for argument-less builtins
- *   /skill:name<space>     for skills
- *
- * into the caller-provided callback. Trailing space is added when the
- * command takes args so the user can start typing immediately.
- *
- * Substring search, mobile-friendly bottom sheet, no keyboard nav.
- * Mobile users tap; that's the model we're optimizing for.
- */
 interface Props {
   open: boolean;
   sessionId: string;
@@ -42,23 +25,19 @@ function commandLabel(c: CommandEntry): string {
   return c.kind === "skill" ? c.name : `/${c.name}`;
 }
 
-/** Returns the text to insert into the input field for this command. */
 function commandInsertion(c: CommandEntry): string {
   if (c.kind === "skill") {
-    // Skills are invoked as /skill:name and almost always take args.
     return `/${c.name} `;
   }
   const suffix = c.takesArgs ? " " : "";
   return `/${c.name}${suffix}`;
 }
 
-export default function SlashPalette(props: Props): JSX.Element {
+export default function SlashPalette(props: Props) {
   const [query, setQuery] = createSignal("");
 
   const [loadToken, setLoadToken] = createSignal(0);
 
-  // Fetch commands when the sheet opens. Bump a token on every open so
-  // prompts/skills added outside the app are picked up next time.
   const [commands] = createResource<Commands | null, number>(
     loadToken,
     async (token) => {
@@ -74,7 +53,6 @@ export default function SlashPalette(props: Props): JSX.Element {
     setLoadToken((n) => n + 1);
   });
 
-  /* ── filter ──────────────────────────────────────────────────────── */
   const matches = (entries: CommandEntry[] | undefined): CommandEntry[] => {
     if (!entries) return [];
     const q = query().trim().toLowerCase();
@@ -154,14 +132,13 @@ export default function SlashPalette(props: Props): JSX.Element {
   );
 }
 
-/* ── primitives ──────────────────────────────────────────────────────── */
 
 function Section(props: {
   label: string;
   icon: JSX.Element;
   entries: CommandEntry[];
   onPick: (c: CommandEntry) => void;
-}): JSX.Element {
+}) {
   return (
     <Show when={props.entries.length > 0}>
       <div class="sticky top-0 z-10 flex items-center gap-1.5 border-b border-[color:var(--color-border)] bg-[color:var(--color-bg)]/95 px-3 py-1 backdrop-blur-md">

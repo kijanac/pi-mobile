@@ -1,7 +1,7 @@
 import { Router, Route } from "@solidjs/router";
-import Sessions from "~/features/sessions/Sessions";
-import Session from "~/features/chat/Session";
-import Settings from "~/features/settings/Settings";
+import Sessions from "@/features/sessions/Sessions";
+import Session from "@/features/chat/Session";
+import Settings from "@/features/settings/Settings";
 
 export default function App() {
   return (

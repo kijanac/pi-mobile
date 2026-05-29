@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Effect, Fiber, Layer, Queue, Random, Ref, Stream } from "effect";
 import type { ModelSummary, SessionMeta } from "@pi-mobile/protocol";
 import { SessionNotFound } from "./errors.ts";
@@ -8,11 +9,7 @@ import {
   type PiSession,
 } from "./pi.ts";
 
-const nextId = (() => {
-  let n = 0;
-  return (prefix: string) =>
-    `${prefix}_${++n}_${Math.random().toString(36).slice(2, 6)}`;
-})();
+const nextId = (prefix: string) => `${prefix}_${randomUUID()}`;
 
 const sleepRand = (minMs: number, spreadMs: number) =>
   Effect.flatMap(Random.next, (r) =>
@@ -33,9 +30,6 @@ const SCRIPT_REPLY_1 =
 const SCRIPT_REPLY_2 =
   "Three call sites. I'll swap the algorithm in `lib/jwt.ts`, load the public key from `KEYS_DIR/public.pem`, and update the test fixture to sign with RS256.";
 
-/* Realistic edit demo — HS256 → RS256 in a JWT verifier. Picked because
-   it exercises every diff-viewer code path: removed lines, added lines,
-   surrounding context, all in a single segment. */
 const EDIT_OLD = `import jwt from "jsonwebtoken";
 
 export function verifyToken(token: string) {
@@ -268,8 +262,6 @@ const makeMockSession = (opts: {
 
 export const PiClientMock = Layer.succeed(PiClient, {
   create: (opts) => makeMockSession(opts),
-  // The mock has no persistence — a bridge restart loses all state.
-  // We surface that honestly rather than fabricating a fake session.
   resume: (storedMeta) =>
     Effect.fail(new SessionNotFound(storedMeta.id)),
 });

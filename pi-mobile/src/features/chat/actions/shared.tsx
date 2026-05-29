@@ -1,6 +1,6 @@
 import { For, Show, type JSX } from "solid-js";
 
-export function MenuButton(props: { title: string; description: string; onClick: () => void; icon?: JSX.Element }): JSX.Element {
+export function MenuButton(props: { title: string; description: string; onClick: () => void; icon?: JSX.Element }) {
   return (
     <button
       type="button"
@@ -16,7 +16,7 @@ export function MenuButton(props: { title: string; description: string; onClick:
   );
 }
 
-export function InfoRow(props: { label: string; value: string }): JSX.Element {
+export function InfoRow(props: { label: string; value: string }) {
   return (
     <div class="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2">
       <div class="label">{props.label}</div>
@@ -25,7 +25,7 @@ export function InfoRow(props: { label: string; value: string }): JSX.Element {
   );
 }
 
-export function ToggleRow(props: { label: string; checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }): JSX.Element {
+export function ToggleRow(props: { label: string; checked: boolean; disabled: boolean; onChange: (checked: boolean) => void }) {
   return (
     <button
       type="button"
@@ -41,7 +41,7 @@ export function ToggleRow(props: { label: string; checked: boolean; disabled: bo
   );
 }
 
-export function Segmented(props: { label: string; options: readonly string[]; value: string; disabled: boolean; onChange: (value: string) => void }): JSX.Element {
+export function Segmented<T extends string>(props: { label: string; options: readonly T[]; value: T; disabled: boolean; onChange: (value: T) => void }) {
   return (
     <div>
       <div class="label mb-1.5">{props.label}</div>

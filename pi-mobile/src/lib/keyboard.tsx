@@ -6,11 +6,11 @@ import {
   KeyboardStyle,
 } from "@capacitor/keyboard";
 
-export type KeyboardAvoidanceMode = "native" | "manual";
+type KeyboardAvoidanceMode = "native" | "manual";
 
 const [nativeKeyboardHeight, setNativeKeyboardHeight] = createSignal(0);
 const [viewportKeyboardHeight, setViewportKeyboardHeight] = createSignal(0);
-export const keyboardHeight = () => Math.max(nativeKeyboardHeight(), viewportKeyboardHeight());
+const keyboardHeight = () => Math.max(nativeKeyboardHeight(), viewportKeyboardHeight());
 
 const KeyboardAvoidanceContext = createContext<KeyboardAvoidanceMode>("native");
 
@@ -28,18 +28,11 @@ function updateViewportKeyboardHeight(): void {
     return;
   }
 
-  // When the keyboard overlays the WebView, visualViewport shrinks while
-  // window.innerHeight remains the layout viewport. offsetTop accounts for
-  // browsers that pan the visual viewport instead of only resizing it.
   const occluded = window.innerHeight - vv.height - vv.offsetTop;
   setViewportKeyboardHeight(Math.max(0, Math.round(occluded)));
 }
 
-/**
- * Global keyboard event tracking. This only tracks keyboard frame changes;
- * resize strategy is selected explicitly by KeyboardAvoidance.
- */
-export function ensureKeyboardTracking(): void {
+function ensureKeyboardTracking(): void {
   if (listenersInitialized) return;
   listenersInitialized = true;
 
@@ -90,7 +83,7 @@ function releaseManualResize(): void {
 export function KeyboardAvoidance(props: {
   mode: KeyboardAvoidanceMode;
   children: JSX.Element;
-}): JSX.Element {
+}) {
   onMount(() => {
     ensureKeyboardTracking();
     if (props.mode === "manual") acquireManualResize();
@@ -112,7 +105,7 @@ export function KeyboardAvoidance(props: {
   );
 }
 
-export function useKeyboardAvoidanceMode(): KeyboardAvoidanceMode {
+function useKeyboardAvoidanceMode(): KeyboardAvoidanceMode {
   return useContext(KeyboardAvoidanceContext);
 }
 

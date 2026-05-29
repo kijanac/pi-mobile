@@ -1,24 +1,3 @@
-/**
- * Durable store — Node's built-in `node:sqlite` (Node 24+, RC as of v25.7).
- *
- * Schema:
- *   sessions(id, title, cwd, branch, status, updated_at,
- *            tokens_in, tokens_out, cost_usd, created_at)
- *   events  (session_id, seq, type, payload, created_at)  PK (session_id, seq)
- *
- * Notes on the design choices:
- *
- *  - No `last_seq` column. The session's current seq is `MAX(seq)` of its
- *    events, computed once on attach and tracked in-memory thereafter. This
- *    removes the need for a transaction around event insert + counter bump.
- *
- *  - DatabaseSync is synchronous (good — pairs with Effect.sync directly).
- *    All operations are wrapped via Effect.sync; the runtime treats them as
- *    point-in-time effects without async overhead.
- *
- *  - WAL mode for concurrent reads, NORMAL sync for performance. Repeatable
- *    reads aren't a requirement here — single writer, snapshotting reads.
- */
 import { Context, Effect, Layer, Option } from "effect";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import {
@@ -28,40 +7,35 @@ import {
   type WireEvent,
 } from "@pi-mobile/protocol";
 
-/* ── tag ─────────────────────────────────────────────────────────────── */
 
 export class Store extends Context.Tag("Store")<
   Store,
   {
     readonly insertSession: (meta: SessionMeta) => Effect.Effect<void>;
     readonly getSession: (id: string) => Effect.Effect<Option.Option<SessionMeta>>;
-    readonly listSessions: () => Effect.Effect<ReadonlyArray<SessionMeta>>;
+    readonly listSessions: () => Effect.Effect<SessionMeta[]>;
     readonly updateSession: (
       id: string,
       patch: Partial<SessionMeta>,
     ) => Effect.Effect<void>;
     readonly deleteSession: (id: string) => Effect.Effect<void>;
 
-    /** Append an event. Caller owns seq assignment (single-writer per session). */
     readonly appendEvent: (
       sessionId: string,
       event: WireEvent,
     ) => Effect.Effect<void>;
 
-    /** Events with seq > `afterSeq`, in order. */
     readonly loadEventsAfter: (
       sessionId: string,
       afterSeq: number,
-    ) => Effect.Effect<ReadonlyArray<WireEvent>>;
+    ) => Effect.Effect<WireEvent[]>;
 
-    /** Highest seq written for `sessionId`, or 0 if none. */
     readonly maxSeq: (sessionId: string) => Effect.Effect<number>;
 
     readonly close: () => Effect.Effect<void>;
   }
 >() {}
 
-/* ── schema ──────────────────────────────────────────────────────────── */
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS sessions (
@@ -91,35 +65,14 @@ const SCHEMA = `
     ON events(session_id, seq);
 `;
 
-/**
- * Schema migrations applied after the base CREATE statements.
- *
- * Each entry runs once at startup; failures are swallowed because the
- * typical reason is "column already exists" on an upgraded DB. Anything
- * that *must* succeed (constraint additions, data backfills) should be
- * its own first-class step with explicit error handling — not a member
- * of this list.
- */
-const MIGRATIONS: ReadonlyArray<string> = [
-  // Added when session archiving shipped (Tier 2 polish). Old DBs that
-  // were created before this column existed get it tacked on; new DBs
-  // already have it from SCHEMA above and this ALTER fails harmlessly.
+const MIGRATIONS = [
   `ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`,
 ];
 
-/* ── row mapping ─────────────────────────────────────────────────────── */
 
-/** Mirrors node:sqlite's module-private SQLOutputValue. */
 type SqlValue = string | number | bigint | null | Uint8Array;
 type SqlRow = Record<string, SqlValue>;
 
-/**
- * Convert a raw sqlite row to SessionMeta. Accepts the lazy
- * `Record<string, SqlValue>` shape that node:sqlite hands back, and
- * narrows each field individually. Per-field casts are legitimate union
- * narrowings (SqlValue → constituent type), so no `as unknown` is
- * needed and call sites don't have to cast at all.
- */
 const rowToMeta = (r: SqlRow): SessionMeta =>
   parseSessionMeta({
     id: r.id,
@@ -133,30 +86,24 @@ const rowToMeta = (r: SqlRow): SessionMeta =>
     archived: r.archived === 1,
   });
 
-/* ── implementation ─────────────────────────────────────────────────── */
 
 const make = (dbPath: string) =>
   Effect.gen(function* () {
     const db = yield* Effect.sync(() => {
       const d = new DatabaseSync(dbPath);
-      // node:sqlite doesn't have a dedicated .pragma() helper — use exec.
       d.exec("PRAGMA journal_mode = WAL");
       d.exec("PRAGMA synchronous = NORMAL");
       d.exec("PRAGMA foreign_keys = ON");
       d.exec(SCHEMA);
-      // Apply additive migrations. Each statement is wrapped in its own
-      // try/catch so a column-exists error from one doesn't skip the rest.
       for (const sql of MIGRATIONS) {
         try {
           d.exec(sql);
         } catch {
-          // Expected on already-migrated DBs.
         }
       }
       return d;
     });
 
-    /* prepared statements */
     const stmtUpsertSession: StatementSync = db.prepare(`
       INSERT OR REPLACE INTO sessions
         (id, title, cwd, branch, status, updated_at,
@@ -168,9 +115,6 @@ const make = (dbPath: string) =>
       `SELECT * FROM sessions WHERE id = ?`,
     );
 
-    // Archived sessions are excluded from the default list — they live
-    // in a separate "archive" view (not yet built; the column is there
-    // ready for it). The boolean is read as a number per SQLite STRICT.
     const stmtListSessions: StatementSync = db.prepare(
       `SELECT * FROM sessions WHERE archived = 0 ORDER BY updated_at DESC`,
     );
@@ -226,7 +170,7 @@ const make = (dbPath: string) =>
       listSessions: () =>
         Effect.sync(() => {
           const rows = stmtListSessions.all() as SqlRow[];
-          return rows.map(rowToMeta) as ReadonlyArray<SessionMeta>;
+          return rows.map(rowToMeta);
         }),
 
       updateSession: (id, patch) =>
@@ -249,10 +193,6 @@ const make = (dbPath: string) =>
           );
         }),
 
-      // Hard delete — events first, then the session row, wrapped in a
-      // transaction so a crash mid-delete can't leave orphaned events.
-      // The events table has no FK (see schema), so cascade isn't an
-      // option; we do it explicitly here.
       deleteSession: (id) =>
         Effect.sync(() => {
           db.exec("BEGIN");

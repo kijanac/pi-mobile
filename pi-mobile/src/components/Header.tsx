@@ -2,7 +2,7 @@ import { A } from "@solidjs/router";
 import { ChevronLeft } from "lucide-solid";
 import type { JSX } from "solid-js";
 import { Show } from "solid-js";
-import { connState, latencyMs } from "~/stores/connection";
+import { connState } from "@/stores/connection";
 
 interface Props {
   back?: string;
@@ -11,7 +11,7 @@ interface Props {
   children?: JSX.Element;
 }
 
-export default function Header(props: Props): JSX.Element {
+export default function Header(props: Props) {
   return (
     <header
       class="hairline-b sticky top-0 z-30 bg-[color:var(--color-bg)]/85 backdrop-blur-md"
@@ -42,9 +42,6 @@ export default function Header(props: Props): JSX.Element {
 
         <div class="flex items-center gap-2 text-[10px] tracking-[0.08em] uppercase text-[color:var(--color-fg-faint)]">
           <span>{connState()}</span>
-          <Show when={latencyMs() !== null && connState() === "connected"}>
-            <span>{latencyMs()}ms</span>
-          </Show>
         </div>
 
         {props.trailing}

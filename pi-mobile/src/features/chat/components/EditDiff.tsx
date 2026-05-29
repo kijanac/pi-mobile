@@ -1,12 +1,8 @@
-import { createResource, For, Show, type JSX } from "solid-js";
+import { createResource, For, Show } from "solid-js";
 import { diffLines } from "diff";
-import { highlightLines, inferLangFromPath } from "~/lib/highlighter";
+import { highlightLines, inferLangFromPath } from "@/lib/highlighter";
 import type { EditToolArgs } from "@pi-mobile/protocol";
 
-/**
- * Pi's `edit` tool accepts `{ path, edits: [{ oldText, newText }] }`.
- * The bridge normalizes and validates that shape before it reaches mobile.
- */
 
 interface Segment {
   oldText: string;
@@ -25,25 +21,16 @@ function normalize(args: EditToolArgs): {
   };
 }
 
-/* ── Diff lines ──────────────────────────────────────────────────────── */
 
 type LineKind = "add" | "remove" | "context";
 
 interface DiffLine {
   kind: LineKind;
-  /** 1-based line number in the OLD file, or null for added lines. */
   oldLine: number | null;
-  /** 1-based line number in the NEW file, or null for removed lines. */
   newLine: number | null;
-  /** Source text without trailing newline. */
   text: string;
 }
 
-/**
- * Convert jsdiff's chunked output into a flat list of per-line entries
- * with old/new line numbers. We split each chunk's `value` on '\n' and
- * drop the trailing empty entry that always appears.
- */
 function toDiffLines(oldText: string, newText: string): DiffLine[] {
   const chunks = diffLines(oldText, newText);
   const out: DiffLine[] = [];
@@ -53,7 +40,7 @@ function toDiffLines(oldText: string, newText: string): DiffLine[] {
   for (const chunk of chunks) {
     const lines = chunk.value.split("\n");
     if (lines.length > 0 && lines[lines.length - 1] === "") {
-      lines.pop(); // trailing newline-induced empty string
+      lines.pop();
     }
     const kind: LineKind = chunk.added
       ? "add"
@@ -78,21 +65,15 @@ function toDiffLines(oldText: string, newText: string): DiffLine[] {
   return out;
 }
 
-/**
- * Trim long stretches of unchanged context to a small window around
- * changes. Keeps the diff scannable on a phone screen.
- */
 const CONTEXT_LINES = 3;
 
 interface CollapsedSegment {
   kind: "hunk" | "skip";
   lines?: DiffLine[];
-  /** Number of skipped context lines, for "skip" kind. */
   skipped?: number;
 }
 
 function collapseContext(lines: DiffLine[]): CollapsedSegment[] {
-  // Find indices of changed lines
   const changedIdx: number[] = [];
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].kind !== "context") changedIdx.push(i);
@@ -101,7 +82,6 @@ function collapseContext(lines: DiffLine[]): CollapsedSegment[] {
     return [{ kind: "hunk", lines }];
   }
 
-  // Build ranges around each changed index, then merge overlapping
   const ranges: Array<[number, number]> = changedIdx.map((i) => [
     Math.max(0, i - CONTEXT_LINES),
     Math.min(lines.length - 1, i + CONTEXT_LINES),
@@ -131,14 +111,12 @@ function collapseContext(lines: DiffLine[]): CollapsedSegment[] {
   return result;
 }
 
-/* ── Component ───────────────────────────────────────────────────────── */
 
 interface Props {
   args: EditToolArgs;
 }
 
-export default function EditDiff(props: Props): JSX.Element {
-  // Re-normalize when args change (e.g. tool call args stream in).
+export default function EditDiff(props: Props) {
   const normalized = () => normalize(props.args);
 
   return (
@@ -165,12 +143,10 @@ function SegmentView(props: {
   oldText: string;
   newText: string;
   path: string;
-}): JSX.Element {
+}) {
   const lang = () => inferLangFromPath(props.path);
   const lines = () => toDiffLines(props.oldText, props.newText);
 
-  // Highlight both sides once; index per line. createResource gives us
-  // automatic re-fetch when args change (multi-edit segments stream).
   const [highlighted] = createResource(
     () => ({ old: props.oldText, neu: props.newText, lang: lang() }),
     async ({ old, neu, lang: l }) => {
@@ -211,7 +187,7 @@ function SegmentView(props: {
 function DiffLineRow(props: {
   line: DiffLine;
   highlighted: { old: string[]; neu: string[] } | null | undefined;
-}): JSX.Element {
+}) {
   const tone = () => {
     switch (props.line.kind) {
       case "add":
@@ -234,7 +210,6 @@ function DiffLineRow(props: {
   const content = () => {
     const hl = props.highlighted;
     if (hl) {
-      // Resolve highlighted HTML from old or new array. Lines are 1-based.
       if (props.line.kind === "remove" && props.line.oldLine !== null) {
         return hl.old[props.line.oldLine - 1] ?? null;
       }

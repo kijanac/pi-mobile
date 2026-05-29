@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Release-based pi-bridge updater with atomic symlink switch and rollback.
+# Release-based pi-bridge updater with atomic symlink switch.
 
 set -euo pipefail
 
@@ -37,6 +37,31 @@ json_get() {
   node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); console.log(process.argv[2].split('.').reduce((o,k)=>o?.[k], data) ?? '')" "$1" "$2"
 }
 
+state_set() {
+  node -e '
+    const fs=require("fs");
+    const [path, version, status, reason]=process.argv.slice(1);
+    let state={};
+    try { state=JSON.parse(fs.readFileSync(path,"utf8")); } catch {}
+    const now=Date.now();
+    if (status === "seen") {
+      state.lastSeenVersion=version;
+      state.lastSeenAt=now;
+    } else if (status === "failed") {
+      state.currentVersion=version;
+      state.failedAt=now;
+      state.failure={ version, reason, at: now };
+    } else if (status === "updated") {
+      state.currentVersion=version;
+      state.lastSeenVersion=version;
+      state.updatedAt=now;
+      delete state.failure;
+      delete state.failedAt;
+    }
+    fs.writeFileSync(path, JSON.stringify(state, null, 2));
+  ' "$STATE_FILE" "$1" "$2" "${3:-}"
+}
+
 mkdir -p "$RELEASES_DIR" "$DATA_DIR"
 
 CURRENT_VERSION="0.0.0"
@@ -65,10 +90,6 @@ fi
 if version_gt "$LAST_SEEN" "$VERSION"; then
   fatal "refusing rollback from last seen $LAST_SEEN to $VERSION"
 fi
-if [[ -f "$STATE_FILE" ]] && node -e 'const fs=require("fs"); const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.exit((s.failedVersions||[]).includes(process.argv[2]) ? 0 : 1)' "$STATE_FILE" "$VERSION"; then
-  fatal "refusing previously failed version $VERSION"
-fi
-
 ASSETS_JSON="$TMP_DIR/assets.json"
 node -e 'const fs=require("fs"); const r=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); fs.writeFileSync(process.argv[2], JSON.stringify(r.assets||[]));' "$RELEASE_JSON" "$ASSETS_JSON"
 asset_url() {
@@ -92,16 +113,7 @@ ARTIFACT="$(json_get "$MANIFEST" artifact.name)"
 EXPECTED_SHA="$(json_get "$MANIFEST" artifact.sha256)"
 [[ "$MANIFEST_VERSION" == "$VERSION" ]] || fatal "manifest version $MANIFEST_VERSION does not match release $VERSION"
 [[ -n "$ARTIFACT" && -n "$EXPECTED_SHA" ]] || fatal "manifest missing artifact name or sha256"
-node -e '
-  const fs=require("fs");
-  const path=process.argv[1];
-  const version=process.argv[2];
-  let state={};
-  try { state=JSON.parse(fs.readFileSync(path,"utf8")); } catch {}
-  state.lastSeenVersion=version;
-  state.lastSeenAt=Date.now();
-  fs.writeFileSync(path, JSON.stringify(state, null, 2));
-' "$STATE_FILE" "$VERSION"
+state_set "$VERSION" seen
 
 ARTIFACT_URL="$(asset_url "$ARTIFACT")" || fatal "$ARTIFACT asset missing"
 ARCHIVE="$TMP_DIR/$ARTIFACT"
@@ -119,44 +131,19 @@ cd /
 chown -R pi-bridge:pi-bridge "$TARGET.tmp"
 mv "$TARGET.tmp" "$TARGET"
 
-PREVIOUS=""
-[[ ! -L "$CURRENT_LINK" ]] || PREVIOUS="$(readlink -f "$CURRENT_LINK")"
 ln -sfn "$TARGET" "$CURRENT_LINK"
 
 log "restarting pi-bridge on $VERSION"
 if ! systemctl restart pi-bridge; then
-  [[ -z "$PREVIOUS" ]] || ln -sfn "$PREVIOUS" "$CURRENT_LINK"
-  systemctl restart pi-bridge || true
-  fatal "restart failed; rolled back"
+  state_set "$VERSION" failed restart_failed
+  fatal "restart failed; leaving $VERSION installed"
 fi
 
 if ! sh -c 'for i in $(seq 1 30); do curl -fsS --max-time 5 http://127.0.0.1:7777/healthz >/dev/null && exit 0; sleep 1; done; exit 1'; then
-  log "health check failed; rolling back"
-  [[ -z "$PREVIOUS" ]] || ln -sfn "$PREVIOUS" "$CURRENT_LINK"
-  systemctl restart pi-bridge || true
-  node -e '
-    const fs=require("fs");
-    const path=process.argv[1];
-    const version=process.argv[2];
-    let state={};
-    try { state=JSON.parse(fs.readFileSync(path,"utf8")); } catch {}
-    state.failedVersions=Array.from(new Set([...(state.failedVersions||[]), version]));
-    state.failedAt=Date.now();
-    fs.writeFileSync(path, JSON.stringify(state, null, 2));
-  ' "$STATE_FILE" "$VERSION"
-  fatal "health check failed"
+  state_set "$VERSION" failed health_check_failed
+  fatal "health check failed; leaving $VERSION installed"
 fi
 
-node -e '
-  const fs=require("fs");
-  const path=process.argv[1];
-  const version=process.argv[2];
-  let state={};
-  try { state=JSON.parse(fs.readFileSync(path,"utf8")); } catch {}
-  state.currentVersion=version;
-  state.lastSeenVersion=version;
-  state.updatedAt=Date.now();
-  fs.writeFileSync(path, JSON.stringify(state, null, 2));
-' "$STATE_FILE" "$VERSION"
+state_set "$VERSION" updated
 
 log "updated to $VERSION"

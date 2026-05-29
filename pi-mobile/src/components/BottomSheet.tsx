@@ -5,10 +5,10 @@ import {
   DrawerContent,
   DrawerLabel,
   DrawerPortal,
-} from "~/components/ui/drawer";
-import { Button } from "~/components/ui/button";
-import { cn } from "~/lib/cn";
-import { useKeyboardInset } from "~/lib/keyboard";
+} from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
+import { useKeyboardInset } from "@/lib/keyboard";
 
 export default function BottomSheet(props: {
   open: boolean;
@@ -22,7 +22,7 @@ export default function BottomSheet(props: {
   headerTrailing?: JSX.Element;
   contentClass?: string;
   avoidKeyboard?: boolean;
-}): JSX.Element {
+}) {
   const keyboardInset = useKeyboardInset({ enabled: () => props.avoidKeyboard ?? true });
 
   const setOpen = (open: boolean) => {

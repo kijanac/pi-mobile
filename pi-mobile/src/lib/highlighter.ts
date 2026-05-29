@@ -1,21 +1,6 @@
 import type { HighlighterCore } from "shiki/core";
 
-/**
- * Lazy Shiki singleton.
- *
- * Bundle strategy:
- *   - `shiki/core` + `shiki/engine/javascript` ship in the main chunk
- *     (statically imported). Net cost ≈ 25 KB gz.
- *   - The theme module is a dynamic import → Vite emits a separate chunk
- *     loaded on first highlight.
- *   - Each language is a dynamic import → Vite emits each as its own chunk,
- *     loaded the first time a code block of that language appears.
- *
- * The singleton itself is built lazily on the first call to
- * `highlightToHtml`. Until then no Shiki touches the page.
- */
 
-/** Alias → canonical Shiki language name. */
 const LANG_ALIASES: Record<string, string> = {
   ts: "typescript",
   typescript: "typescript",
@@ -61,12 +46,6 @@ const LANG_ALIASES: Record<string, string> = {
   xml: "xml",
 };
 
-/**
- * Static dispatch map for language imports.
- *
- * The bundler can only emit chunks for `import("@shikijs/langs/<literal>")`
- * — a fully-dynamic `import(`@shikijs/langs/${var}`)` is opaque to it.
- */
 type LanguageRegistration = Parameters<HighlighterCore["loadLanguage"]>[0];
 
 const LANG_IMPORTS: Record<string, () => Promise<{ default: LanguageRegistration }>> = {
@@ -109,8 +88,6 @@ const loadedLangs = new Set<string>();
 function getHighlighter(): Promise<HighlighterCore> {
   if (!highlighterPromise) {
     highlighterPromise = (async () => {
-      // Load the highlighter core + engine on first use. Both land in
-      // a separate chunk because of the dynamic import.
       const [{ createHighlighterCore }, { createJavaScriptRegexEngine }] =
         await Promise.all([
           import("shiki/core"),
@@ -138,9 +115,6 @@ async function ensureLang(lang: string): Promise<boolean> {
   const importer = LANG_IMPORTS[lang];
   if (!importer) return false;
 
-  // Dedupe concurrent loads of the same language. Two code blocks of the
-  // same language inside one assistant message both reach this branch
-  // before either resolves; we want one network/chunk fetch, not two.
   let p = loadingLangs.get(lang);
   if (!p) {
     p = (async () => {
@@ -163,12 +137,6 @@ async function ensureLang(lang: string): Promise<boolean> {
   }
 }
 
-/**
- * Highlight `code` to a Shiki-styled `<pre class="shiki">…</pre>` HTML
- * string. Returns `null` if the language isn't in our supported set or
- * anything in the pipeline fails — the caller leaves the unstyled
- * `<pre>` already in the DOM untouched in that case.
- */
 export async function highlightToHtml(
   code: string,
   langHint: string | null | undefined,
@@ -199,18 +167,6 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]!);
 }
 
-/**
- * Highlight `code` and return an array of HTML strings, one per line.
- * Each string is a sequence of `<span style="color:…">tok</span>` tokens
- * with the source content HTML-escaped. Trailing newlines are stripped.
- *
- * This is the building block for the diff viewer: we highlight the full
- * old and new files (so syntax context is correct), then index into the
- * result by line number when assembling the unified diff.
- *
- * Returns `null` (one line of plain escaped text) if the language isn't
- * supported.
- */
 export async function highlightLines(
   code: string,
   langHint: string | null | undefined,
@@ -240,10 +196,6 @@ export async function highlightLines(
   }
 }
 
-/**
- * Best-effort: infer a Shiki language name from a file path's extension.
- * Returns null for paths without a recognized extension (no highlighting).
- */
 export function inferLangFromPath(path: string): string | null {
   const m = /\.([a-z0-9]+)$/i.exec(path);
   if (!m) return null;

@@ -1,48 +1,35 @@
-import { createSignal, createEffect, createResource, Show, For, type JSX } from "solid-js";
-import { Mic, MicOff, Square, ArrowUp, Slash, ImagePlus, ListTodo, Trash2 } from "lucide-solid";
-import { activeStatus } from "~/stores/sessions";
-import { activeSend } from "~/stores/connection";
-import { createSpeechRecognition } from "~/lib/speech";
-import { chooseFromGallery } from "~/lib/image-picker";
-import { haptic } from "~/lib/haptics";
-import { createLongPress } from "~/lib/long-press";
-import { clearSessionQueue, getSessionQueue } from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
+import { createSignal, createEffect, createResource, Show, For } from "solid-js";
+import { MicOff, Square, ArrowUp, ImagePlus, ListTodo, Trash2, Plus } from "lucide-solid";
+import { activeStatus } from "@/stores/sessions";
+import { activeSend } from "@/stores/connection";
+import { createSpeechRecognition } from "@/lib/speech";
+import { chooseFromGallery } from "@/lib/image-picker";
+import { haptic } from "@/lib/haptics";
+import { createLongPress } from "@/lib/long-press";
+import { clearSessionQueue, getSessionQueue } from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
 import type { ImageAttachment } from "@pi-mobile/protocol";
-import BottomSheet from "~/components/BottomSheet";
-import { Button } from "~/components/ui/button";
+import BottomSheet from "@/components/BottomSheet";
+import { Button } from "@/components/ui/button";
 import SlashPalette from "./SlashPalette";
 import ImageTray from "./ImageTray";
 
-/**
- * Long-press threshold for the send button.
- *
- *   tap   → mode "steer"     (queue after current turn's tools finish)
- *   hold  → mode "follow_up" (queue after the agent settles entirely)
- *
- * The bridge ignores mode when the agent is idle — it just starts a new
- * turn — so the same buttons work whether or not pi is streaming.
- */
 const LONG_PRESS_MS = 500;
 const MAX_IMAGES = 4;
 
-export default function InputBar(props: { sessionId: string }): JSX.Element {
+export default function InputBar(props: { sessionId: string }) {
   let ta: HTMLTextAreaElement | undefined;
   const [value, setValue] = createSignal("");
   const [composing, setComposing] = createSignal(false);
   const [holding, setHolding] = createSignal(false);
   const [paletteOpen, setPaletteOpen] = createSignal(false);
+  const [actionsOpen, setActionsOpen] = createSignal(false);
   const [queueOpen, setQueueOpen] = createSignal(false);
   const [queueRefresh, setQueueRefresh] = createSignal(0);
   const [images, setImages] = createSignal<ImageAttachment[]>([]);
 
-  // Speech-to-text. Available on native (iOS/Android) only; on web the
-  // mic button is hidden.
   const stt = createSpeechRecognition();
 
-  // While listening, the live transcript replaces the textarea content.
-  // We remember the pre-recording text and concatenate, so users can dictate
-  // an addendum without losing what they'd already typed.
   let textBeforeRecording = "";
   createEffect(() => {
     if (stt.listening()) {
@@ -58,9 +45,6 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
   const busy = () =>
     activeStatus() === "thinking" || activeStatus() === "tool";
   const hasText = () => value().trim().length > 0;
-  // Images alone count as sendable content — image-only messages are a
-  // valid pi prompt (e.g. "what's in this screenshot?" with the user's
-  // intent implicit). The send button and submit guards both follow.
   const hasSendable = () => hasText() || images().length > 0;
   const canSend = () => activeSend() !== null;
   const [queueState] = createResource(
@@ -84,7 +68,6 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
     const v = value().trim();
     const imgs = images();
     const send = activeSend();
-    // Allow sending images alone (no text), but not nothing.
     if ((!v && imgs.length === 0) || !send) return;
     const queued = busy();
     send({
@@ -105,37 +88,38 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
     activeSend()?.({ t: "interrupt" });
   }
 
-  /**
-   * Toggle dictation. While listening, partial results flow into the
-   * textarea (concatenated with any text that was there when recording
-   * started). Tap again to stop — the transcript stays in the textarea
-   * so the user can edit or send normally.
-   */
   async function toggleMic() {
     if (stt.listening()) {
       await stt.stop();
-      // textBeforeRecording is left as-is; clearing happens on submit
     } else {
       textBeforeRecording = value();
       await stt.start();
     }
   }
 
-  /**
-   * Insert a slash command at the end of the current input, then focus
-   * the textarea. For commands that take args, the server adds a
-   * trailing space so the user can start typing immediately.
-   */
   function insertCommand(text: string) {
     const current = value();
-    // If empty or ends with whitespace, just append. Otherwise add a space.
-    const prefix =
-      current.length === 0 || /\s$/.test(current) ? current : `${current} `;
+    const slash = current.lastIndexOf("/");
+    const before = slash >= 0 ? current.slice(0, slash) : current;
+    const prefix = before.length === 0 || /\s$/.test(before) ? before : `${before} `;
     setValue(prefix + text);
     autoSize();
     setPaletteOpen(false);
-    // Defer focus to after the sheet's close animation
     queueMicrotask(() => ta?.focus());
+  }
+
+  function handleInput(next: string) {
+    setValue(next);
+    autoSize();
+
+    const slash = next.lastIndexOf("/");
+    if (slash < 0) return;
+
+    const before = slash === 0 ? "" : next[slash - 1];
+    const token = next.slice(slash);
+    if ((slash === 0 || /\s/.test(before)) && !/\s/.test(token.slice(1))) {
+      setPaletteOpen(true);
+    }
   }
 
   const sendPress = createLongPress({
@@ -154,12 +138,6 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
     submit("steer");
   }
 
-  /**
-   * Open the gallery picker. Native: shows the OS photo picker; web:
-   * shows the browser file chooser. Picked images are appended to the
-   * tray (subject to MAX_IMAGES); failures are logged and silently
-   * swallowed so a deny / cancel doesn't surface as an error.
-   */
   async function pickImages() {
     try {
       const remaining = MAX_IMAGES - images().length;
@@ -187,25 +165,15 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
       <div class="flex items-start gap-1.5 px-2 py-2">
         <button
           type="button"
-          onClick={() => setPaletteOpen(true)}
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]"
-          aria-label="Slash command"
-          title="Insert a slash command"
-        >
-          <Slash size={14} />
-        </button>
-
-        <button
-          type="button"
           onClick={() => {
             refreshQueueCount();
-            setQueueOpen(true);
+            setActionsOpen(true);
           }}
           class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]"
-          aria-label={queueCount() > 0 ? `${queueCount()} queued messages` : "Queued messages"}
-          title={queueCount() > 0 ? `${queueCount()} queued messages` : "Queued messages"}
+          aria-label="More input actions"
+          title="More input actions"
         >
-          <ListTodo size={14} />
+          <Plus size={15} />
           <Show when={queueCount() > 0}>
             <span class="absolute right-0.5 top-0.5 flex min-w-4 translate-x-1/3 -translate-y-1/3 items-center justify-center rounded-full border border-[color:var(--color-bg)] bg-[color:var(--color-accent)] px-1 py-0.5 text-[9px] font-medium leading-none text-[color:var(--color-bg)]">
               {queueCount() > 99 ? "99+" : queueCount()}
@@ -213,29 +181,11 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
           </Show>
         </button>
 
-        <button
-          type="button"
-          onClick={pickImages}
-          disabled={images().length >= MAX_IMAGES}
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)] disabled:opacity-40"
-          aria-label="Attach image"
-          title={
-            images().length >= MAX_IMAGES
-              ? `Up to ${MAX_IMAGES} images per message`
-              : "Attach an image"
-          }
-        >
-          <ImagePlus size={14} />
-        </button>
-
         <div class="min-h-9 flex-1 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] focus-within:border-[color:var(--color-border-strong)]">
           <textarea
             ref={ta}
             value={value()}
-            onInput={(e) => {
-              setValue(e.currentTarget.value);
-              autoSize();
-            }}
+            onInput={(e) => handleInput(e.currentTarget.value)}
             onCompositionStart={() => setComposing(true)}
             onCompositionEnd={() => setComposing(false)}
             onKeyDown={(e) => {
@@ -244,88 +194,66 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
                 submit("steer");
               }
             }}
-            placeholder="message pi…"
             rows="1"
-            class="w-full resize-none bg-transparent px-3 py-[7px] text-[13px] leading-[20px] text-[color:var(--color-fg)] placeholder:text-[color:var(--color-fg-faint)] focus:outline-none"
+            class="w-full resize-none bg-transparent px-3 py-[7px] text-[13px] leading-[20px] text-[color:var(--color-fg)] focus:outline-none"
           />
         </div>
 
-        {/* Trailing button stack — precedence rules:
-            1. Listening (recording dictation): show Mic stop button. Wins
-               over everything so the user can always stop.
-            2. Busy (agent generating): show Stop. If hasText, also show
-               Send so the user can queue a steering/follow-up message.
-            3. Idle + has text: show Send.
-            4. Idle + no text + STT available: show Mic (start dictation).
-            5. Else: nothing. */}
-        <Show when={stt.listening()}>
-          <button
+        <Show
+          when={stt.listening()}
+          fallback={
+            <>
+              <Show when={busy()}>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="foreground"
+                  onClick={interrupt}
+                  aria-label="Stop"
+                  title="Stop the current turn"
+                >
+                  <Square size={11} fill="currentColor" />
+                </Button>
+              </Show>
+
+              <Button
+                type="button"
+                size="icon"
+                variant="accent"
+                onClick={handleClick}
+                onPointerDown={(e) => sendPress.start(e)}
+                onPointerUp={sendPress.end}
+                onPointerLeave={sendPress.end}
+                onPointerCancel={sendPress.end}
+                disabled={!hasSendable() || !canSend()}
+                classList={{
+                  "scale-95": holding(),
+                }}
+                class="rounded-[var(--radius-sm)] transition-transform duration-100 disabled:bg-[color:var(--color-surface)] disabled:text-[color:var(--color-fg-faint)] disabled:opacity-100"
+                aria-label={busy() ? "Queue message (hold to follow-up)" : "Send"}
+                title={
+                  hasSendable()
+                    ? busy()
+                      ? "Tap to steer · hold to queue follow-up"
+                      : "Send (hold to queue as follow-up)"
+                    : "Draft a message to send"
+                }
+              >
+                <ArrowUp size={14} strokeWidth={2.5} />
+              </Button>
+            </>
+          }
+        >
+          <Button
             type="button"
+            size="icon"
             onClick={toggleMic}
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[color:var(--color-danger)] text-[color:var(--color-bg)] pulse-accent active:opacity-80"
+            class="rounded-[var(--radius-sm)] bg-[color:var(--color-danger)] text-[color:var(--color-bg)] pulse-accent active:opacity-80"
             aria-label="Stop dictation"
             title="Stop dictation"
           >
             <MicOff size={14} />
-          </button>
-        </Show>
-
-        <Show when={!stt.listening() && busy()}>
-          <button
-            type="button"
-            onClick={interrupt}
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[color:var(--color-fg)] text-[color:var(--color-bg)] active:opacity-80"
-            aria-label="Stop"
-            title="Stop the current turn"
-          >
-            <Square size={11} fill="currentColor" />
-          </button>
-        </Show>
-
-        <Show
-          when={!stt.listening() && hasSendable()}
-          fallback={
-            <Show
-              when={
-                !stt.listening() &&
-                !busy() &&
-                !hasSendable() &&
-                stt.available() === true
-              }
-            >
-              <button
-                type="button"
-                onClick={toggleMic}
-                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]"
-                aria-label="Voice input"
-                title="Tap to dictate"
-              >
-                <Mic size={14} />
-              </button>
-            </Show>
-          }
-        >
-          <button
-            type="button"
-            onClick={handleClick}
-            onPointerDown={(e) => sendPress.start(e)}
-            onPointerUp={sendPress.end}
-            onPointerLeave={sendPress.end}
-            onPointerCancel={sendPress.end}
-            disabled={!canSend()}
-            classList={{
-              "scale-95": holding(),
-            }}
-            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[color:var(--color-accent)] text-[color:var(--color-bg)] transition-transform duration-100 active:opacity-80 disabled:opacity-40"
-            aria-label={busy() ? "Queue message (hold to follow-up)" : "Send"}
-            title={
-              busy()
-                ? "Tap to steer · hold to queue follow-up"
-                : "Send (hold to queue as follow-up)"
-            }
-          >
-            <ArrowUp size={14} strokeWidth={2.5} />
-          </button>
+          </Button>
         </Show>
       </div>
 
@@ -334,6 +262,22 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
         sessionId={props.sessionId}
         onCancel={() => setPaletteOpen(false)}
         onPick={insertCommand}
+      />
+      <InputActionsSheet
+        open={actionsOpen()}
+        queueCount={queueCount()}
+        imagesFull={images().length >= MAX_IMAGES}
+        maxImages={MAX_IMAGES}
+        onAttachImage={() => {
+          setActionsOpen(false);
+          void pickImages();
+        }}
+        onOpenQueue={() => {
+          setActionsOpen(false);
+          refreshQueueCount();
+          setQueueOpen(true);
+        }}
+        onClose={() => setActionsOpen(false)}
       />
       <QueueSheet
         open={queueOpen()}
@@ -348,12 +292,62 @@ export default function InputBar(props: { sessionId: string }): JSX.Element {
   );
 }
 
+function InputActionsSheet(props: {
+  open: boolean;
+  queueCount: number;
+  imagesFull: boolean;
+  maxImages: number;
+  onAttachImage: () => void;
+  onOpenQueue: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Show when={props.open}>
+      <BottomSheet open title="add" onClose={props.onClose} maxHeightClass="max-h-[45dvh]">
+        <div class="grid grid-cols-2 gap-2 px-3 py-3">
+          <button
+            type="button"
+            onClick={props.onAttachImage}
+            disabled={props.imagesFull}
+            class="flex min-h-20 flex-col items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-3 text-center active:bg-[color:var(--color-surface-2)] disabled:opacity-40"
+          >
+            <ImagePlus size={18} class="text-[color:var(--color-fg-muted)]" />
+            <span class="text-[12px] font-medium">image</span>
+            <span class="text-[10px] text-[color:var(--color-fg-faint)]">
+              {props.imagesFull ? `max ${props.maxImages}` : "attach photo"}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={props.onOpenQueue}
+            class="flex min-h-20 flex-col items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-3 text-center active:bg-[color:var(--color-surface-2)]"
+          >
+            <span class="relative">
+              <ListTodo size={18} class="text-[color:var(--color-fg-muted)]" />
+              <Show when={props.queueCount > 0}>
+                <span class="absolute -right-2 -top-2 flex min-w-4 items-center justify-center rounded-full bg-[color:var(--color-accent)] px-1 py-0.5 text-[9px] font-medium leading-none text-[color:var(--color-bg)]">
+                  {props.queueCount > 99 ? "99+" : props.queueCount}
+                </span>
+              </Show>
+            </span>
+            <span class="text-[12px] font-medium">queue</span>
+            <span class="text-[10px] text-[color:var(--color-fg-faint)]">
+              {props.queueCount > 0 ? `${props.queueCount} pending` : "empty"}
+            </span>
+          </button>
+        </div>
+      </BottomSheet>
+    </Show>
+  );
+}
+
 function QueueSheet(props: {
   open: boolean;
   sessionId: string;
   onChanged: () => void;
   onClose: () => void;
-}): JSX.Element {
+}) {
   const [refresh, setRefresh] = createSignal(0);
   const [clearing, setClearing] = createSignal(false);
   const [queue] = createResource(
@@ -418,7 +412,7 @@ function QueueSheet(props: {
   );
 }
 
-function QueueSection(props: { label: string; items: string[] }): JSX.Element {
+function QueueSection(props: { label: string; items: string[] }) {
   return (
     <Show when={props.items.length > 0}>
       <div>

@@ -1,4 +1,3 @@
-import { type JSX } from "solid-js";
 import type { SessionStatus } from "@pi-mobile/protocol";
 
 interface Props {
@@ -17,7 +16,7 @@ const COLOR: Record<SessionStatus, string> = {
 
 const isActive = (s: SessionStatus) => s === "thinking" || s === "tool";
 
-export default function StatusDot(props: Props): JSX.Element {
+export default function StatusDot(props: Props) {
   const size = () => `${props.size ?? 6}px`;
   return (
     <span

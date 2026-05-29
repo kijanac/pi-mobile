@@ -1,21 +1,21 @@
-import { Show, createSignal, type JSX } from "solid-js";
+import { Show, createSignal } from "solid-js";
 import { MoreHorizontal } from "lucide-solid";
-import { haptic } from "~/lib/haptics";
-import AgentActionSheet from "~/features/chat/actions/AgentActionSheet";
-import AuthView from "~/features/chat/actions/AuthView";
-import CompactView from "~/features/chat/actions/CompactView";
-import MenuView from "~/features/chat/actions/MenuView";
-import ModelPicker from "~/features/chat/actions/ModelPicker";
-import SessionInfoView from "~/features/chat/actions/SessionInfoView";
-import SessionSettingsView from "~/features/chat/actions/SessionSettingsView";
-import TreeView from "~/features/chat/actions/TreeView";
-import type { AgentActionView } from "~/features/chat/actions/types";
+import { haptic } from "@/lib/haptics";
+import AgentActionSheet from "@/features/chat/actions/AgentActionSheet";
+import AuthView from "@/features/chat/actions/AuthView";
+import CompactView from "@/features/chat/actions/CompactView";
+import MenuView from "@/features/chat/actions/MenuView";
+import ModelPicker from "@/features/chat/actions/ModelPicker";
+import SessionInfoView from "@/features/chat/actions/SessionInfoView";
+import SessionSettingsView from "@/features/chat/actions/SessionSettingsView";
+import TreeView from "@/features/chat/actions/TreeView";
+import type { AgentActionView } from "@/features/chat/actions/types";
 
 interface Props {
   sessionId: string;
 }
 
-export default function SessionAgentActions(props: Props): JSX.Element {
+export default function SessionAgentActions(props: Props) {
   const [open, setOpen] = createSignal(false);
   const [view, setView] = createSignal<AgentActionView>("menu");
   const [error, setError] = createSignal<string | null>(null);

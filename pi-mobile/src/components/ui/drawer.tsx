@@ -1,51 +1,29 @@
-import type { ComponentProps, ValidComponent } from "solid-js";
+import type { ComponentProps } from "solid-js";
 import { Show, mergeProps, splitProps } from "solid-js";
-import type { DynamicProps } from "@corvu/drawer";
 import DrawerPrimitive from "@corvu/drawer";
 
-import { cx } from "~/lib/cva";
+import { cx } from "@/lib/cva";
 
 export const DrawerPortal = DrawerPrimitive.Portal;
 
-export type DrawerProps = ComponentProps<typeof DrawerPrimitive>;
+type DrawerProps = ComponentProps<typeof DrawerPrimitive>;
 
 export const Drawer = (props: DrawerProps) => {
   return <DrawerPrimitive data-slot="drawer" {...props} />;
 };
 
-export type DrawerTriggerProps<T extends ValidComponent = "button"> =
-  ComponentProps<typeof DrawerPrimitive.Trigger<T>>;
-
-export const DrawerTrigger = <T extends ValidComponent = "button">(
-  props: DrawerTriggerProps<T>,
-) => {
-  return <DrawerPrimitive.Trigger data-slot="drawer-trigger" {...props} />;
+type DrawerContentProps = ComponentProps<typeof DrawerPrimitive.Content> & {
+  withHandle?: boolean;
 };
 
-export type DrawerCloseProps<T extends ValidComponent = "button"> =
-  ComponentProps<typeof DrawerPrimitive.Close<T>>;
-
-export const DrawerClose = <T extends ValidComponent = "button">(
-  props: DrawerCloseProps<T>,
-) => {
-  return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />;
-};
-
-export type DrawerContentProps<T extends ValidComponent = "div"> =
-  ComponentProps<typeof DrawerPrimitive.Content<T>> & {
-    withHandle?: boolean;
-  };
-
-export const DrawerContent = <T extends ValidComponent = "div">(
-  props: DrawerContentProps<T>,
-) => {
+export const DrawerContent = (props: DrawerContentProps) => {
   const context = DrawerPrimitive.useContext();
 
-  const merge = mergeProps<DrawerContentProps[]>(
+  const merge = mergeProps(
     {
       withHandle: context.side() === "bottom",
     },
-    props as DrawerContentProps,
+    props,
   );
   const [, rest] = splitProps(merge, ["class", "children", "withHandle"]);
 
@@ -96,14 +74,10 @@ export const DrawerContent = <T extends ValidComponent = "div">(
   );
 };
 
-export type DrawerLabelProps<T extends ValidComponent = "h2"> = ComponentProps<
-  typeof DrawerPrimitive.Label<T>
->;
+type DrawerLabelProps = ComponentProps<typeof DrawerPrimitive.Label>;
 
-export const DrawerLabel = <T extends ValidComponent = "h2">(
-  props: DynamicProps<T, DrawerLabelProps<T>>,
-) => {
-  const [, rest] = splitProps(props as DrawerLabelProps, ["class"]);
+export const DrawerLabel = (props: DrawerLabelProps) => {
+  const [, rest] = splitProps(props, ["class"]);
 
   return (
     <DrawerPrimitive.Label
@@ -114,47 +88,3 @@ export const DrawerLabel = <T extends ValidComponent = "h2">(
   );
 };
 
-export type DrawerDescriptionProps<T extends ValidComponent = "p"> =
-  ComponentProps<typeof DrawerPrimitive.Description<T>>;
-
-export const DrawerDescription = <T extends ValidComponent = "p">(
-  props: DynamicProps<T, DrawerDescriptionProps<T>>,
-) => {
-  const [, rest] = splitProps(props as DrawerDescriptionProps, ["class"]);
-
-  return (
-    <DrawerPrimitive.Description
-      data-slot="drawer-description"
-      class={cx("text-muted-foreground text-sm", props.class)}
-      {...rest}
-    />
-  );
-};
-
-export type DrawerHeaderProps = ComponentProps<"div">;
-
-export const DrawerHeader = (props: DrawerHeaderProps) => {
-  const [, rest] = splitProps(props, ["class"]);
-
-  return (
-    <div
-      data-slot="drawer-header"
-      class={cx("flex flex-col gap-1.5 p-4", props.class)}
-      {...rest}
-    />
-  );
-};
-
-export type DrawerFooterProps = ComponentProps<"div">;
-
-export const DrawerFooter = (props: DrawerFooterProps) => {
-  const [, rest] = splitProps(props, ["class"]);
-
-  return (
-    <div
-      data-slot="drawer-footer"
-      class={cx("mt-auto flex flex-col gap-2 p-4", props.class)}
-      {...rest}
-    />
-  );
-};

@@ -1,15 +1,15 @@
-import { Show, createResource, type JSX } from "solid-js";
+import { Show, createResource } from "solid-js";
 import { Download } from "lucide-solid";
-import { getSessionStats, sessionExportHtmlUrl } from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
-import { formatCost, formatTokens } from "~/lib/format";
+import { getSessionStats, sessionExportHtmlUrl } from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
+import { formatCost, formatTokens } from "@/lib/format";
 import { InfoRow } from "./shared";
 
 function formatContextPercent(percent: number | null): string {
   return percent === null ? "" : ` · ${Math.round(percent)}%`;
 }
 
-export default function SessionInfoView(props: { sessionId: string }): JSX.Element {
+export default function SessionInfoView(props: { sessionId: string }) {
   const [stats] = createResource(async () => {
     const baseUrl = await getBridgeUrl();
     return getSessionStats(baseUrl, props.sessionId);

@@ -1,5 +1,5 @@
 import type { JSX } from "solid-js";
-import BottomSheet from "~/components/BottomSheet";
+import BottomSheet from "@/components/BottomSheet";
 import type { AgentActionView } from "./types";
 
 const titles: Record<AgentActionView, string> = {
@@ -18,7 +18,7 @@ export default function AgentActionSheet(props: {
   onBack: () => void;
   onClose: () => void;
   children: JSX.Element;
-}): JSX.Element {
+}) {
   return (
     <BottomSheet
       open

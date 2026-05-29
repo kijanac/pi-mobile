@@ -1,4 +1,3 @@
-import type { JSX } from "solid-js";
 import { Info, ListTree, Settings } from "lucide-solid";
 import { MenuButton } from "./shared";
 
@@ -9,7 +8,7 @@ export default function MenuView(props: {
   onTree: () => void;
   onInfo: () => void;
   onAuth: () => void;
-}): JSX.Element {
+}) {
   return (
     <div class="space-y-2 px-3 py-3">
       <MenuButton title="provider sign-in" description="configure model provider auth from the phone" onClick={props.onAuth} />

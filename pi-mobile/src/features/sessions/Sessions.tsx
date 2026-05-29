@@ -1,39 +1,35 @@
-import { For, Show, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createSignal, onMount } from "solid-js";
 import { A, useNavigate } from "@solidjs/router";
 import { Plus, GitBranch, Settings as SettingsIcon } from "lucide-solid";
-import Header from "~/components/Header";
-import StatusDot from "~/components/StatusDot";
-import PullToRefresh from "~/components/PullToRefresh";
-import NewSessionSheet from "~/features/sessions/components/NewSessionSheet";
-import SessionActions from "~/features/sessions/components/SessionActions";
-import RenameSheet from "~/features/sessions/components/RenameSheet";
-import { sessions, loadSessions } from "~/stores/sessions";
-import { connState, setConnState } from "~/stores/connection";
+import Header from "@/components/Header";
+import StatusDot from "@/components/StatusDot";
+import PullToRefresh from "@/components/PullToRefresh";
+import NewSessionSheet from "@/features/sessions/components/NewSessionSheet";
+import SessionActions from "@/features/sessions/components/SessionActions";
+import RenameSheet from "@/features/sessions/components/RenameSheet";
+import { sessions, loadSessions } from "@/stores/sessions";
+import { connState, setConnState } from "@/stores/connection";
 import {
   createSession,
   deleteSession,
   healthcheck,
   patchSession,
-} from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
-import { haptic } from "~/lib/haptics";
-import { createLongPress } from "~/lib/long-press";
-import { relativeTime, shortPath, formatCost } from "~/lib/format";
+} from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
+import { haptic } from "@/lib/haptics";
+import { createLongPress } from "@/lib/long-press";
+import { relativeTime, shortPath, formatCost } from "@/lib/format";
 import type { SessionMeta } from "@pi-mobile/protocol";
 
 const LONG_PRESS_MS = 500;
-const LONG_PRESS_MOVE_PX = 8; // cancel long-press if finger drifts this far
+const LONG_PRESS_MOVE_PX = 8;
 
-export default function Sessions(): JSX.Element {
+export default function Sessions() {
   const navigate = useNavigate();
   const [error, setError] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
   const [sheetOpen, setSheetOpen] = createSignal(false);
 
-  // Management sheet state.
-  // - actionSession: which row's action menu is open (null = closed)
-  // - renameTarget: which session is being renamed (null = closed)
-  // - saving: tracks an in-flight rename for the save-button spinner
   const [actionSession, setActionSession] = createSignal<SessionMeta | null>(
     null,
   );
@@ -81,7 +77,6 @@ export default function Sessions(): JSX.Element {
     }
   };
 
-  /* ── management handlers ─────────────────────────────────────────── */
 
   async function handleRename(newTitle: string) {
     const target = renameTarget();
@@ -273,9 +268,6 @@ export default function Sessions(): JSX.Element {
         session={actionSession()}
         onClose={() => setActionSession(null)}
         onRename={() => {
-          // Transition from action sheet to rename sheet without a
-          // closing flicker — pass the target through both signals,
-          // then close the action sheet.
           const s = actionSession();
           if (!s) return;
           setRenameTarget(s);

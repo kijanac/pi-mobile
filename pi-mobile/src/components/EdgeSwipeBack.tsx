@@ -1,11 +1,9 @@
 import { useNavigate } from "@solidjs/router";
 import { onCleanup, onMount, type JSX } from "solid-js";
-import { haptic } from "~/lib/haptics";
+import { haptic } from "@/lib/haptics";
 
 interface Props {
-  /** Route to navigate to after the gesture completes. */
   href: string;
-  /** Non-interactive previous-screen preview revealed during the gesture. */
   preview?: JSX.Element;
   children: JSX.Element;
 }
@@ -15,24 +13,13 @@ const LOCK_DISTANCE = 10;
 const MIN_COMPLETE_DISTANCE = 86;
 const MAX_COMPLETE_DISTANCE = 120;
 const COMPLETE_FRACTION = 0.28;
-const COMPLETE_VELOCITY = 0.45; // px/ms
+const COMPLETE_VELOCITY = 0.45;
 const VELOCITY_MIN_DISTANCE = 32;
 const MAX_VERTICAL_DRIFT = 56;
 const COMPLETE_MS = 170;
 const PREVIEW_PARALLAX_PX = 24;
 
-/**
- * iOS-style interactive edge-swipe back.
- *
- * Best-practice constraints for a webview chat UI:
- * - only begins from the left edge, so scrollable code blocks/chat content keep
- *   their normal horizontal gestures;
- * - locks to horizontal motion before calling preventDefault(), so vertical
- *   scroll remains native;
- * - animates with direct DOM writes instead of Solid state on every touchmove;
- * - gives one threshold haptic, then either completes or snaps back.
- */
-export default function EdgeSwipeBack(props: Props): JSX.Element {
+export default function EdgeSwipeBack(props: Props) {
   const navigate = useNavigate();
   let page!: HTMLDivElement;
   let preview!: HTMLDivElement;

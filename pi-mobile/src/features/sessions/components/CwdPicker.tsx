@@ -3,7 +3,6 @@ import {
   createResource,
   For,
   Show,
-  type JSX,
 } from "solid-js";
 import {
   ChevronLeft,
@@ -13,38 +12,18 @@ import {
   X,
   Check,
 } from "lucide-solid";
-import { lsFs, type FsListing } from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
+import { lsFs, type FsListing } from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
 
-/**
- * Cwd picker.
- *
- * Mounts as a full-screen overlay (the parent NewSessionSheet decides
- * when to show it). Drill-down navigation:
- *
- *   - Tap a directory   → drill into it
- *   - Tap "up"           → go to parent
- *   - Tap "home"         → jump to user's home directory
- *   - Tap "use this"     → return current path to caller, close
- *   - Tap X              → close without changing
- *
- * Breadcrumb at the top renders the active path in ellipsized segments.
- * Each segment is tappable as a shortcut.
- */
 interface Props {
-  /** Initial path; defaults to home (server-side). */
   initial?: string;
   onSelect: (path: string) => void;
   onCancel: () => void;
 }
 
-export default function CwdPicker(props: Props): JSX.Element {
+export default function CwdPicker(props: Props) {
   const [path, setPath] = createSignal<string | undefined>(props.initial);
 
-  // Fetch the listing for the active path. Re-runs on path change.
-  // Solid does not run a resource fetch when the source is undefined, but
-  // undefined is exactly how this picker asks the bridge for its default root.
-  // Use an empty-string sentinel so the first open fetches /fs/ls immediately.
   const [listing] = createResource<FsListing, string>(
     () => path() ?? "",
     async (p) => {
@@ -56,10 +35,6 @@ export default function CwdPicker(props: Props): JSX.Element {
   const drill = (name: string) => {
     const l = listing();
     if (!l) return;
-    // Build child path with the server's reported separator agnostic.
-    // We don't know the separator a priori (could be Windows), but the
-    // server always returns absolute paths. Joining with "/" works on
-    // POSIX; Node's resolve() will normalize either way server-side.
     setPath(`${l.path.replace(/\/$/, "")}/${name}`);
   };
 
@@ -75,7 +50,6 @@ export default function CwdPicker(props: Props): JSX.Element {
 
   return (
     <div class="fixed inset-0 z-50 flex flex-col bg-[color:var(--color-bg)]">
-      {/* ── header */}
       <div
         class="hairline-b flex items-center gap-1 px-2"
         style={{ "padding-top": "env(safe-area-inset-top)" }}
@@ -100,10 +74,8 @@ export default function CwdPicker(props: Props): JSX.Element {
         </button>
       </div>
 
-      {/* ── breadcrumb */}
       <Breadcrumb path={listing()?.path} home={listing()?.home} onJump={setPath} />
 
-      {/* ── listing */}
       <div class="flex-1 overflow-y-auto">
         <Show when={listing.loading}>
           <div class="px-3 py-3 text-[12px] text-[color:var(--color-fg-faint)]">
@@ -166,7 +138,6 @@ export default function CwdPicker(props: Props): JSX.Element {
         </Show>
       </div>
 
-      {/* ── select footer */}
       <div
         class="hairline-t sticky bottom-0 bg-[color:var(--color-bg)]/95 backdrop-blur-md p-2"
         style={{
@@ -190,22 +161,16 @@ export default function CwdPicker(props: Props): JSX.Element {
   );
 }
 
-/* ── breadcrumb ──────────────────────────────────────────────────────── */
 
-/**
- * Segmented breadcrumb. Replaces the user's home directory with "~"
- * for compactness, then shows each path component as a tappable chip.
- */
 function Breadcrumb(props: {
   path: string | undefined;
   home: string | undefined;
   onJump: (path: string) => void;
-}): JSX.Element {
+}) {
   const segments = () => {
     const p = props.path;
     const h = props.home;
     if (!p) return [];
-    // Replace the home prefix with "~" when applicable
     let display = p;
     let basePath = "/";
     if (h && (p === h || p.startsWith(h + "/"))) {
@@ -214,7 +179,6 @@ function Breadcrumb(props: {
     }
     const parts = display.split("/").filter(Boolean);
     if (display.startsWith("~")) {
-      // ~ becomes the home segment, with absolute path = home dir
       return parts.map((name, i) => ({
         name,
         path:
@@ -223,7 +187,6 @@ function Breadcrumb(props: {
             : `${basePath}/${parts.slice(1, i + 1).join("/")}`,
       }));
     }
-    // POSIX absolute path: each segment maps to its absolute prefix
     return parts.map((name, i) => ({
       name,
       path: `/${parts.slice(0, i + 1).join("/")}`,

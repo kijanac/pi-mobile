@@ -9,7 +9,7 @@ import {
   Loader2,
 } from "lucide-solid";
 import type { BuiltinToolName, ToolCallMessage } from "@pi-mobile/protocol";
-import { shortPath } from "~/lib/format";
+import { shortPath } from "@/lib/format";
 import EditDiff from "./EditDiff";
 import ToolResult from "./ToolResult";
 
@@ -33,14 +33,7 @@ function summary(msg: ToolCallMessage): string {
   }
 }
 
-/**
- * Expanded view dispatcher.
- *
- *   edit  — unified diff.
- *   else  — ToolResult picks the right per-tool renderer (bash ANSI,
- *           read/write syntax highlighting, raw pre fallback).
- */
-function ExpandedView(props: { msg: ToolCallMessage }): JSX.Element {
+function ExpandedView(props: { msg: ToolCallMessage }) {
   if (props.msg.toolKind === "builtin" && props.msg.tool === "edit") {
     return (
       <div class="mt-1">
@@ -64,9 +57,7 @@ function ExpandedView(props: { msg: ToolCallMessage }): JSX.Element {
 
 export default function ToolCallView(props: {
   msg: ToolCallMessage;
-}): JSX.Element {
-  // Edit blocks expand by default — the diff is the point. Other tools
-  // stay collapsed until tapped so the chat doesn't get noisy.
+}) {
   const [open, setOpen] = createSignal(
     props.msg.toolKind === "builtin" && props.msg.tool === "edit",
   );

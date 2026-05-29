@@ -1,24 +1,3 @@
-/**
- * pi.dev integration boundary.
- *
- * Live implementation of the `PiClient` Tag backed by the real
- * @earendil-works/pi-coding-agent SDK.
- *
- * The real SDK shape (mid-2026):
- *
- *   const { session } = await createAgentSession({
- *     sessionManager: PiSessionManager.inMemory(),
- *     authStorage,
- *     modelRegistry,
- *   });
- *   session.subscribe((event) => { … });
- *   await session.prompt(text);
- *
- * Permission handling is not in this v0. Pi's permission flow is an
- * extension surface, not a core event — we'll wire that up in a follow-up
- * by registering a small extension that bridges pi's permission asks into
- * our wire protocol.
- */
 import {
   Context,
   Effect,
@@ -39,6 +18,7 @@ import {
   type WriteToolInput,
 } from "@earendil-works/pi-coding-agent";
 import * as v from "valibot";
+import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
@@ -69,7 +49,6 @@ import {
 import { SessionNotFound } from "./errors.ts";
 import { setupFauxIfEnabled } from "./pi-faux.ts";
 
-/* ── public types ────────────────────────────────────────────────────── */
 
 export type PiEmission =
   | { t: "assistant_delta"; id: string; text: string }
@@ -115,7 +94,6 @@ export class PiError extends Error {
 
 export type SendMode = "steer" | "follow_up";
 
-/** Inline image attached to a send. Matches pi-ai's ImageContent shape. */
 export interface SendImage {
   data: string;
   mimeType: string;
@@ -168,24 +146,14 @@ export class PiClient extends Context.Tag("PiClient")<
       title?: string;
       branch?: string;
     }) => Effect.Effect<PiSession, PiError>;
-    /** Reattach to an existing session by stored meta. Used by
-     *  session.ts when a request arrives for an id that's in the
-     *  store but not in the live HashMap (e.g., after a bridge
-     *  restart). Returns SessionNotFound if pi's on-disk file is
-     *  missing. */
     readonly resume: (
       storedMeta: SessionMeta,
     ) => Effect.Effect<PiSession, PiError | SessionNotFound>;
   }
 >() {}
 
-/* ── shared helpers ─────────────────────────────────────────────────── */
 
-const nextId = (() => {
-  let n = 0;
-  return (prefix: string) =>
-    `${prefix}_${++n}_${Math.random().toString(36).slice(2, 6)}`;
-})();
+const nextId = (prefix: string) => `${prefix}_${randomUUID()}`;
 
 const textFromContent = (content: unknown): string => {
   if (typeof content === "string") return content;
@@ -267,12 +235,6 @@ const flattenSessionTree = (piSession: AgentSession): SessionTree => {
   return { currentId, entries };
 };
 
-/**
- * Usage shape on AssistantMessage from `@earendil-works/pi-ai`.
- * We type it locally to avoid pulling pi-ai's types just for this. Pi's
- * own types are richer (totalTokens, cacheRead/Write etc.) but we only
- * need three fields here.
- */
 interface PiUsage {
   input?: number;
   output?: number;
@@ -289,11 +251,6 @@ const toolCallBase = (id: string) => ({
   status: "running" as const,
 });
 
-/**
- * Pi's public event type exposes `args: any`, even though its built-in tool
- * definitions have typed TypeBox inputs. Normalize that loose SDK boundary into
- * our Valibot-validated wire protocol before storing or sending to mobile.
- */
 const normalizeToolCall = (
   id: string,
   toolName: string,
@@ -340,22 +297,7 @@ const normalizeToolCall = (
   }
 };
 
-/* ──────────────────────────────────────────────────────────────────────
-   LIVE — wraps the real pi AgentSession.
 
-   Pi 0.73's event subscriber callback is synchronous: we use plain
-   closure state and Queue.unsafeOffer rather than awaiting per-event
-   Effect runtimes. See the `mapEvent` switch below for the exact event
-   shapes (typed from @earendil-works/pi-coding-agent imports).
-   ────────────────────────────────────────────────────────────────────── */
-
-/**
- * Given a live pi AgentSession and a session meta, build the full
- * PiSession surface: queue, event subscriber, send/interrupt/approve
- * methods, and dispose hook. Shared by both new-session creation and
- * resume — the upstream difference is only in how the AgentSession
- * itself is constructed.
- */
 const wirePiSession = (
   piSession: AgentSession,
   meta: SessionMeta,
@@ -363,32 +305,9 @@ const wirePiSession = (
   Effect.gen(function* () {
     const q = yield* Queue.unbounded<PiEmission>();
 
-    /* ── event subscriber state ─────────────────────────────────────
-       The subscriber callback runs synchronously from pi's event loop.
-       We use plain closure variables (not Effect Refs) and push into
-       the queue via Queue.unsafeOffer — both are appropriate for the
-       non-Effect callback context and avoid spinning up a fresh runtime
-       per event. */
     let assistantId: string | null = null;
     const toolStarts = new Map<string, { startedAt: number }>();
 
-    /**
-     * Map a pi event to PiEmission(s) and push into our queue.
-     *
-     * Pi 0.73.1 event types we observe today:
-     *   message_update (with assistantMessageEvent text_delta) → assistant_delta
-     *   message_end                                            → assistant_end + (if assistant) cost
-     *   tool_execution_start                                   → tool_call
-     *   tool_execution_end                                     → tool_result
-     *   turn_start                                             → status thinking
-     *   turn_end                                               → status idle
-     *   auto_retry_start / auto_retry_end                      → same-named wire events
-     *
-     * Unmapped lifecycle events (intentionally silent):
-     *   agent_start, agent_end, message_start, tool_execution_update,
-     *   queue_update, compaction_start/end, session_info_changed,
-     *   thinking_level_changed, model_select
-     */
     const mapEvent = (event: AgentSessionEvent): void => {
       switch (event.type) {
         case "message_update": {
@@ -404,10 +323,6 @@ const wirePiSession = (
         }
 
         case "message_end": {
-          // Pi's AgentMessage union covers user/assistant/toolResult/custom.
-          // Only assistants carry stopReason and usage; the rest are
-          // bookkeeping echoes (user/tool-result messages we already
-          // surfaced via their own events).
           const msg = event.message as {
             role?: string;
             stopReason?:
@@ -422,23 +337,8 @@ const wirePiSession = (
 
           if (msg.role !== "assistant") return;
 
-          // Two shapes arrive here:
-          //   (a) Normal turn: we saw text_delta events first and
-          //       `assistantId` is set; emit assistant_end with the
-          //       stopReason and clear the id.
-          //   (b) Zero-delta turn: pi failed before any tokens streamed
-          //       (auth, network, etc.) — assistantId is null but the
-          //       message carries stopReason "error" with an
-          //       errorMessage. Mint a fresh id so the mobile has a
-          //       handle to render the failed turn against; the
-          //       single assistant_end carries the error fields.
           let id = assistantId;
           if (!id) {
-            // Don't manufacture an empty-bubble entry for completely
-            // benign cases — only emit for failure modes. Pi shouldn't
-            // ever produce a stopReason=stop with no text, but if it
-            // does we still want to acknowledge the turn closed so
-            // status state machines don't get stuck.
             id = nextId("m");
           }
           Queue.unsafeOffer(q, {
@@ -491,10 +391,6 @@ const wirePiSession = (
           const start = toolStarts.get(event.toolCallId);
           toolStarts.delete(event.toolCallId);
 
-          // Pi/tool adapters may return either a plain model-visible string
-          // or an OpenAI-style content envelope:
-          //   { content: [{ type: "text", text: "..." }] }
-          // The mobile UI should render the text, not the transport JSON.
           const resultText =
             typeof event.result === "string"
               ? event.result
@@ -519,10 +415,6 @@ const wirePiSession = (
           return;
 
         case "auto_retry_start":
-          // Pi retries certain provider failures (rate limits, transient
-          // network errors). We pass these through so the mobile can show
-          // a transient "retrying N of M" indicator — the user otherwise
-          // sees an unexplained pause between the failure and recovery.
           Queue.unsafeOffer(q, {
             t: "auto_retry_start",
             attempt: event.attempt,
@@ -542,15 +434,10 @@ const wirePiSession = (
           return;
 
         default:
-          // Lifecycle events we don't surface (see comment above). If we
-          // encounter a brand-new event type in a future pi release the
-          // switch silently no-ops, which is the right default.
           return;
       }
     };
 
-    // Wire pi → our queue. The subscribe callback is synchronous now,
-    // so no catch needed — mapEvent doesn't throw.
     const unsub = piSession.subscribe(mapEvent);
     const authJobs = new Map<string, AuthJobState>();
 
@@ -561,19 +448,7 @@ const wirePiSession = (
         Effect.gen(function* () {
           yield* Queue.offer(q, { t: "status", status: "thinking" });
 
-          // Pi exposes three direct methods:
-          //   - prompt(text, { images })     — fresh turn (only when not streaming)
-          //   - steer(text, images)          — queue during streaming, deliver after
-          //                                    current turn's tool calls finish
-          //   - followUp(text, images)       — queue during streaming, deliver after
-          //                                    the agent settles
-          // We dispatch by state and the caller's mode. Pi's three call
-          // signatures differ slightly (prompt takes options object,
-          // steer/followUp take images positionally).
           const isStreaming = piSession.isStreaming;
-          // Pi's ImageContent has a `type: "image"` discriminator; our
-          // wire shape doesn't carry it (it's redundant — the array is
-          // already known to be images), so we tack it on here.
           const piImages =
             images && images.length > 0
               ? images.map((i) => ({
@@ -584,8 +459,6 @@ const wirePiSession = (
               : undefined;
 
           if (!isStreaming) {
-            // Fork the prompt — pi resolves when the response is fully
-            // drained; we don't want to block our caller on that.
             yield* Effect.forkDaemon(
               Effect.tryPromise({
                 try: async () => {
@@ -605,7 +478,6 @@ const wirePiSession = (
             return;
           }
 
-          // Streaming — queue via the mode-appropriate method.
           const useFollowUp = mode === "follow_up";
           yield* Effect.tryPromise({
             try: async () => {
@@ -623,9 +495,6 @@ const wirePiSession = (
         }),
       interrupt: () =>
         Effect.gen(function* () {
-          // Pi's abort() cancels the in-flight LLM request and tool calls,
-          // cascading through pi-ai's stream. Returns when the abort has
-          // settled.
           yield* Effect.tryPromise({
             try: () => piSession.abort(),
             catch: (e) => new PiError(`abort failed: ${String(e)}`),
@@ -634,7 +503,6 @@ const wirePiSession = (
         }),
       approve: (_id, _choice) =>
         Effect.sync(() => {
-          // No-op for v0. The permission extension will wire this up.
         }),
       listModels: () =>
         Effect.sync(() => {
@@ -812,13 +680,6 @@ const wirePiSession = (
     };
   });
 
-/**
- * Create a brand-new pi AgentSession + wire it into a PiSession.
- *
- * Honors $PI_FAUX (shakedown provider) and $PI_EPHEMERAL (in-memory
- * session storage, no disk persistence). Disk-persisted by default so
- * a bridge restart can reattach to running conversations.
- */
 const makeLiveSession = (opts: {
   cwd: string;
   title?: string;
@@ -844,8 +705,6 @@ const makeLiveSession = (opts: {
           cwd: opts.cwd,
         });
 
-        // Pin the faux model when applicable. Real-provider sessions
-        // pick up the active model from settings/auth automatically.
         if (fauxModel) {
           await session.setModel(fauxModel);
         }
@@ -869,24 +728,6 @@ const makeLiveSession = (opts: {
     return yield* wirePiSession(piSession, meta);
   });
 
-/**
- * Reattach to an existing pi AgentSession by id. The session file
- * lives on disk under `~/.pi/agent/sessions/<encoded-cwd>/...` from
- * a previous bridge run. Pi's `SessionManager.list` enumerates them;
- * we match by id (the same id our bridge store has), then `open` the
- * file and hand it to `createAgentSession`.
- *
- * Pi's event subscriber only fires for future activity — historical
- * messages aren't replayed as events. Our bridge events table already
- * has the prior log, so the WS replay layer covers reconnects. New
- * sends extend both.
- *
- * Returns SessionNotFound when the on-disk file is missing — usually
- * means it was deleted out from under us, or `$PI_EPHEMERAL=1` was
- * set during the original run (the file never existed). The store
- * caller decides how to surface that (typically: also delete the
- * stale store row).
- */
 const makeResumedSession = (
   storedMeta: SessionMeta,
 ): Effect.Effect<PiSession, PiError | SessionNotFound> =>
@@ -896,11 +737,6 @@ const makeResumedSession = (
       PiError | SessionNotFound
     >({
       try: async () => {
-        // Find the .jsonl file pi wrote for this session. `list(cwd)`
-        // returns SessionInfo[] with absolute paths; we match on
-        // `info.id === storedMeta.id`. The list call does a single
-        // pass over the cwd's session directory — for a personal-use
-        // bridge with tens of sessions per cwd this is sub-millisecond.
         const infos = await PiSessionManager.list(storedMeta.cwd);
         const found = infos.find((i) => i.id === storedMeta.id);
         if (!found) {
@@ -910,12 +746,6 @@ const makeResumedSession = (
         const authStorage = AuthStorage.create();
         const modelRegistry = ModelRegistry.create(authStorage);
 
-        // Resumed sessions must re-register the faux provider if the
-        // original session used it; pi's resume pipeline looks up the
-        // model by id from its registry. If $PI_FAUX isn't set on the
-        // resumed bridge but the original session used faux, model
-        // resolution will fail and the next prompt will surface that
-        // via stopReason:"error" (which mobile renders correctly).
         const fauxModel = setupFauxIfEnabled(authStorage);
 
         const sessionManager = PiSessionManager.open(found.path);
@@ -939,10 +769,6 @@ const makeResumedSession = (
       },
     });
 
-    // Use the stored meta as-is: it has the user's last-known title,
-    // tokens, cost, archived state, etc. Status starts at "idle" — a
-    // resumed session is never mid-turn (pi's pump only resumes from
-    // a settled state).
     const meta: SessionMeta = {
       ...storedMeta,
       status: "idle",
@@ -952,7 +778,6 @@ const makeResumedSession = (
     return yield* wirePiSession(piSession, meta);
   });
 
-/* ── Pi service tag, extended with `resume` ───────────────────────── */
 
 export const PiClientLive = Layer.succeed(PiClient, {
   create: (opts) => makeLiveSession(opts),

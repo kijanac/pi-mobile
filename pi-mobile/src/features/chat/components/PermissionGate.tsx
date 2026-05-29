@@ -1,8 +1,8 @@
-import { Show, type JSX } from "solid-js";
+import { Show } from "solid-js";
 import { Terminal, Shield } from "lucide-solid";
 import type { PermissionRequest } from "@pi-mobile/protocol";
-import { resolvePermissionLocal } from "~/stores/sessions";
-import { activeSend } from "~/stores/connection";
+import { resolvePermissionLocal } from "@/stores/sessions";
+import { activeSend } from "@/stores/connection";
 
 interface Props {
   req: PermissionRequest;
@@ -15,12 +15,10 @@ function formatArgs(req: PermissionRequest): string {
   return JSON.stringify(req.args, null, 2);
 }
 
-export default function PermissionGate(props: Props): JSX.Element {
+export default function PermissionGate(props: Props) {
   const resolved = () => props.req.resolved !== undefined;
 
   function choose(choice: "allow" | "deny" | "allow_session") {
-    // Optimistic UI: collapse the gate immediately. Bridge will catch up
-    // via subsequent events.
     resolvePermissionLocal(props.req.id, choice);
     activeSend()?.({ t: "permission_reply", id: props.req.id, choice });
   }

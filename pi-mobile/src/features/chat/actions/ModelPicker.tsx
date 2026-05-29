@@ -1,12 +1,12 @@
-import { For, Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
+import { For, Show, createMemo, createResource, createSignal } from "solid-js";
 import { Check, Loader2, Zap } from "lucide-solid";
 import type { ModelSummary } from "@pi-mobile/protocol";
-import { listSessionModels, setSessionModel } from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
-import { haptic } from "~/lib/haptics";
+import { listSessionModels, setSessionModel } from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
+import { haptic } from "@/lib/haptics";
 import type { ActionErrorHandler } from "./types";
 
-export default function ModelPicker(props: { sessionId: string; onError: ActionErrorHandler }): JSX.Element {
+export default function ModelPicker(props: { sessionId: string; onError: ActionErrorHandler }) {
   const [setting, setSetting] = createSignal<string | null>(null);
   const [models, { refetch }] = createResource(async () => {
     const baseUrl = await getBridgeUrl();

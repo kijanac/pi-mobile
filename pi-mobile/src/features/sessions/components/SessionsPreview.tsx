@@ -1,18 +1,12 @@
-import { For, Show, type JSX } from "solid-js";
+import { For, Show } from "solid-js";
 import { GitBranch, Plus, Settings as SettingsIcon } from "lucide-solid";
-import Header from "~/components/Header";
-import StatusDot from "~/components/StatusDot";
-import { sessions } from "~/stores/sessions";
-import { connState } from "~/stores/connection";
-import { relativeTime, shortPath, formatCost } from "~/lib/format";
+import Header from "@/components/Header";
+import StatusDot from "@/components/StatusDot";
+import { sessions } from "@/stores/sessions";
+import { connState } from "@/stores/connection";
+import { relativeTime, shortPath, formatCost } from "@/lib/format";
 
-/**
- * Non-interactive sessions-list snapshot used behind edge-swipe-back routes.
- * It intentionally shares the live sessions store but avoids refreshes, links,
- * sheets, and pointer handlers so the underlay is visually faithful without
- * becoming another active screen.
- */
-export default function SessionsPreview(): JSX.Element {
+export default function SessionsPreview() {
   return (
     <div class="flex min-h-dvh flex-col bg-[color:var(--color-bg)]">
       <Header

@@ -1,12 +1,15 @@
-import { Show, createResource, createSignal, type JSX } from "solid-js";
+import { Show, createResource, createSignal } from "solid-js";
 import type { QueueMode, SessionSettings, ThinkingLevel } from "@pi-mobile/protocol";
-import { getSessionSettings, patchSessionSettings } from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
-import { haptic } from "~/lib/haptics";
+
+const THINKING_LEVELS = ["off", "low", "medium", "high"] as const satisfies readonly ThinkingLevel[];
+const QUEUE_MODES = ["one-at-a-time", "all"] as const satisfies readonly QueueMode[];
+import { getSessionSettings, patchSessionSettings } from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
+import { haptic } from "@/lib/haptics";
 import { Segmented, ToggleRow } from "./shared";
 import type { ActionErrorHandler } from "./types";
 
-export default function SessionSettingsView(props: { sessionId: string; onError: ActionErrorHandler }): JSX.Element {
+export default function SessionSettingsView(props: { sessionId: string; onError: ActionErrorHandler }) {
   const [saving, setSaving] = createSignal<string | null>(null);
   const [settings, { refetch, mutate }] = createResource(async () => {
     const baseUrl = await getBridgeUrl();
@@ -36,9 +39,9 @@ export default function SessionSettingsView(props: { sessionId: string; onError:
       <Show when={settings()}>
         {(s) => (
           <div class="space-y-4">
-            <Segmented label="thinking level" options={s().availableThinkingLevels.length ? s().availableThinkingLevels : ["off", "low", "medium", "high"]} value={s().thinkingLevel} disabled={saving() !== null} onChange={(v) => patch("thinkingLevel", v as ThinkingLevel)} />
-            <Segmented label="steering while running" options={["one-at-a-time", "all"]} value={s().steeringMode} disabled={saving() !== null} onChange={(v) => patch("steeringMode", v as QueueMode)} />
-            <Segmented label="follow-up delivery" options={["one-at-a-time", "all"]} value={s().followUpMode} disabled={saving() !== null} onChange={(v) => patch("followUpMode", v as QueueMode)} />
+            <Segmented label="thinking level" options={s().availableThinkingLevels.length ? s().availableThinkingLevels : THINKING_LEVELS} value={s().thinkingLevel} disabled={saving() !== null} onChange={(v) => patch("thinkingLevel", v)} />
+            <Segmented label="steering while running" options={QUEUE_MODES} value={s().steeringMode} disabled={saving() !== null} onChange={(v) => patch("steeringMode", v)} />
+            <Segmented label="follow-up delivery" options={QUEUE_MODES} value={s().followUpMode} disabled={saving() !== null} onChange={(v) => patch("followUpMode", v)} />
             <ToggleRow label="auto compact" checked={s().autoCompaction} disabled={saving() !== null} onChange={(v) => patch("autoCompaction", v)} />
             <ToggleRow label="auto retry" checked={s().autoRetry} disabled={saving() !== null} onChange={(v) => patch("autoRetry", v)} />
           </div>

@@ -1,12 +1,12 @@
-import { For, Show, createResource, createSignal, type JSX } from "solid-js";
+import { For, Show, createResource, createSignal } from "solid-js";
 import { Loader2 } from "lucide-solid";
 import type { TreeEntry } from "@pi-mobile/protocol";
-import { getSessionTree, navigateSessionTree } from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
+import { getSessionTree, navigateSessionTree } from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
 import { ToggleRow } from "./shared";
 import type { ActionErrorHandler } from "./types";
 
-export default function TreeView(props: { sessionId: string; onDone: () => void; onError: ActionErrorHandler }): JSX.Element {
+export default function TreeView(props: { sessionId: string; onDone: () => void; onError: ActionErrorHandler }) {
   const [jumping, setJumping] = createSignal<string | null>(null);
   const [summarize, setSummarize] = createSignal(false);
   const [tree, { refetch }] = createResource(async () => {

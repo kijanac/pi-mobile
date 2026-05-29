@@ -2,13 +2,6 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { sep as PATH_SEP } from "node:path";
 import { homedir } from "node:os";
 
-/**
- * Built-in TUI slash commands (/tree, /model, /settings, etc.) are not
- * executable through the pi SDK prompt path — the model sees them as literal
- * text. Only prompt templates, skills, and extension commands should be shown
- * in the mobile insertion palette until we implement native mobile actions for
- * specific commands.
- */
 const BUILTIN_COMMANDS: Array<{
   name: string;
   description: string;
@@ -19,18 +12,10 @@ export interface CommandEntry {
   kind: "builtin" | "prompt" | "skill";
   name: string;
   description: string;
-  /** True if the command accepts trailing arguments. */
   takesArgs?: boolean;
-  /** Source path for diagnostics (prompts/skills only). */
   source?: string;
 }
 
-/**
- * Parse a tiny subset of YAML frontmatter: a `---` fenced header at the
- * top of a markdown file with `key: value` lines. Returns an empty
- * object if no frontmatter is present. We don't need a real YAML parser
- * because the only field we care about is `description`.
- */
 function parseFrontmatter(text: string): {
   meta: Record<string, string>;
   body: string;
@@ -91,12 +76,10 @@ function loadPromptTemplates(): CommandEntry[] {
         kind: "prompt",
         name,
         description,
-        // All templates support $1 / $@ — surface as args-capable.
         takesArgs: true,
         source: path,
       });
     } catch {
-      // Skip malformed files.
     }
   }
   return out;

@@ -1,6 +1,5 @@
 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto", style: "narrow" });
 
-// each tuple: [threshold-below-which-to-use-this-unit, divisor, unit]
 const UNITS: Array<[number, number, Intl.RelativeTimeFormatUnit]> = [
   [60_000, 1_000, "second"],
   [3_600_000, 60_000, "minute"],
@@ -20,7 +19,6 @@ export function relativeTime(at: number, now = Date.now()): string {
   return rtf.format(Math.round(diff / 2_592_000_000), "month");
 }
 
-/** ~/code/repo/src/foo.ts -> repo/src/foo.ts */
 export function shortPath(p: string, segments = 3): string {
   const parts = p.split("/").filter(Boolean);
   if (parts.length <= segments) return p;

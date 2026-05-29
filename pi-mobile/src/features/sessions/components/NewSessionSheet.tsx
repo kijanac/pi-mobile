@@ -1,8 +1,8 @@
 import { createSignal, Show, type JSX } from "solid-js";
 import { Folder, GitBranch, Plus } from "lucide-solid";
-import BottomSheet from "~/components/BottomSheet";
-import { Button } from "~/components/ui/button";
-import { TextField, TextFieldInput, TextFieldLabel } from "~/components/ui/text-field";
+import BottomSheet from "@/components/BottomSheet";
+import { Button } from "@/components/ui/button";
+import { TextField, TextFieldInput, TextFieldLabel } from "@/components/ui/text-field";
 import CwdPicker from "./CwdPicker";
 
 interface Props {
@@ -18,7 +18,7 @@ function basename(path: string): string {
   return idx >= 0 ? trimmed.slice(idx + 1) : trimmed;
 }
 
-export default function NewSessionSheet(props: Props): JSX.Element {
+export default function NewSessionSheet(props: Props) {
   const [cwd, setCwd] = createSignal<string | null>(null);
   const [title, setTitle] = createSignal("");
   const [branch, setBranch] = createSignal("");
@@ -125,7 +125,7 @@ export default function NewSessionSheet(props: Props): JSX.Element {
   );
 }
 
-function Field(props: { label: string; children: JSX.Element }): JSX.Element {
+function Field(props: { label: string; children: JSX.Element }) {
   return (
     <label class="block">
       <div class="label mb-1.5">{props.label}</div>

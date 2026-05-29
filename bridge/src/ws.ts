@@ -1,13 +1,3 @@
-/**
- * WebSocket handler — Node/ws version.
- *
- * One Fiber per connection. The fiber races:
- *   1. subscribe(session) → forward every WireEvent to ws.send
- *   2. consume client events from a queue and route to the SessionRegistry
- *
- * Per-connection state lives in a WeakMap keyed by the WebSocket itself,
- * since ws doesn't have Bun's `ws.data` slot.
- */
 import { Effect, Fiber, Queue, Stream, ManagedRuntime, pipe } from "effect";
 import type { WebSocket } from "ws";
 import {
@@ -34,21 +24,15 @@ const sendOob = (ws: WebSocket, payload: object) => {
   try {
     ws.send(JSON.stringify(payload));
   } catch {
-    // socket may already be closed
   }
 };
 
-/**
- * Build a `(ws, bindings) => void` connection handler bound to the Effect
- * ManagedRuntime. Call this from your upgrade flow once per accepted socket.
- */
 export const makeConnectionHandler =
   (runtime: ManagedRuntime.ManagedRuntime<SessionManager, never>) =>
   (ws: WebSocket, bindings: WsBindings): void => {
     runtime.runFork(
       Effect.gen(function* () {
         const queue = yield* Queue.unbounded<ClientEvent>();
-        // forkDaemon so the connection fiber survives past this setup gen.
         const fiber = yield* Effect.forkDaemon(
           connection(ws, queue, bindings),
         );
@@ -134,21 +118,11 @@ const connection = (
       Effect.forever,
     );
 
-    // raceFirst (not race): race only completes when one leg succeeds
-    // or *all* legs fail. Since `incoming` is Effect.forever it can
-    // never settle on its own, so race would hang when outgoing fails.
-    // raceFirst takes the first leg to settle and interrupts the other
-    // — exactly the lifecycle we want.
     yield* Effect.raceFirst(outgoing, incoming);
   }).pipe(
-    // SessionNotFound is the canonical "this id is irrecoverable"
-    // failure: either the store has no row, or pi's on-disk file is
-    // missing. WS close code 4004 tells the client to stop reconnecting.
     Effect.catchTag("SessionNotFound", (e) =>
       Effect.sync(() => ws.close(4004, `session not found: ${e.id}`)),
     ),
-    // Anything else (pi internals, store errors): 1011 = server error,
-    // transient, client may retry. Inner error goes to the log.
     Effect.catchAll((e) =>
       Effect.logError(`ws session failed: ${String(e)}`).pipe(
         Effect.andThen(() =>

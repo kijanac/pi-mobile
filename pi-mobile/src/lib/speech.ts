@@ -3,32 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import type { PluginListenerHandle } from "@capacitor/core";
 import { SpeechRecognition } from "@capacitor-community/speech-recognition";
 
-/**
- * Speech-to-text primitive.
- *
- * Wraps @capacitor-community/speech-recognition with a small Solid API:
- *
- *   const stt = createSpeechRecognition();
- *   stt.available()    // null while probing, then boolean
- *   stt.listening()    // boolean reflecting plugin state
- *   stt.transcript()   // current best-guess text (updated on partialResults)
- *   stt.start()        // request permission, begin listening
- *   stt.stop()         // stop and resolve final transcript
- *
- * Platform notes:
- *   - Web: the plugin's WebPlugin shim throws "not implemented" on every
- *     method, including available(). We short-circuit via Capacitor's
- *     platform detection — on web, available() resolves to false and
- *     start()/stop() are no-ops.
- *   - iOS uses SFSpeechRecognizer; Android uses the system SpeechRecognizer.
- *     Both support partialResults.
- *
- * Permission flow:
- *   - checkPermissions() returns 'granted' | 'denied' | 'prompt' | 'prompt-with-rationale'.
- *   - On first start(), if permission isn't already granted, we call
- *     requestPermissions() and bail out if the user denies.
- */
-export interface SpeechRecognitionHandle {
+interface SpeechRecognitionHandle {
   available: () => boolean | null;
   listening: () => boolean;
   transcript: () => string;
@@ -50,10 +25,8 @@ export function createSpeechRecognition(opts?: {
   let stateHandle: PluginListenerHandle | null = null;
   let detached = false;
 
-  /* ── probe availability on mount ────────────────────────────────── */
   onMount(async () => {
     if (!Capacitor.isNativePlatform()) {
-      // WebPlugin throws on every method; never call into it.
       setAvailable(false);
       return;
     }
@@ -66,7 +39,6 @@ export function createSpeechRecognition(opts?: {
     }
   });
 
-  /* ── helpers ────────────────────────────────────────────────────── */
   async function ensurePermission(): Promise<boolean> {
     try {
       const status = await SpeechRecognition.checkPermissions();
@@ -101,18 +73,15 @@ export function createSpeechRecognition(opts?: {
     try {
       await partialHandle?.remove();
     } catch {
-      // Ignore — listener may already be gone after stop().
     }
     try {
       await stateHandle?.remove();
     } catch {
-      /* ignore */
     }
     partialHandle = null;
     stateHandle = null;
   }
 
-  /* ── public API ─────────────────────────────────────────────────── */
   const start: SpeechRecognitionHandle["start"] = async () => {
     if (!available()) return;
     if (listening()) return;
@@ -128,7 +97,6 @@ export function createSpeechRecognition(opts?: {
       await SpeechRecognition.start({
         language,
         partialResults: true,
-        // Android-only: don't show the system dialog; we own the UI.
         popup: false,
       });
     } catch (e) {
@@ -154,7 +122,6 @@ export function createSpeechRecognition(opts?: {
     setTranscript("");
   };
 
-  /* ── cleanup ────────────────────────────────────────────────────── */
   onCleanup(() => {
     detached = true;
     if (listening() || partialHandle) {
@@ -162,7 +129,6 @@ export function createSpeechRecognition(opts?: {
         try {
           await SpeechRecognition.stop();
         } catch {
-          /* ignore */
         }
         await detachListeners();
       })();

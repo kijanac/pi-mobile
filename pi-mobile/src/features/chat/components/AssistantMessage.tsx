@@ -1,27 +1,14 @@
 import { Show, createSignal, type JSX } from "solid-js";
 import { AlertCircle, Check, Copy, Info, XCircle, AlertTriangle } from "lucide-solid";
 import type { AssistantMessage } from "@pi-mobile/protocol";
-import BottomSheet from "~/components/BottomSheet";
-import { Button } from "~/components/ui/button";
+import BottomSheet from "@/components/BottomSheet";
+import { Button } from "@/components/ui/button";
 import StreamingMarkdown from "./StreamingMarkdown";
-import { formatCost, formatTokens } from "~/lib/format";
+import { formatCost, formatTokens } from "@/lib/format";
 
-/**
- * Render an assistant turn. When `stopReason` is anything other than
- * the success values ("stop" / "toolUse"), append an inline banner so
- * the user understands why the model stopped:
- *
- *   error    — provider/network failure; show errorMessage in red
- *   aborted  — interrupted by the user (or /interrupt); muted red
- *   length   — hit max-output-tokens; amber, since the reply is real
- *              but truncated and a follow-up may be needed
- *
- * "stop" and "toolUse" render with no banner — the latter because the
- * tool calls themselves are visible as separate entries below.
- */
 export default function AssistantMessageView(props: {
   msg: AssistantMessage;
-}): JSX.Element {
+}) {
   const [copied, setCopied] = createSignal(false);
   const [detailsOpen, setDetailsOpen] = createSignal(false);
 
@@ -91,7 +78,7 @@ function MessageDetailsSheet(props: {
   open: boolean;
   msg: AssistantMessage;
   onClose: () => void;
-}): JSX.Element {
+}) {
   const usage = () => props.msg.usage;
 
   return (
@@ -121,7 +108,7 @@ function MessageDetailsSheet(props: {
   );
 }
 
-function InfoRow(props: { label: string; value: string }): JSX.Element {
+function InfoRow(props: { label: string; value: string }) {
   return (
     <div class="flex items-center justify-between gap-3 py-1">
       <span class="text-[color:var(--color-fg-faint)]">{props.label}</span>
@@ -134,7 +121,7 @@ function IconButton(props: {
   label: string;
   onClick: () => void;
   children: JSX.Element;
-}): JSX.Element {
+}) {
   return (
     <Button
       type="button"
@@ -153,7 +140,7 @@ function IconButton(props: {
 function ErrorBanner(props: {
   stopReason: "error" | "aborted" | "length" | "stop" | "toolUse";
   errorMessage?: string;
-}): JSX.Element {
+}) {
   const tone = () => {
     switch (props.stopReason) {
       case "error":

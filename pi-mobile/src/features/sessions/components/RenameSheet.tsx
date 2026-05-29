@@ -1,8 +1,8 @@
-import { createSignal, createEffect, on, Show, type JSX } from "solid-js";
+import { createSignal, createEffect, on, Show } from "solid-js";
 import { Check } from "lucide-solid";
-import BottomSheet from "~/components/BottomSheet";
-import { Button } from "~/components/ui/button";
-import { TextField, TextFieldInput } from "~/components/ui/text-field";
+import BottomSheet from "@/components/BottomSheet";
+import { Button } from "@/components/ui/button";
+import { TextField, TextFieldInput } from "@/components/ui/text-field";
 
 export default function RenameSheet(props: {
   open: boolean;
@@ -10,7 +10,7 @@ export default function RenameSheet(props: {
   saving?: boolean;
   onCancel: () => void;
   onSave: (newTitle: string) => void;
-}): JSX.Element {
+}) {
   const [value, setValue] = createSignal("");
 
   createEffect(

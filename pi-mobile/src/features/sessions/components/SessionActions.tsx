@@ -1,17 +1,16 @@
-import { Show, type JSX } from "solid-js";
+import { Show } from "solid-js";
 import { Pencil, Archive, Trash2, ArchiveRestore } from "lucide-solid";
 import type { SessionMeta } from "@pi-mobile/protocol";
-import BottomSheet from "~/components/BottomSheet";
-import { Button } from "~/components/ui/button";
+import BottomSheet from "@/components/BottomSheet";
+import { Button } from "@/components/ui/button";
 
-/** Per-session action menu opened by long-pressing a row in the sessions list. */
 export default function SessionActions(props: {
   session: SessionMeta | null;
   onRename: () => void;
   onToggleArchive: () => void;
   onDelete: () => void;
   onClose: () => void;
-}): JSX.Element {
+}) {
   return (
     <Show when={props.session}>
       {(s) => (

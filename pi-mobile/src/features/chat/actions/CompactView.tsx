@@ -1,12 +1,12 @@
-import { Show, createSignal, type JSX } from "solid-js";
+import { Show, createSignal } from "solid-js";
 import { Loader2 } from "lucide-solid";
-import { compactSession } from "~/lib/api";
-import { getBridgeUrl } from "~/lib/settings";
-import { Button } from "~/components/ui/button";
-import { TextField, TextFieldLabel, TextFieldTextArea } from "~/components/ui/text-field";
+import { compactSession } from "@/lib/api";
+import { getBridgeUrl } from "@/lib/settings";
+import { Button } from "@/components/ui/button";
+import { TextField, TextFieldLabel, TextFieldTextArea } from "@/components/ui/text-field";
 import type { ActionErrorHandler } from "./types";
 
-export default function CompactView(props: { sessionId: string; onDone: () => void; onError: ActionErrorHandler }): JSX.Element {
+export default function CompactView(props: { sessionId: string; onDone: () => void; onError: ActionErrorHandler }) {
   const [instructions, setInstructions] = createSignal("");
   const [running, setRunning] = createSignal(false);
 
