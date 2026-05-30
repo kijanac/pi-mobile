@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { TextField, TextFieldInput, TextFieldLabel, TextFieldTextArea } from "@/components/ui/text-field";
 import SessionsPreview from "@/features/sessions/components/SessionsPreview";
 import { claimBridge, getBridgeIdentity, getSystemInfo, healthcheck, type BridgeIdentity } from "@/lib/api";
+import { KeyboardAvoidance } from "@/lib/keyboard";
 import { getBridgeUrl, setBridgeUrl } from "@/lib/settings";
 
 type Probe = "idle" | "checking" | "ok" | "fail";
@@ -127,10 +128,13 @@ export default function Settings() {
 
   return (
     <EdgeSwipeBack href="/" preview={<SessionsPreview />}>
-      <div class="flex min-h-dvh flex-col">
+      <KeyboardAvoidance mode="manual">
         <Header back="/" title="settings" />
 
-        <div class="flex-1 space-y-7 px-3 py-4">
+        <div
+          class="min-h-0 flex-1 space-y-7 overflow-y-auto px-3 pt-4"
+          style={{ "padding-bottom": "calc(env(safe-area-inset-bottom) + 1rem)" }}
+        >
           <section>
             <label class="label mb-1.5 block" for="bridge_url">
               bridge url
@@ -307,7 +311,7 @@ export default function Settings() {
             </Button>
           </section>
         </div>
-      </div>
+      </KeyboardAvoidance>
     </EdgeSwipeBack>
   );
 }
