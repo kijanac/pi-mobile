@@ -1,19 +1,31 @@
-import { readdirSync, statSync } from "node:fs";
-import { dirname, resolve as resolvePath, sep as PATH_SEP } from "node:path";
-import { homedir } from "node:os";
+import { readdirSync, realpathSync, statSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve as resolvePath } from "node:path";
 import type { Context } from "hono";
+import { WORKSPACES_DIR } from "./config.ts";
+
+const workspaceRoot = () => resolvePath(WORKSPACES_DIR);
+
+const isInsideRoot = (root: string, path: string) => {
+  const rel = relative(root, path);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+};
 
 export function handleFsLs(c: Context) {
   const raw = c.req.query("path");
   const showHidden = c.req.query("hidden") === "1";
 
+  let root: string;
   let target: string;
   try {
-    target = raw
-      ? resolvePath(raw)
-      : resolvePath(process.env.PI_WORKSPACES_DIR ?? homedir());
+    root = realpathSync(workspaceRoot());
+    target = raw ? resolvePath(raw) : root;
+    target = realpathSync(target);
   } catch {
-    return c.json({ error: "invalid_path" }, 400);
+    return c.json({ error: "not_found" }, 404);
+  }
+
+  if (!isInsideRoot(root, target)) {
+    return c.json({ error: "outside_workspace_root", root }, 403);
   }
 
   let entries: string[];
@@ -32,7 +44,11 @@ export function handleFsLs(c: Context) {
   for (const name of entries) {
     if (!showHidden && name.startsWith(".")) continue;
     try {
-      const st = statSync(`${target}${PATH_SEP}${name}`);
+      const child = join(target, name);
+      const childReal = realpathSync(child);
+      if (!isInsideRoot(root, childReal)) continue;
+
+      const st = statSync(childReal);
       if (st.isDirectory()) {
         dirs.push({ name, hidden: name.startsWith(".") });
       }
@@ -42,9 +58,10 @@ export function handleFsLs(c: Context) {
   dirs.sort((a, b) => a.name.localeCompare(b.name));
 
   const parent = (() => {
+    if (target === root) return null;
     const p = dirname(target);
-    return p === target ? null : p;
+    return isInsideRoot(root, p) ? p : null;
   })();
 
-  return c.json({ path: target, parent, home: homedir(), entries: dirs });
+  return c.json({ path: target, parent, home: root, entries: dirs });
 }

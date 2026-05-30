@@ -3,15 +3,16 @@ import { serve } from "@hono/node-server";
 import { WebSocketServer } from "ws";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { DB_PATH } from "./config.ts";
 import { PiClientFromEnv } from "./pi-env.ts";
-import { SessionManagerLive } from "./session.ts";
+import { SessionManager, SessionManagerLive } from "./session.ts";
 import { StoreLive } from "./store.ts";
 import { makeConnectionHandler, type WsBindings } from "./ws.ts";
 import { makeHttpApp } from "./http/app.ts";
+import { authorizeHeaders, isAllowedBrowserOrigin } from "./auth.ts";
 
-const PORT = Number(process.env.PORT ?? 7777);
-const HOST = process.env.HOST ?? "0.0.0.0";
-const DB_PATH = process.env.BRIDGE_DB ?? "data/bridge.db";
+const PORT = 7777;
+const HOST = "127.0.0.1";
 const USING_MOCK = process.env.PI_USE_MOCK === "1";
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
@@ -29,7 +30,13 @@ const server = serve({ fetch: app.fetch, port: PORT, hostname: HOST });
 const wss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (request, socket, head) => {
-  const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+  if (!request.url || !request.headers.host) {
+    socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+
+  const url = new URL(request.url, `http://${request.headers.host}`);
 
   if (url.pathname !== "/ws") {
     socket.destroy();
@@ -37,9 +44,29 @@ server.on("upgrade", (request, socket, head) => {
   }
 
   const sessionId = url.searchParams.get("session");
-  const cursor = Number(url.searchParams.get("cursor") ?? "0");
-  if (!sessionId) {
+  const rawCursor = url.searchParams.get("cursor");
+  if (!sessionId || rawCursor === null) {
     socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+
+  const cursor = Number(rawCursor);
+  if (!Number.isSafeInteger(cursor) || cursor < 0) {
+    socket.write("HTTP/1.1 400 Bad Request\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+
+  if (!isAllowedBrowserOrigin(request.headers.origin)) {
+    socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+
+  const auth = authorizeHeaders(request.headers);
+  if (!auth.ok) {
+    socket.write(`HTTP/1.1 ${auth.status} ${auth.status === 401 ? "Unauthorized" : "Forbidden"}\r\n\r\n`);
     socket.destroy();
     return;
   }
@@ -57,7 +84,7 @@ runtime.runFork(
       `   REST :  GET    /healthz\n` +
       `           GET    /sessions\n` +
       `           GET    /git/branches?cwd=:path\n` +
-      `           POST   /sessions       { cwd, title?, branch? }\n` +
+      `           POST   /sessions       { cwd, title, branch? }\n` +
       `           GET    /sessions/:id\n` +
       `           PATCH  /sessions/:id   { title?, archived? }\n` +
       `           DELETE /sessions/:id\n` +
@@ -67,6 +94,7 @@ runtime.runFork(
 
 const shutdown = async () => {
   await runtime.runPromise(Effect.logInfo("shutting down…"));
+  await runtime.runPromise(Effect.flatMap(SessionManager, (manager) => manager.closeAll()));
   wss.close();
   server.close();
   await runtime.dispose();

@@ -49,7 +49,7 @@ export class SessionManager extends Context.Tag("SessionManager")<
   {
     readonly create: (opts: {
       cwd: string;
-      title?: string;
+      title: string;
       branch?: string;
     }) => Effect.Effect<SessionMeta, PiError>;
     readonly list: () => Effect.Effect<SessionMeta[]>;
@@ -112,6 +112,7 @@ export class SessionManager extends Context.Tag("SessionManager")<
     readonly remove: (
       id: string,
     ) => Effect.Effect<void, SessionNotFound>;
+    readonly closeAll: () => Effect.Effect<void>;
   }
 >() {}
 
@@ -222,9 +223,12 @@ const make = Effect.gen(function* () {
       return { ...state, pumpFiber };
     });
 
-  const create = (opts: { cwd: string; title?: string; branch?: string }) =>
+  const create = (opts: { cwd: string; title: string; branch?: string }) =>
     Effect.gen(function* () {
       const worktree = yield* createSessionWorktree({ cwd: opts.cwd, branch: opts.branch });
+      const displayCwd = worktree ? worktree.repoRoot : opts.cwd;
+      const executionCwd = worktree ? worktree.worktreePath : opts.cwd;
+      const branch = worktree?.branch;
       const workspace: WorkspaceBinding = worktree
         ? {
             kind: "git-worktree",
@@ -235,10 +239,10 @@ const make = Effect.gen(function* () {
           }
         : { kind: "plain" };
       const piSession = yield* pi.create({
-        cwd: worktree?.repoRoot ?? opts.cwd,
-        executionCwd: worktree?.worktreePath ?? opts.cwd,
+        cwd: displayCwd,
+        executionCwd,
         title: opts.title,
-        branch: worktree?.branch,
+        branch,
       });
       const meta = piSession.meta;
 
@@ -253,7 +257,7 @@ const make = Effect.gen(function* () {
         costUsd: meta.costUsd,
         archived: meta.archived,
         runtime: {
-          executionCwd: worktree?.worktreePath ?? opts.cwd,
+          executionCwd,
           workspace,
         },
       });
@@ -316,26 +320,28 @@ const make = Effect.gen(function* () {
   const get = (id: string) => Effect.map(store.getSession(id), Option.map(toSessionMeta));
 
   const subscribe = (id: string, fromCursor: number) =>
-    Stream.unwrap(
+    Stream.unwrapScoped(
       Effect.gen(function* () {
         const ms = yield* lookupOrReattach(id);
+        const liveQueue = yield* PubSub.subscribe(ms.pubsub);
         const currentMeta = yield* Ref.get(ms.meta);
-        const cursorAtAttach = yield* Ref.get(ms.seq);
-
+        const cursorAtSubscribe = yield* Ref.get(ms.seq);
         const replay = yield* store.loadEventsAfter(id, fromCursor);
+        const replayCursor = replay.reduce(
+          (max, event) => Math.max(max, event.seq),
+          cursorAtSubscribe,
+        );
 
         const helloEvent: WireEvent = {
           t: "hello",
           seq: 0,
           session: currentMeta,
-          cursor: cursorAtAttach,
+          cursor: replayCursor,
         };
 
         const liveStream = pipe(
-          Stream.unwrapScoped(
-            Effect.map(PubSub.subscribe(ms.pubsub), Stream.fromQueue),
-          ),
-          Stream.filter((e) => e.seq > cursorAtAttach),
+          Stream.fromQueue(liveQueue),
+          Stream.filter((e) => e.seq > replayCursor),
         );
 
         return pipe(
@@ -467,6 +473,7 @@ const make = Effect.gen(function* () {
       const live = HashMap.get(map, id);
       if (Option.isSome(live)) {
         yield* Fiber.interrupt(live.value.pumpFiber);
+        yield* live.value.pi.close();
         yield* Ref.update(sessions, (m) => HashMap.remove(m, id));
       }
       if (existing.value.runtime.workspace.kind === "git-worktree" && existing.value.runtime.workspace.ownedBySession) {
@@ -475,6 +482,18 @@ const make = Effect.gen(function* () {
         );
       }
       yield* store.deleteSession(id);
+    });
+
+  const closeAll = () =>
+    Effect.gen(function* () {
+      const map = yield* Ref.get(sessions);
+      yield* Effect.forEach(HashMap.values(map), (live) =>
+        Effect.all([
+          Fiber.interrupt(live.pumpFiber),
+          live.pi.close(),
+        ], { discard: true }).pipe(Effect.ignoreLogged),
+      );
+      yield* Ref.set(sessions, HashMap.empty<string, ManagedSession>());
     });
 
   return SessionManager.of({
@@ -504,6 +523,7 @@ const make = Effect.gen(function* () {
     navigateTree,
     patch,
     remove,
+    closeAll,
   });
 });
 

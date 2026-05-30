@@ -18,10 +18,8 @@ WorkingDirectory=/opt/pi-mobile-workspace/current/bridge
 # See deploy/env.example for the keys.
 EnvironmentFile=/etc/pi-bridge/env
 
-# Pin HOST so the only public surface is via `tailscale serve`.
-# (env file may override these for ops convenience.)
-Environment=HOST=127.0.0.1
-Environment=PORT=7777
+# Bridge listener is hard-coded to 127.0.0.1:7777 so the only public surface
+# is via `tailscale serve`.
 Environment=BRIDGE_DB=/var/lib/pi-bridge/bridge.db
 Environment=HOME=/var/lib/pi-bridge
 Environment=PI_WORKSPACES_DIR=/var/lib/pi-bridge/workspaces

@@ -17,10 +17,6 @@ VERSION="${1:-$(node -p "require('$ROOT/package.json').version")}"
 OUT_DIR="$ROOT/dist/bridge-release"
 STAGE="$OUT_DIR/stage/pi-bridge-$VERSION"
 ARTIFACT="pi-bridge-$VERSION.tar.gz"
-PROTOCOL_VERSION="$(node -e "const fs=require('fs'); const s=fs.readFileSync('$ROOT/packages/protocol/src/index.ts','utf8'); console.log(s.match(/export const PROTOCOL_VERSION = (\\d+)/)?.[1] ?? '1')")"
-MIN_MOBILE_VERSION="$(node -e "const fs=require('fs'); const s=fs.readFileSync('$ROOT/packages/protocol/src/index.ts','utf8'); console.log(s.match(/export const MIN_MOBILE_VERSION = \\\"([^\\\"]+)\\\"/)?.[1] ?? '$VERSION')")"
-RECOMMENDED_MOBILE_VERSION="$(node -e "const fs=require('fs'); const s=fs.readFileSync('$ROOT/packages/protocol/src/index.ts','utf8'); console.log(s.match(/export const RECOMMENDED_MOBILE_VERSION = \\\"([^\\\"]+)\\\"/)?.[1] ?? '$VERSION')")"
-
 rm -rf "$OUT_DIR/stage"
 mkdir -p "$STAGE" "$OUT_DIR"
 
@@ -34,18 +30,7 @@ find "$STAGE" -name '*.tsbuildinfo' -delete
 tar -C "$OUT_DIR/stage" -czf "$OUT_DIR/$ARTIFACT" "pi-bridge-$VERSION"
 SHA256="$(sha256sum "$OUT_DIR/$ARTIFACT" | awk '{print $1}')"
 
-cat >"$OUT_DIR/bridge-release.json" <<EOF
-{
-  "version": "$VERSION",
-  "protocolVersion": $PROTOCOL_VERSION,
-  "minMobileVersion": "$MIN_MOBILE_VERSION",
-  "recommendedMobileVersion": "$RECOMMENDED_MOBILE_VERSION",
-  "artifact": {
-    "name": "$ARTIFACT",
-    "sha256": "$SHA256"
-  }
-}
-EOF
+(cd "$ROOT" && pnpm --filter pi-bridge exec tsx deploy/admin.ts package-release "$VERSION" "$ARTIFACT" "$SHA256") >"$OUT_DIR/bridge-release.json"
 
 if [[ -n "${RELEASE_SIGNING_KEY_PEM:-}" ]]; then
   KEY_FILE="$OUT_DIR/signing-key.pem"

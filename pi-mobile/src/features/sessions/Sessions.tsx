@@ -282,13 +282,17 @@ export default function Sessions() {
         onDelete={handleDelete}
       />
 
-      <RenameSheet
-        open={renameTarget() !== null}
-        initialTitle={renameTarget()?.title ?? ""}
-        saving={saving()}
-        onCancel={() => setRenameTarget(null)}
-        onSave={handleRename}
-      />
+      <Show when={renameTarget()}>
+        {(target) => (
+          <RenameSheet
+            open
+            initialTitle={target().title}
+            saving={saving()}
+            onCancel={() => setRenameTarget(null)}
+            onSave={handleRename}
+          />
+        )}
+      </Show>
       </div>
     </KeyboardAvoidance>
   );

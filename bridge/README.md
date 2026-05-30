@@ -48,7 +48,7 @@ node --experimental-strip-types smoke.ts   # in another
 | GET    | `/healthz`       | liveness |
 | GET    | `/sessions`      | list active bridge sessions |
 | GET    | `/git/branches?cwd=:path` | list branches for a git repo |
-| POST   | `/sessions`      | create — body `{ cwd, title?, branch? }`; git sessions run in a per-session worktree |
+| POST   | `/sessions`      | create — body `{ cwd, title, branch? }`; git sessions run in a per-session worktree |
 | GET    | `/sessions/:id`  | metadata |
 | WS     | `/ws?session=:id&cursor=:n` | live event stream + send |
 

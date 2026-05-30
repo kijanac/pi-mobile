@@ -148,7 +148,7 @@ const scriptedFlow = (q: Queue.Queue<PiEmission>, userText: string) =>
 const makeMockSession = (opts: {
   cwd: string;
   executionCwd: string;
-  title?: string;
+  title: string;
   branch?: string;
 }): Effect.Effect<PiSession, PiError> =>
   Effect.gen(function* () {
@@ -160,7 +160,7 @@ const makeMockSession = (opts: {
 
     const meta: SessionMeta = {
       id: nextId("s"),
-      title: opts.title ?? "untitled session",
+      title: opts.title,
       cwd: opts.cwd,
       branch: opts.branch,
       status: "idle",

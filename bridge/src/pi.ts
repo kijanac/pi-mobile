@@ -15,13 +15,15 @@ import {
   type BashToolInput,
   type EditToolInput,
   type ReadToolInput,
+  type SessionEntry,
   type WriteToolInput,
 } from "@earendil-works/pi-coding-agent";
+import type { Usage } from "@earendil-works/pi-ai";
 import * as v from "valibot";
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { join } from "node:path";
 import { Readable } from "node:stream";
 import {
   BashToolArgs,
@@ -49,6 +51,7 @@ import {
 } from "@pi-mobile/protocol";
 import { SessionNotFound } from "./errors.ts";
 import { setupFauxIfEnabled } from "./pi-faux.ts";
+import { BRIDGE_DATA_DIR } from "./config.ts";
 
 
 export type PiEmission =
@@ -146,7 +149,7 @@ export class PiClient extends Context.Tag("PiClient")<
     readonly create: (opts: {
       cwd: string;
       executionCwd: string;
-      title?: string;
+      title: string;
       branch?: string;
     }) => Effect.Effect<PiSession, PiError>;
     readonly resume: (
@@ -158,7 +161,6 @@ export class PiClient extends Context.Tag("PiClient")<
 
 const nextId = (prefix: string) => `${prefix}_${randomUUID()}`;
 
-const BRIDGE_DATA_DIR = process.env.BRIDGE_DATA_DIR ?? dirname(resolve(process.env.BRIDGE_DB ?? "data/bridge.db"));
 const EXPORT_DIR = join(BRIDGE_DATA_DIR, "exports");
 const EXPORT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -233,13 +235,13 @@ const flattenSessionTree = (piSession: AgentSession): SessionTree => {
   const entries: TreeEntry[] = [];
   const visit = (nodes: typeof roots, depth: number) => {
     for (const node of nodes) {
-      const entry = node.entry as { id: string; parentId: string | null; type: string; timestamp: string; message?: { role?: string; content?: unknown }; summary?: string; thinkingLevel?: string; provider?: string; modelId?: string };
-      const role = entry.message?.role;
+      const entry: SessionEntry = node.entry;
+      const role = entry.type === "message" ? entry.message.role : undefined;
       let text = "";
-      if (entry.type === "message") text = textFromContent(entry.message?.content);
-      else if (entry.type === "branch_summary" || entry.type === "compaction") text = entry.summary ?? "";
-      else if (entry.type === "thinking_level_change") text = `thinking ${entry.thinkingLevel ?? ""}`;
-      else if (entry.type === "model_change") text = `${entry.provider ?? ""}/${entry.modelId ?? ""}`;
+      if (entry.type === "message") text = "content" in entry.message ? textFromContent(entry.message.content) : "";
+      else if (entry.type === "branch_summary" || entry.type === "compaction") text = entry.summary;
+      else if (entry.type === "thinking_level_change") text = `thinking ${entry.thinkingLevel}`;
+      else if (entry.type === "model_change") text = `${entry.provider}/${entry.modelId}`;
       entries.push({
         id: entry.id,
         parentId: entry.parentId,
@@ -259,15 +261,6 @@ const flattenSessionTree = (piSession: AgentSession): SessionTree => {
   visit(roots, 0);
   return { currentId, entries };
 };
-
-interface PiUsage {
-  input?: number;
-  output?: number;
-  cacheRead?: number;
-  cacheWrite?: number;
-  totalTokens?: number;
-  cost?: { total?: number };
-}
 
 const toolCallBase = (id: string) => ({
   kind: "tool_call" as const,
@@ -345,7 +338,7 @@ const wirePiSession = (
               | "error"
               | "aborted";
             errorMessage?: string;
-            usage?: PiUsage;
+            usage?: Usage;
           };
 
           if (msg.role !== "assistant") return;
@@ -362,17 +355,12 @@ const wirePiSession = (
             ...(msg.usage
               ? {
                   usage: {
-                    input: msg.usage.input ?? 0,
-                    output: msg.usage.output ?? 0,
-                    cacheRead: msg.usage.cacheRead ?? 0,
-                    cacheWrite: msg.usage.cacheWrite ?? 0,
-                    total:
-                      msg.usage.totalTokens ??
-                      (msg.usage.input ?? 0) +
-                        (msg.usage.output ?? 0) +
-                        (msg.usage.cacheRead ?? 0) +
-                        (msg.usage.cacheWrite ?? 0),
-                    cost: msg.usage.cost?.total ?? 0,
+                    input: msg.usage.input,
+                    output: msg.usage.output,
+                    cacheRead: msg.usage.cacheRead,
+                    cacheWrite: msg.usage.cacheWrite,
+                    total: msg.usage.totalTokens,
+                    cost: msg.usage.cost.total,
                   },
                 }
               : {}),
@@ -407,7 +395,9 @@ const wirePiSession = (
           const resultText =
             typeof event.result === "string"
               ? event.result
-              : JSON.stringify(event.result ?? "");
+              : event.result == null
+                ? ""
+                : JSON.stringify(event.result);
 
           Queue.unsafeOffer(q, {
             t: "tool_result",
@@ -713,7 +703,7 @@ const wirePiSession = (
 const makeLiveSession = (opts: {
   cwd: string;
   executionCwd: string;
-  title?: string;
+  title: string;
   branch?: string;
 }): Effect.Effect<PiSession, PiError> =>
   Effect.gen(function* () {
@@ -748,7 +738,7 @@ const makeLiveSession = (opts: {
 
     const meta: SessionMeta = {
       id: piSession.sessionId,
-      title: opts.title ?? "untitled session",
+      title: opts.title,
       cwd: opts.cwd,
       branch: opts.branch,
       status: "idle",

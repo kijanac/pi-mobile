@@ -132,9 +132,6 @@ else
   echo "  $ETC_DIR/env already exists (preserved)"
 fi
 set_env_var PI_BRIDGE_AUTO_UPDATE "$PI_BRIDGE_AUTO_UPDATE"
-set_env_var PI_BRIDGE_UPDATE_CHANNEL "${PI_BRIDGE_UPDATE_CHANNEL:-stable}"
-set_env_var PI_BRIDGE_RELEASE_REPO "${PI_BRIDGE_RELEASE_REPO:-kijanac/pi-mobile}"
-set_env_var PI_BRIDGE_UPDATE_PUBLIC_KEY "${PI_BRIDGE_UPDATE_PUBLIC_KEY:-/etc/pi-bridge/update-public-key.pem}"
 
 if [[ -n "${TS_AUTHKEY:-}" ]]; then
   step "tailscale up"

@@ -1,10 +1,16 @@
 import * as v from "valibot";
-
-export const PRODUCT_VERSION = "0.4.10";
-export const PROTOCOL_VERSION = 1;
-export const MIN_MOBILE_VERSION = "0.2.1";
-export const RECOMMENDED_MOBILE_VERSION = PRODUCT_VERSION;
-
+export {
+  PRODUCT_VERSION,
+  PROTOCOL_VERSION,
+  MIN_MOBILE_VERSION,
+  RECOMMENDED_MOBILE_VERSION,
+} from "./version.ts";
+export {
+  BRIDGE_REPO_URL,
+  TAILSCALE_TAG,
+  renderBridgeCloudInit,
+  type BridgeCloudInitOptions,
+} from "./cloud-init.ts";
 
 export const SessionStatus = v.picklist([
   "idle",

@@ -22,11 +22,11 @@ interface Props {
 export default function CwdPicker(props: Props) {
   const [path, setPath] = createSignal<string | undefined>(props.initial);
 
-  const [listing] = createResource<FsListing, string>(
-    () => path() ?? "",
-    async (p) => {
+  const [listing] = createResource<FsListing, { path: string | undefined }>(
+    () => ({ path: path() }),
+    async (request) => {
       const baseUrl = await getBridgeUrl();
-      return lsFs(baseUrl, p || undefined);
+      return lsFs(baseUrl, request.path);
     },
   );
 

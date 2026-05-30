@@ -54,7 +54,7 @@ export const listSessions = (baseUrl: string): Promise<SessionMeta[]> =>
 
 export const createSession = (
   baseUrl: string,
-  opts: { cwd: string; title?: string; branch?: string },
+  opts: { cwd: string; title: string; branch?: string },
 ): Promise<SessionMeta> =>
   requestJson("createSession", `${baseUrl}/sessions`, jsonInit("POST", opts));
 
@@ -90,6 +90,17 @@ export async function healthcheck(baseUrl: string): Promise<boolean> {
 
 export const getSystemInfo = (baseUrl: string): Promise<SystemInfo> =>
   requestJson("getSystemInfo", `${baseUrl}/system/info`);
+
+export interface BridgeIdentity {
+  readonly user?: string;
+  readonly claimed: boolean;
+}
+
+export const getBridgeIdentity = (baseUrl: string): Promise<BridgeIdentity> =>
+  requestJson("getBridgeIdentity", `${baseUrl}/system/identity`);
+
+export const claimBridge = (baseUrl: string): Promise<{ claimed: true; owner: string }> =>
+  requestJson("claimBridge", `${baseUrl}/setup/claim`, { method: "POST" });
 
 export const listSessionModels = (
   baseUrl: string,

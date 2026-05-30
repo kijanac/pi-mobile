@@ -48,11 +48,10 @@ export default function NewSessionSheet(props: Props) {
       setBranch(undefined);
       return;
     }
-    setBranch((current) =>
-      current && info.branches.some((b) => b.name === current)
-        ? current
-        : info.current ?? info.branches[0]?.name,
-    );
+    setBranch((current) => {
+      if (current && info.branches.some((b) => b.name === current)) return current;
+      return info.current;
+    });
   });
 
   const effectiveTitle = () => {
@@ -62,7 +61,10 @@ export default function NewSessionSheet(props: Props) {
     return c ? basename(c) : "";
   };
 
-  const canCreate = () => !!cwd() && !props.creating;
+  const canCreate = () => {
+    const info = gitInfo();
+    return !!cwd() && !props.creating && (!info?.isRepo || !!branch());
+  };
 
   function handleCreate() {
     const c = cwd();
@@ -186,38 +188,45 @@ function BranchPicker(props: {
   value: string | undefined;
   onChange: (branch: string) => void;
 }) {
+  const branchInfo = () => {
+    const info = props.info;
+    return info?.isRepo && info.branches.length > 0 ? info : null;
+  };
+
   return (
-    <Show when={props.info?.isRepo && props.info.branches.length > 0}>
-      <Field label="branch">
-        <div class="space-y-1.5">
-          <div class="flex items-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-[12.5px]">
-            <GitBranch size={12} class="shrink-0 text-[color:var(--color-fg-muted)]" />
-            <span class="min-w-0 flex-1 truncate">{props.value ?? "choose a branch"}</span>
+    <Show when={branchInfo()}>
+      {(info) => (
+        <Field label="branch">
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-[12.5px]">
+              <GitBranch size={12} class="shrink-0 text-[color:var(--color-fg-muted)]" />
+              <span class="min-w-0 flex-1 truncate">{props.value ?? "choose a branch"}</span>
+            </div>
+            <div class="max-h-40 overflow-y-auto rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)]">
+              <For each={info().branches}>
+                {(b) => (
+                  <button
+                    type="button"
+                    onClick={() => props.onChange(b.name)}
+                    class="hairline-b flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] active:bg-[color:var(--color-surface-2)]"
+                  >
+                    <span class="min-w-0 flex-1 truncate">{branchLabel(b)}</span>
+                    <Show when={b.kind === "local" && b.current}>
+                      <span class="text-[11px] text-[color:var(--color-fg-faint)]">current</span>
+                    </Show>
+                    <Show when={props.value === b.name}>
+                      <span class="text-[color:var(--color-accent)]">✓</span>
+                    </Show>
+                  </button>
+                )}
+              </For>
+            </div>
+            <p class="px-1 text-[11px] leading-4 text-[color:var(--color-fg-faint)]">
+              A per-session git worktree will be created for this branch.
+            </p>
           </div>
-          <div class="max-h-40 overflow-y-auto rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)]">
-            <For each={props.info?.branches ?? []}>
-              {(b) => (
-                <button
-                  type="button"
-                  onClick={() => props.onChange(b.name)}
-                  class="hairline-b flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] active:bg-[color:var(--color-surface-2)]"
-                >
-                  <span class="min-w-0 flex-1 truncate">{branchLabel(b)}</span>
-                  <Show when={b.kind === "local" && b.current}>
-                    <span class="text-[11px] text-[color:var(--color-fg-faint)]">current</span>
-                  </Show>
-                  <Show when={props.value === b.name}>
-                    <span class="text-[color:var(--color-accent)]">✓</span>
-                  </Show>
-                </button>
-              )}
-            </For>
-          </div>
-          <p class="px-1 text-[11px] leading-4 text-[color:var(--color-fg-faint)]">
-            A per-session git worktree will be created for this branch.
-          </p>
-        </div>
-      </Field>
+        </Field>
+      )}
     </Show>
   );
 }

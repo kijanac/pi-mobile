@@ -10,8 +10,8 @@ import SessionAgentActions from "@/features/chat/components/SessionAgentActions"
 import SessionsPreview from "@/features/sessions/components/SessionsPreview";
 import {
   activeStatus,
-  applyWireEvent,
-  cursor,
+  applyWireEventForSession,
+  cursorForSession,
   resetActiveLog,
   useSession,
   setSessions,
@@ -36,7 +36,7 @@ export default function Session() {
     on(
       () => params.id,
       (id) => {
-        resetActiveLog();
+        resetActiveLog(id);
         setConnState("connecting");
 
         let closed = false;
@@ -47,7 +47,7 @@ export default function Session() {
           const baseUrl = await getBridgeUrl();
           if (closed) return;
 
-          const stream = connectStream(baseUrl, id, cursor, {
+          const stream = connectStream(baseUrl, id, () => cursorForSession(id), {
             onOpen: () => setConnState("connected"),
             onClose: (_code, _reason, terminal) => {
               if (terminal) {
@@ -84,7 +84,7 @@ export default function Session() {
                   ),
                 );
               }
-              applyWireEvent(e);
+              applyWireEventForSession(id, e);
             },
           });
 

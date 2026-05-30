@@ -6,10 +6,10 @@ providing the HTTPS endpoint the mobile app talks to.
 
 ## Why this shape
 
-- **No public exposure.** The bridge has no auth; it must not sit on
-  the open internet. Binding to `127.0.0.1` + `tailscale serve` is a
-  tighter perimeter than `0.0.0.0` + firewall rules — wrong rule, no
-  exposure.
+- **No public exposure.** The bridge is intended to sit behind
+  `tailscale serve`, not on the open internet. Binding to `127.0.0.1`
+  keeps Tailscale Serve as the only ingress path, and production bridge
+  requests require Tailscale identity headers from Serve.
 - **HTTPS is solved.** iOS App Transport Security blocks plain HTTP,
   and the Capacitor WebView is no different. `tailscale serve` mints
   Let's Encrypt certs for `*.<your-tailnet>.ts.net` for free, so the
@@ -47,6 +47,12 @@ On first boot it will:
 
 Use a tagged auth key for `tag:pi-bridge` if your tailnet ACL requires it.
 The auth key may appear in cloud-init logs, so keep it single-use and short-lived.
+
+In production, pi-bridge defaults to `PI_AUTH_MODE=tailscale`: every REST route
+except `/healthz` and every WebSocket upgrade must arrive through Tailscale Serve
+with `Tailscale-User-Login`. The first successful setup from the mobile app
+claims that Tailscale login as the bridge owner in SQLite; subsequent requests
+must come from the claimed owner.
 
 ## First-time install — on the server
 
@@ -148,14 +154,9 @@ manifest. The matching public key is bundled at
 /etc/pi-bridge/update-public-key.pem
 ```
 
-Updater settings live in `/etc/pi-bridge/env`:
-
-```sh
-PI_BRIDGE_AUTO_UPDATE=1
-PI_BRIDGE_UPDATE_CHANNEL=stable
-PI_BRIDGE_RELEASE_REPO=kijanac/pi-mobile
-PI_BRIDGE_UPDATE_PUBLIC_KEY=/etc/pi-bridge/update-public-key.pem
-```
+The installer writes `PI_BRIDGE_AUTO_UPDATE=1` to `/etc/pi-bridge/env` when
+auto-update is enabled. Release repository, channel, public key path, install
+path, and health-check target are product-owned by `update.sh`.
 
 Control the timer with:
 

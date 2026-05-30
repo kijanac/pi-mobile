@@ -8,6 +8,7 @@ import { mountAuthRoutes } from "./auth.ts";
 import { mountCommandRoutes } from "./commands.ts";
 import { mountFsRoutes } from "./fs.ts";
 import { mountGitRoutes } from "./git.ts";
+import { allowedOrigins, requireTailscaleAuth } from "../auth.ts";
 
 export function makeHttpApp(runtime: ManagedRuntime.ManagedRuntime<any, never>): Hono {
   const app = new Hono();
@@ -15,12 +16,13 @@ export function makeHttpApp(runtime: ManagedRuntime.ManagedRuntime<any, never>):
   app.use(
     "*",
     cors({
-      origin: "*",
+      origin: process.env.NODE_ENV === "production" ? allowedOrigins() : "*",
       allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["content-type"],
     }),
   );
 
+  app.use("*", requireTailscaleAuth);
   mountSystemRoutes(app);
   mountSessionRoutes(app, runtime);
   mountSessionActionRoutes(app, runtime);

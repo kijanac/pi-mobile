@@ -1,26 +1,20 @@
 import { createMemo, createSignal, onMount, Show } from "solid-js";
 import { Check, Copy, Loader2, X } from "lucide-solid";
-import { PRODUCT_VERSION, PROTOCOL_VERSION, type SystemInfo } from "@pi-mobile/protocol";
+import { PRODUCT_VERSION, PROTOCOL_VERSION, renderBridgeCloudInit, type SystemInfo } from "@pi-mobile/protocol";
 import EdgeSwipeBack from "@/components/EdgeSwipeBack";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { TextField, TextFieldInput, TextFieldLabel, TextFieldTextArea } from "@/components/ui/text-field";
 import SessionsPreview from "@/features/sessions/components/SessionsPreview";
-import { getSystemInfo, healthcheck } from "@/lib/api";
+import { claimBridge, getBridgeIdentity, getSystemInfo, healthcheck, type BridgeIdentity } from "@/lib/api";
 import { getBridgeUrl, setBridgeUrl } from "@/lib/settings";
 
 type Probe = "idle" | "checking" | "ok" | "fail";
-
-const OFFICIAL_REPO_URL = "https://github.com/kijanac/pi-mobile.git";
 
 function randomBridgeHostname(): string {
   const bytes = new Uint8Array(3);
   crypto.getRandomValues(bytes);
   return `pi-bridge-${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
 function compareVersion(a: string, b: string): number {
@@ -39,6 +33,7 @@ export default function Settings() {
   const [probe, setProbe] = createSignal<Probe>("idle");
   const [systemInfo, setSystemInfo] = createSignal<SystemInfo | null>(null);
   const [systemInfoError, setSystemInfoError] = createSignal<string | null>(null);
+  const [bridgeIdentity, setBridgeIdentity] = createSignal<BridgeIdentity | null>(null);
   const [copied, setCopied] = createSignal<string | null>(null);
 
   const [tsAuthKey, setTsAuthKey] = createSignal("");
@@ -80,44 +75,31 @@ export default function Settings() {
     return { level: "ok" as const, text: "compatible" };
   });
 
-  const cloudInit = createMemo(() => {
-    const lines = [
-      "#cloud-config",
-      "package_update: true",
-      "packages:",
-      "  - ca-certificates",
-      "  - curl",
-      "  - git",
-      "runcmd:",
-      "  - |",
-      "    set -euo pipefail",
-      `    export TS_AUTHKEY=${shellQuote(tsAuthKey().trim())}`,
-      `    export BRIDGE_HOSTNAME=${shellQuote(bridgeHostname().trim())}`,
-      "    export TAILSCALE_TAG=tag:pi-bridge",
-      "    export TAILSCALE_SERVE=1",
-      "    export PI_BRIDGE_AUTO_DEPLOY=1",
-      "    export PI_BRIDGE_AUTO_UPDATE=1",
-    ];
-
-    lines.push(
-      "    rm -rf /tmp/pi-mobile",
-      `    git clone --depth=1 ${shellQuote(OFFICIAL_REPO_URL)} /tmp/pi-mobile`,
-      "    /tmp/pi-mobile/bridge/deploy/install.sh",
-    );
-
-    return `${lines.join("\n")}\n`;
-  });
+  const cloudInit = createMemo(() =>
+    renderBridgeCloudInit({
+      tsAuthKey: tsAuthKey(),
+      bridgeHostname: bridgeHostname(),
+    }),
+  );
 
   async function test() {
     setProbe("checking");
     setSystemInfo(null);
     setSystemInfoError(null);
+    setBridgeIdentity(null);
     const base = url().trim();
     const ok = await healthcheck(base);
     setProbe(ok ? "ok" : "fail");
     if (!ok) return;
     try {
       setSystemInfo(await getSystemInfo(base));
+      const identity = await getBridgeIdentity(base);
+      if (!identity.claimed) {
+        const claimed = await claimBridge(base);
+        setBridgeIdentity({ user: claimed.owner, claimed: true });
+      } else {
+        setBridgeIdentity(identity);
+      }
     } catch (error) {
       setSystemInfoError(error instanceof Error ? error.message : String(error));
     }
@@ -233,6 +215,13 @@ export default function Settings() {
                     protocol {info().protocolVersion} · updates {info().autoUpdate ? "on" : "off"} ·{" "}
                     {info().updateChannel}
                   </div>
+                  <Show when={bridgeIdentity()}>
+                    {(identity) => (
+                      <div class="mt-1">
+                        tailscale owner {identity().user} · {identity().claimed ? "claimed" : "unclaimed"}
+                      </div>
+                    )}
+                  </Show>
                 </div>
               )}
             </Show>

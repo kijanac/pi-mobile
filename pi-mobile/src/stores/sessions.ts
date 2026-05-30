@@ -8,7 +8,6 @@ import type {
 } from "@pi-mobile/protocol";
 import * as api from "@/lib/api";
 
-
 export const [sessions, setSessions] = createSignal<SessionMeta[]>([]);
 
 export async function loadSessions(baseUrl: string): Promise<void> {
@@ -20,6 +19,7 @@ export function useSession(id: Accessor<string>) {
   return createMemo(() => sessions().find((s) => s.id === id()));
 }
 
+const [activeSessionId, setActiveSessionId] = createSignal<string | null>(null);
 
 const [activeStatusSignal, setActiveStatus] =
   createSignal<SessionMeta["status"]>("idle");
@@ -34,44 +34,77 @@ interface RetryState {
 const [activeRetry, setActiveRetry] = createSignal<RetryState | null>(null);
 export { activeRetry };
 
-
-const [log, setLog] = createStore<{
+interface SessionLog {
   entries: LogEntry[];
   cursor: number;
-}>({ entries: [], cursor: 0 });
+}
 
-export const entries = () => log.entries;
-export const cursor = () => log.cursor;
-
+const [logs, setLogs] = createStore<Record<string, SessionLog>>({});
+const entryIndexes = new Map<string, Map<string, number>>();
+const activityVersions = new Map<string, number>();
 const [activityVersionSignal, setActivityVersion] = createSignal(0);
 export const activityVersion = activityVersionSignal;
-const bumpActivity = () => setActivityVersion((n) => n + 1);
 
-const entryIndex = new Map<string, number>();
+const emptyLog: SessionLog = { entries: [], cursor: 0 };
+const currentLog = () => {
+  const id = activeSessionId();
+  if (!id) return emptyLog;
+  return logs[id]!;
+};
 
-export function resetActiveLog() {
-  setLog({ entries: [], cursor: 0 });
-  entryIndex.clear();
-  setActivityVersion(0);
+export const entries = () => currentLog().entries;
+export const cursor = () => currentLog().cursor;
+export const cursorForSession = (sessionId: string) => {
+  ensureLog(sessionId);
+  return logs[sessionId]!.cursor;
+};
+
+function ensureLog(sessionId: string): void {
+  if (!logs[sessionId]) setLogs(sessionId, { entries: [], cursor: 0 });
+  if (!entryIndexes.has(sessionId)) entryIndexes.set(sessionId, new Map());
+}
+
+function bumpActivity(sessionId: string): void {
+  const next = (activityVersions.get(sessionId) ?? 0) + 1;
+  activityVersions.set(sessionId, next);
+  if (activeSessionId() === sessionId) setActivityVersion(next);
+}
+
+export function resetActiveLog(sessionId: string): void {
+  ensureLog(sessionId);
+  setActiveSessionId(sessionId);
+  const version = activityVersions.get(sessionId) ?? 0;
+  setActivityVersion(version);
   setActiveStatus("idle");
   setActiveRetry(null);
 }
 
-const mutate = (fn: (arr: LogEntry[]) => void): void =>
-  setLog("entries", produce(fn));
+const mutate = (sessionId: string, fn: (arr: LogEntry[]) => void): void => {
+  ensureLog(sessionId);
+  setLogs(sessionId, "entries", produce(fn));
+};
 
-function appendEntry(arr: LogEntry[], entry: LogEntry): void {
+function appendEntry(
+  sessionId: string,
+  arr: LogEntry[],
+  entry: LogEntry,
+): void {
   arr.push(entry);
-  entryIndex.set(entry.id, arr.length - 1);
+  entryIndexes.get(sessionId)?.set(entry.id, arr.length - 1);
 }
 
-function findEntry(arr: LogEntry[], id: string): LogEntry | undefined {
-  const idx = entryIndex.get(id);
+function findEntry(
+  sessionId: string,
+  arr: LogEntry[],
+  id: string,
+): LogEntry | undefined {
+  const entryIndex = entryIndexes.get(sessionId);
+  const idx = entryIndex?.get(id);
   if (idx !== undefined && arr[idx]?.id === id) return arr[idx];
 
   const fallback = arr.findIndex((x) => x.id === id);
   if (fallback >= 0) {
-    entryIndex.set(id, fallback);
+    entryIndex?.set(id, fallback);
     return arr[fallback];
   }
   return undefined;
@@ -101,28 +134,30 @@ function assistantFromEnd(event: AssistantEndEvent): AssistantMessage {
   return message;
 }
 
-export function applyWireEvent(e: WireEvent): void {
-  if (e.t !== "hello" && e.seq > 0 && e.seq <= log.cursor) return;
+export function applyWireEventForSession(sessionId: string, e: WireEvent): void {
+  ensureLog(sessionId);
+  const sessionLog = logs[sessionId]!;
+  if (e.t !== "hello" && e.seq > 0 && e.seq <= sessionLog.cursor) return;
 
-  if (e.seq > log.cursor) setLog("cursor", e.seq);
+  if (e.seq > sessionLog.cursor) setLogs(sessionId, "cursor", e.seq);
 
   switch (e.t) {
     case "hello":
       return;
 
     case "user_message":
-      mutate((arr) => appendEntry(arr, e.entry));
-      bumpActivity();
+      mutate(sessionId, (arr) => appendEntry(sessionId, arr, e.entry));
+      bumpActivity(sessionId);
       return;
 
     case "assistant_delta":
-      mutate((arr) => {
-        const existing = findEntry(arr, e.id);
+      mutate(sessionId, (arr) => {
+        const existing = findEntry(sessionId, arr, e.id);
         if (existing?.kind === "assistant") {
           existing.text += e.text;
           existing.streaming = true;
         } else {
-          appendEntry(arr, {
+          appendEntry(sessionId, arr, {
             kind: "assistant",
             id: e.id,
             at: Date.now(),
@@ -131,76 +166,87 @@ export function applyWireEvent(e: WireEvent): void {
           });
         }
       });
-      bumpActivity();
+      bumpActivity(sessionId);
       return;
 
     case "assistant_end":
-      mutate((arr) => {
-        const m = findEntry(arr, e.id);
+      mutate(sessionId, (arr) => {
+        const m = findEntry(sessionId, arr, e.id);
         if (!m) {
-          appendEntry(arr, assistantFromEnd(e));
+          appendEntry(sessionId, arr, assistantFromEnd(e));
           return;
         }
         if (m.kind === "assistant") applyAssistantEnd(m, e);
       });
-      bumpActivity();
+      bumpActivity(sessionId);
       return;
 
     case "tool_call":
-      mutate((arr) => appendEntry(arr, e.entry));
-      bumpActivity();
+      mutate(sessionId, (arr) => appendEntry(sessionId, arr, e.entry));
+      bumpActivity(sessionId);
       return;
 
     case "tool_result":
-      mutate((arr) => {
-        const m = findEntry(arr, e.id);
+      mutate(sessionId, (arr) => {
+        const m = findEntry(sessionId, arr, e.id);
         if (m?.kind === "tool_call") {
           m.status = e.status;
           m.result = e.result;
           m.durationMs = e.durationMs;
         }
       });
-      bumpActivity();
+      bumpActivity(sessionId);
       return;
 
     case "permission":
-      mutate((arr) => appendEntry(arr, e.entry));
-      bumpActivity();
+      mutate(sessionId, (arr) => appendEntry(sessionId, arr, e.entry));
+      bumpActivity(sessionId);
       return;
 
     case "status":
-      setActiveStatus(e.status);
+      if (activeSessionId() === sessionId) setActiveStatus(e.status);
       return;
 
     case "cost":
       return;
 
     case "auto_retry_start":
-      setActiveRetry({
-        attempt: e.attempt,
-        maxAttempts: e.maxAttempts,
-        delayMs: e.delayMs,
-        errorMessage: e.errorMessage,
-      });
+      if (activeSessionId() === sessionId) {
+        setActiveRetry({
+          attempt: e.attempt,
+          maxAttempts: e.maxAttempts,
+          delayMs: e.delayMs,
+          errorMessage: e.errorMessage,
+        });
+      }
       return;
 
     case "auto_retry_end":
-      setActiveRetry(null);
+      if (activeSessionId() === sessionId) setActiveRetry(null);
       return;
   }
+}
+
+export function applyWireEvent(e: WireEvent): void {
+  const id = activeSessionId();
+  if (!id) return;
+  applyWireEventForSession(id, e);
 }
 
 export function resolvePermissionLocal(
   id: string,
   choice: "allow" | "deny" | "allow_session",
 ): void {
+  const sessionId = activeSessionId();
+  if (!sessionId) return;
+
   let changed = false;
-  mutate((arr) => {
-    const m = findEntry(arr, id);
+  mutate(sessionId, (arr) => {
+    const m = findEntry(sessionId, arr, id);
     if (m?.kind === "permission") {
       m.resolved = choice;
       changed = true;
     }
   });
-  if (changed) bumpActivity();
+  if (changed) bumpActivity(sessionId);
 }

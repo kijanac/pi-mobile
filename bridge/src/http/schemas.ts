@@ -1,10 +1,12 @@
 import * as v from "valibot";
 import { SessionSettingsPatch } from "@pi-mobile/protocol";
 
+const NonEmptyString = v.pipe(v.string(), v.trim(), v.nonEmpty());
+
 export const CreateBody = v.object({
-  cwd: v.string(),
-  title: v.optional(v.string()),
-  branch: v.optional(v.string()),
+  cwd: NonEmptyString,
+  title: NonEmptyString,
+  branch: v.optional(NonEmptyString),
 });
 
 export const PatchBody = v.object({
