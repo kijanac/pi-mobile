@@ -52,7 +52,7 @@ export class SessionManager extends Context.Tag("SessionManager")<
       title: string;
       branch?: string;
     }) => Effect.Effect<SessionMeta, PiError>;
-    readonly list: () => Effect.Effect<SessionMeta[]>;
+    readonly list: (filter?: { archived?: boolean }) => Effect.Effect<SessionMeta[]>;
     readonly get: (id: string) => Effect.Effect<Option.Option<SessionMeta>>;
     readonly subscribe: (
       id: string,
@@ -315,7 +315,8 @@ const make = Effect.gen(function* () {
       );
     });
 
-  const list = () => Effect.map(store.listSessions(), (records) => records.map(toSessionMeta));
+  const list = (filter?: { archived?: boolean }) =>
+    Effect.map(store.listSessions(filter), (records) => records.map(toSessionMeta));
 
   const get = (id: string) => Effect.map(store.getSession(id), Option.map(toSessionMeta));
 

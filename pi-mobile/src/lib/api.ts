@@ -49,8 +49,14 @@ const jsonInit = (method: string, body?: unknown): RequestInit => ({
 const sessionUrl = (baseUrl: string, id: string, suffix = "") =>
   `${baseUrl}/sessions/${encodeURIComponent(id)}${suffix}`;
 
-export const listSessions = (baseUrl: string): Promise<SessionMeta[]> =>
-  requestJson("listSessions", `${baseUrl}/sessions`);
+export const listSessions = (
+  baseUrl: string,
+  opts?: { archived?: boolean },
+): Promise<SessionMeta[]> => {
+  const url = new URL(`${baseUrl}/sessions`);
+  if (opts?.archived) url.searchParams.set("archived", "1");
+  return requestJson("listSessions", url);
+};
 
 export const createSession = (
   baseUrl: string,

@@ -82,7 +82,7 @@ runtime.runFork(
     `pi-bridge listening on http://${HOST}:${PORT}  ${USING_MOCK ? "(mock pi)" : "(live pi)"}\n` +
       `   db   :  ${DB_PATH}\n` +
       `   REST :  GET    /healthz\n` +
-      `           GET    /sessions\n` +
+      `           GET    /sessions?archived=0|1\n` +
       `           GET    /git/branches?cwd=:path\n` +
       `           POST   /sessions       { cwd, title, branch? }\n` +
       `           GET    /sessions/:id\n` +

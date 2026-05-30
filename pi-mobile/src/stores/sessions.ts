@@ -10,8 +10,11 @@ import * as api from "@/lib/api";
 
 export const [sessions, setSessions] = createSignal<SessionMeta[]>([]);
 
-export async function loadSessions(baseUrl: string): Promise<void> {
-  const list = await api.listSessions(baseUrl);
+export async function loadSessions(
+  baseUrl: string,
+  opts?: { archived?: boolean },
+): Promise<void> {
+  const list = await api.listSessions(baseUrl, opts);
   setSessions(list);
 }
 

@@ -6,9 +6,10 @@ import { CreateBody, PatchBody } from "./schemas.ts";
 import { runJson, runNoContent } from "./run.ts";
 
 export function mountSessionRoutes(app: Hono, runtime: ManagedRuntime.ManagedRuntime<any, never>): void {
-  app.get("/sessions", async (c) =>
-    runJson(runtime, c, Effect.flatMap(SessionManager, (m) => m.list()), "internal_error"),
-  );
+  app.get("/sessions", async (c) => {
+    const archived = c.req.query("archived") === "1";
+    return runJson(runtime, c, Effect.flatMap(SessionManager, (m) => m.list({ archived })), "internal_error");
+  });
 
   app.post("/sessions", async (c) => {
     const body = v.safeParse(CreateBody, await c.req.json().catch(() => null));

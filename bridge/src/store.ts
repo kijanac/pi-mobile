@@ -14,7 +14,7 @@ export class Store extends Context.Tag("Store")<
   {
     readonly insertSession: (record: SessionRecord) => Effect.Effect<void>;
     readonly getSession: (id: string) => Effect.Effect<Option.Option<SessionRecord>>;
-    readonly listSessions: () => Effect.Effect<SessionRecord[]>;
+    readonly listSessions: (filter?: { archived?: boolean }) => Effect.Effect<SessionRecord[]>;
     readonly updateSession: (
       id: string,
       patch: Partial<SessionRecord>,
@@ -143,8 +143,12 @@ const make = (dbPath: string) =>
       `SELECT * FROM sessions WHERE id = ?`,
     );
 
-    const stmtListSessions: StatementSync = db.prepare(
+    const stmtListActiveSessions: StatementSync = db.prepare(
       `SELECT * FROM sessions WHERE archived = 0 ORDER BY updated_at DESC`,
+    );
+
+    const stmtListArchivedSessions: StatementSync = db.prepare(
+      `SELECT * FROM sessions WHERE archived = 1 ORDER BY updated_at DESC`,
     );
 
     const stmtDeleteSession: StatementSync = db.prepare(
@@ -197,9 +201,10 @@ const make = (dbPath: string) =>
           return row ? Option.some(rowToRecord(row)) : Option.none();
         }),
 
-      listSessions: () =>
+      listSessions: (filter) =>
         Effect.sync(() => {
-          return stmtListSessions.all().map(rowToRecord);
+          const stmt = filter?.archived ? stmtListArchivedSessions : stmtListActiveSessions;
+          return stmt.all().map(rowToRecord);
         }),
 
       updateSession: (id, patch) =>
