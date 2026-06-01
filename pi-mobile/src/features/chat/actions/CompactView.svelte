@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Loader2 } from "@lucide/svelte";
   import type { ActionErrorHandler } from "./types";
-  import { getBridgeClient } from "@/shared/lib/bridge-client";
+  import { compactSession } from "@/features/chat/api";
   import { Button } from "@/shared/ui/button";
   import { Textarea } from "@/shared/ui/textarea";
 
@@ -15,7 +15,7 @@
     running = true;
     onError(null);
     try {
-      await getBridgeClient().compactSession(sessionId, instructions);
+      await compactSession(sessionId, instructions);
       onDone();
     } catch (error) {
       onError(String(error));

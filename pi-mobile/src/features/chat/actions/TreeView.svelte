@@ -2,7 +2,7 @@
   import { Loader2 } from "@lucide/svelte";
   import type { TreeEntry, SessionTree } from "@pi-mobile/protocol";
   import type { ActionErrorHandler } from "./types";
-  import { getBridgeClient } from "@/shared/lib/bridge-client";
+  import { getSessionTree, navigateSessionTree } from "@/features/chat/api";
 
   let { sessionId, onDone, onError }: { sessionId: string; onDone: () => void; onError: ActionErrorHandler } = $props();
 
@@ -18,7 +18,7 @@
   async function loadTree(): Promise<void> {
     loading = true;
     try {
-      tree = await getBridgeClient().getSessionTree(sessionId);
+      tree = await getSessionTree(sessionId);
     } catch (error) {
       onError(String(error));
     } finally {
@@ -31,7 +31,7 @@
     jumping = entry.id;
     onError(null);
     try {
-      await getBridgeClient().navigateSessionTree(sessionId, { entryId: entry.id, summarize });
+      await navigateSessionTree(sessionId, { entryId: entry.id, summarize });
       onDone();
     } catch (error) {
       onError(String(error));

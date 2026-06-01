@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Download } from "@lucide/svelte";
   import type { SessionStats } from "@pi-mobile/protocol";
-  import { getBridgeClient } from "@/shared/lib/bridge-client";
+  import { getSessionStats, sessionExportHtmlUrl } from "@/features/chat/api";
   import { formatCost, formatTokens } from "@/shared/lib/format";
 
   let { sessionId }: { sessionId: string } = $props();
@@ -18,7 +18,7 @@
     loading = true;
     error = null;
     try {
-      stats = await getBridgeClient().getSessionStats(sessionId);
+      stats = await getSessionStats(sessionId);
     } catch (caught) {
       error = String(caught);
     } finally {
@@ -31,9 +31,8 @@
   }
 
   function downloadHtmlExport(): void {
-    const client = getBridgeClient();
     const anchor = document.createElement("a");
-    anchor.href = client.sessionExportHtmlUrl(sessionId);
+    anchor.href = sessionExportHtmlUrl(sessionId);
     anchor.download = `pi-session-${sessionId}.html`;
     anchor.rel = "noreferrer";
     document.body.append(anchor);

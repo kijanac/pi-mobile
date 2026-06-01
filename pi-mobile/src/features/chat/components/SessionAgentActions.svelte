@@ -1,6 +1,6 @@
 <script lang="ts">
   import { MoreHorizontal } from "@lucide/svelte";
-  import { haptics } from "@/shared/mobile/haptics";
+  import { createAgentActionsState } from "@/features/chat/actions/agent-actions.state.svelte";
   import AgentActionSheet from "@/features/chat/actions/AgentActionSheet.svelte";
   import AuthView from "@/features/chat/actions/AuthView.svelte";
   import CompactView from "@/features/chat/actions/CompactView.svelte";
@@ -8,34 +8,15 @@
   import SessionInfoView from "@/features/chat/actions/SessionInfoView.svelte";
   import SessionSettingsView from "@/features/chat/actions/SessionSettingsView.svelte";
   import TreeView from "@/features/chat/actions/TreeView.svelte";
-  import type { AgentActionView } from "@/features/chat/actions/types";
 
   let { sessionId }: { sessionId: string } = $props();
 
-  let open = $state(false);
-  let view = $state<AgentActionView>("menu");
-  let error = $state<string | null>(null);
-
-  function close(): void {
-    open = false;
-    view = "menu";
-    error = null;
-  }
-
-  function back(): void {
-    view = "menu";
-    error = null;
-  }
-
-  function done(): void {
-    haptics.success();
-    close();
-  }
+  const actions = createAgentActionsState();
 </script>
 
 <button
   type="button"
-  onclick={() => (open = true)}
+  onclick={() => actions.setOpen(true)}
   class="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]"
   aria-label="Agent actions"
   title="Agent actions"
@@ -43,29 +24,34 @@
   <MoreHorizontal class="size-4" />
 </button>
 
-{#if open}
-  <AgentActionSheet bind:open {view} {error} onBack={back}>
-    {#if view === "menu"}
+{#if actions.open}
+  <AgentActionSheet
+    bind:open={() => actions.open, (open) => actions.setOpen(open)}
+    view={actions.view}
+    error={actions.error}
+    onBack={actions.back}
+  >
+    {#if actions.view === "menu"}
       <MenuView
-        onModels={() => (view = "models")}
-        onCompact={() => (view = "compact")}
-        onSettings={() => (view = "settings")}
-        onTree={() => (view = "tree")}
-        onInfo={() => (view = "info")}
-        onAuth={() => (view = "auth")}
+        onModels={() => actions.setView("models")}
+        onCompact={() => actions.setView("compact")}
+        onSettings={() => actions.setView("settings")}
+        onTree={() => actions.setView("tree")}
+        onInfo={() => actions.setView("info")}
+        onAuth={() => actions.setView("auth")}
       />
-    {:else if view === "models"}
-      <SessionSettingsView {sessionId} onError={(message) => (error = message)} filterKeys={["model"]} />
-    {:else if view === "compact"}
-      <CompactView {sessionId} onDone={done} onError={(message) => (error = message)} />
-    {:else if view === "settings"}
-      <SessionSettingsView {sessionId} onError={(message) => (error = message)} />
-    {:else if view === "tree"}
-      <TreeView {sessionId} onDone={done} onError={(message) => (error = message)} />
-    {:else if view === "info"}
+    {:else if actions.view === "models"}
+      <SessionSettingsView {sessionId} onError={actions.setError} filterKeys={["model"]} />
+    {:else if actions.view === "compact"}
+      <CompactView {sessionId} onDone={actions.done} onError={actions.setError} />
+    {:else if actions.view === "settings"}
+      <SessionSettingsView {sessionId} onError={actions.setError} />
+    {:else if actions.view === "tree"}
+      <TreeView {sessionId} onDone={actions.done} onError={actions.setError} />
+    {:else if actions.view === "info"}
       <SessionInfoView {sessionId} />
-    {:else if view === "auth"}
-      <AuthView onError={(message) => (error = message)} />
+    {:else if actions.view === "auth"}
+      <AuthView onError={actions.setError} />
     {/if}
   </AgentActionSheet>
 {/if}

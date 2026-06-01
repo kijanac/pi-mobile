@@ -1,5 +1,4 @@
 import type { SessionMeta } from "@pi-mobile/protocol";
-import { getBridgeClient } from "@/shared/lib/bridge-client";
 import {
   createSession as createSessionRequest,
   deleteSession as deleteSessionRequest,
@@ -73,8 +72,7 @@ export const sessionListState = {
   async refresh(): Promise<void> {
     refreshing = true;
     try {
-      const client = getBridgeClient();
-      sessions = await loadSessionList(client, { archived: archivedView });
+      sessions = await loadSessionList({ archived: archivedView });
       error = null;
     } catch (caught) {
       error = String(caught);
@@ -95,10 +93,9 @@ export const sessionListState = {
 
     creating = true;
     try {
-      const client = getBridgeClient();
-      const session = await createSessionRequest(client, input);
+      const session = await createSessionRequest(input);
       archivedView = false;
-      sessions = await loadSessionList(client, { archived: false });
+      sessions = await loadSessionList({ archived: false });
       error = null;
       return session;
     } catch (caught) {
@@ -111,8 +108,7 @@ export const sessionListState = {
 
   async rename(sessionId: string, title: string): Promise<SessionMeta> {
     return mutateSession(sessionId, async () => {
-      const client = getBridgeClient();
-      const session = await renameSessionRequest(client, sessionId, title);
+      const session = await renameSessionRequest(sessionId, title);
       replaceSession(session);
       return session;
     });
@@ -120,8 +116,7 @@ export const sessionListState = {
 
   async setArchived(sessionId: string, archived: boolean): Promise<SessionMeta> {
     return mutateSession(sessionId, async () => {
-      const client = getBridgeClient();
-      const session = await setSessionArchived(client, sessionId, archived);
+      const session = await setSessionArchived(sessionId, archived);
       this.removeLocal(sessionId);
       return session;
     });
@@ -129,8 +124,7 @@ export const sessionListState = {
 
   async delete(sessionId: string): Promise<void> {
     await mutateSession(sessionId, async () => {
-      const client = getBridgeClient();
-      await deleteSessionRequest(client, sessionId);
+      await deleteSessionRequest(sessionId);
       this.removeLocal(sessionId);
     });
   },

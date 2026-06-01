@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SessionControl, SessionControls } from "@pi-mobile/protocol";
   import type { ActionErrorHandler } from "./types";
-  import { getBridgeClient } from "@/shared/lib/bridge-client";
+  import { getSessionSettings, patchSessionSetting } from "@/features/chat/api";
   import { haptics } from "@/shared/mobile/haptics";
 
   let {
@@ -27,7 +27,7 @@
   async function loadSettings(): Promise<void> {
     loading = true;
     try {
-      settings = await getBridgeClient().getSessionSettings(sessionId);
+      settings = await getSessionSettings(sessionId);
     } catch (error) {
       onError(String(error));
     } finally {
@@ -42,7 +42,7 @@
     onError(null);
     if (previous) settings = patchLocal(previous, key, value);
     try {
-      settings = await getBridgeClient().patchSessionSetting(sessionId, key, value);
+      settings = await patchSessionSetting(sessionId, key, value);
       haptics.success();
     } catch (error) {
       onError(String(error));

@@ -2,7 +2,7 @@
   import { Check, ChevronLeft, ChevronRight, Folder, Home } from "@lucide/svelte";
   import type { FsListing } from "@/shared/lib/api-client";
   import { settingsState } from "@/features/settings/settings.state.svelte";
-  import { getBridgeClient } from "@/shared/lib/bridge-client";
+  import { listDirectories } from "@/features/sessions/api";
   import { Button } from "@/shared/ui/button";
 
   let { initial, onSelect }: { initial?: string; onSelect: (path: string) => void } = $props();
@@ -25,8 +25,7 @@
     error = null;
     try {
       if (!settingsState.loaded) await settingsState.load();
-      const client = getBridgeClient();
-      const nextListing = await client.lsFs(nextPath);
+      const nextListing = await listDirectories(nextPath);
       if (requestId !== listingRequestId || nextPath !== path) return;
       listing = nextListing;
     } catch (caught) {

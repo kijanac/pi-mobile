@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Check, Loader2, X } from "@lucide/svelte";
-  import { PRODUCT_VERSION, PROTOCOL_VERSION, type BridgeUpdateStatus, type SystemInfo } from "@pi-mobile/protocol";
-  import { ApiClient, type BridgeIdentity } from "@/shared/lib/api-client";
+  import { PRODUCT_VERSION, PROTOCOL_VERSION } from "@pi-mobile/protocol";
+  import { claimBridgeForUrl, getBridgeIdentityForUrl, getBridgeUpdateStatusForUrl, getSystemInfoForUrl, healthcheckBridgeUrl, triggerBridgeUpdateForUrl, type BridgeIdentity, type BridgeUpdateStatus, type SystemInfo } from "@/features/settings/api";
   import { settingsState } from "@/features/settings/settings.state.svelte";
   import { Button } from "@/shared/ui/button";
   import { Input } from "@/shared/ui/input";
@@ -50,21 +50,15 @@
     bridgeUpdateStatus = null;
     bridgeUpdateMessage = null;
 
-    const client = new ApiClient(url.trim());
-    const ok = await client.healthcheck();
+    const ok = await healthcheckBridgeUrl(url);
     probe = ok ? "ok" : "fail";
     if (!ok) return;
 
     try {
-      systemInfo = await client.getSystemInfo();
-      bridgeUpdateStatus = await client.getBridgeUpdateStatus();
-      const identity = await client.getBridgeIdentity();
-      if (!identity.claimed) {
-        const claimed = await client.claimBridge();
-        bridgeIdentity = { user: claimed.owner, claimed: true };
-      } else {
-        bridgeIdentity = identity;
-      }
+      systemInfo = await getSystemInfoForUrl(url);
+      bridgeUpdateStatus = await getBridgeUpdateStatusForUrl(url);
+      const identity = await getBridgeIdentityForUrl(url);
+      bridgeIdentity = identity.claimed ? identity : await claimBridgeForUrl(url);
     } catch (error) {
       systemInfoError = error instanceof Error ? error.message : String(error);
     }
@@ -83,8 +77,7 @@
     bridgeUpdateBusy = true;
     bridgeUpdateMessage = null;
     try {
-      const client = new ApiClient(url.trim());
-      bridgeUpdateStatus = await client.triggerBridgeUpdate();
+      bridgeUpdateStatus = await triggerBridgeUpdateForUrl(url);
       bridgeUpdateMessage = "bridge update requested; it may restart if a newer release is available";
     } catch (error) {
       bridgeUpdateMessage = String(error);

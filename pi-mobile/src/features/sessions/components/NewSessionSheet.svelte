@@ -1,7 +1,6 @@
 <script lang="ts">
   import { ChevronLeft, Folder, GitBranch, Plus } from "@lucide/svelte";
   import type { GitBranchInfo, GitBranchesResult } from "@/shared/lib/api-client";
-  import { getBridgeClient } from "@/shared/lib/bridge-client";
   import { listGitBranches } from "@/features/sessions/api";
   import CwdPicker from "@/features/sessions/components/CwdPicker.svelte";
   import { Button } from "@/shared/ui/button";
@@ -49,8 +48,7 @@
     gitLoading = true;
     gitError = null;
     try {
-      const client = getBridgeClient();
-      const info = await listGitBranches(client, path);
+      const info = await listGitBranches(path);
       if (requestId !== branchRequestId || path !== cwd) return;
 
       gitInfo = info;

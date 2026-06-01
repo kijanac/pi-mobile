@@ -6,7 +6,7 @@
   import { pickImages } from "@/shared/mobile/image-picker";
   import { haptics } from "@/shared/mobile/haptics";
   import { createLongPress } from "@/shared/gestures/long-press";
-  import { getBridgeClient } from "@/shared/lib/bridge-client";
+  import { clearSessionQueue, getSessionQueue } from "@/features/chat/api";
   import { Button } from "@/shared/ui/button";
   import * as Sheet from "@/shared/ui/sheet";
   import ImageTray from "@/features/chat/components/ImageTray.svelte";
@@ -148,8 +148,7 @@
   async function refreshQueueCount(): Promise<void> {
     const requestId = ++queueRequestId;
     try {
-      const client = getBridgeClient();
-      const next = await client.getSessionQueue(sessionId);
+      const next = await getSessionQueue(sessionId);
       if (requestId === queueRequestId) queueState = next;
     } catch {
       // Queue count is non-critical in the collapsed input bar.
@@ -161,8 +160,7 @@
     queueLoading = true;
     queueError = null;
     try {
-      const client = getBridgeClient();
-      const next = await client.getSessionQueue(sessionId);
+      const next = await getSessionQueue(sessionId);
       if (requestId !== queueRequestId) return;
       queueState = next;
     } catch (error) {
@@ -176,8 +174,7 @@
   async function clearQueuedMessages(): Promise<void> {
     clearing = true;
     try {
-      const client = getBridgeClient();
-      queueState = await client.clearSessionQueue(sessionId);
+      queueState = await clearSessionQueue(sessionId);
       await refreshQueueCount();
     } finally {
       clearing = false;

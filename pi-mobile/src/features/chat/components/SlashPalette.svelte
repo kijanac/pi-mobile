@@ -2,7 +2,7 @@
   import { onDestroy } from "svelte";
   import { FileText, Hash, Search, Sparkles } from "@lucide/svelte";
   import type { CommandEntry, Commands } from "@/shared/lib/api-client";
-  import { getBridgeClient } from "@/shared/lib/bridge-client";
+  import { listSessionCommands } from "@/features/chat/api";
   import { Input } from "@/shared/ui/input";
   import * as Sheet from "@/shared/ui/sheet";
 
@@ -51,8 +51,7 @@
     loading = true;
     error = null;
     try {
-      const client = getBridgeClient();
-      const next = await client.listCommands(sessionId);
+      const next = await listSessionCommands(sessionId);
       if (token !== loadToken) return;
       commands = next;
     } catch (caught) {
