@@ -11,8 +11,6 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js",
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -20,7 +18,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "types": ["svelte"]
   },
-  "include": ["src", "vite.config.ts", "capacitor.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.svelte", "vite.config.ts", "capacitor.config.ts"],
+  "exclude": ["src/lib/**", "src/stores/**"]
 }

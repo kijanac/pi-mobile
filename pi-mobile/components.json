@@ -1,17 +1,20 @@
 {
-  "$schema": "https://shadcn-solid.com/schema.json",
-  "tailwind": {
-    "config": "tailwind.config.ts",
-    "css": {
-      "path": "src/index.css",
-      "variable": true
-    },
-    "color": "zinc",
-    "prefix": ""
-  },
-  "alias": {
-    "component": "@/components",
-    "ui": "@/components/ui",
-    "cn": "@/lib/cn"
-  }
+	"$schema": "https://shadcn-svelte.com/schema.json",
+	"tailwind": {
+		"css": "src/index.css",
+		"baseColor": "neutral"
+	},
+	"aliases": {
+		"components": "@/shared/components",
+		"utils": "@/shared/lib/utils",
+		"ui": "@/shared/ui",
+		"hooks": "@/shared/hooks",
+		"lib": "@/shared/lib"
+	},
+	"typescript": true,
+	"registry": "https://shadcn-svelte.com/registry",
+	"style": "nova",
+	"iconLibrary": "lucide",
+	"menuColor": "default",
+	"menuAccent": "subtle"
 }
