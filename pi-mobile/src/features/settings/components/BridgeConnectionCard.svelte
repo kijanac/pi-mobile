@@ -1,110 +1,13 @@
 <script lang="ts">
   import { Check, Loader2, X } from "@lucide/svelte";
-  import { PRODUCT_VERSION, PROTOCOL_VERSION } from "@pi-mobile/protocol";
-  import { claimBridgeForUrl, getBridgeIdentityForUrl, getBridgeUpdateStatusForUrl, getSystemInfoForUrl, healthcheckBridgeUrl, triggerBridgeUpdateForUrl, type BridgeIdentity, type BridgeUpdateStatus, type SystemInfo } from "@/features/settings/api";
+  import { createBridgeConnectionState } from "@/features/settings/bridge-connection.state.svelte";
   import { settingsState } from "@/features/settings/settings.state.svelte";
   import { Button } from "@/shared/ui/button";
   import { Input } from "@/shared/ui/input";
 
-  type Probe = "idle" | "checking" | "ok" | "fail";
-
   let { url = $bindable(settingsState.bridgeUrl) }: { url: string } = $props();
 
-  let saved = $state(false);
-  let probe = $state<Probe>("idle");
-  let systemInfo = $state<SystemInfo | null>(null);
-  let systemInfoError = $state<string | null>(null);
-  let bridgeIdentity = $state<BridgeIdentity | null>(null);
-  let bridgeUpdateStatus = $state<BridgeUpdateStatus | null>(null);
-  let bridgeUpdateMessage = $state<string | null>(null);
-  let bridgeUpdateBusy = $state(false);
-
-  const compatibility = $derived.by(() => {
-    if (!systemInfo) return null;
-    if (systemInfo.protocolVersion !== PROTOCOL_VERSION) {
-      return {
-        level: "danger" as const,
-        text: `protocol mismatch: mobile ${PROTOCOL_VERSION}, bridge ${systemInfo.protocolVersion}`,
-      };
-    }
-    if (compareVersion(PRODUCT_VERSION, systemInfo.minMobileVersion) < 0) {
-      return {
-        level: "danger" as const,
-        text: `mobile ${PRODUCT_VERSION} is too old for this bridge`,
-      };
-    }
-    if (compareVersion(PRODUCT_VERSION, systemInfo.recommendedMobileVersion) < 0) {
-      return {
-        level: "warn" as const,
-        text: `mobile update recommended: ${systemInfo.recommendedMobileVersion}`,
-      };
-    }
-    return { level: "ok" as const, text: "compatible" };
-  });
-
-  async function test(): Promise<void> {
-    probe = "checking";
-    systemInfo = null;
-    systemInfoError = null;
-    bridgeIdentity = null;
-    bridgeUpdateStatus = null;
-    bridgeUpdateMessage = null;
-
-    const ok = await healthcheckBridgeUrl(url);
-    probe = ok ? "ok" : "fail";
-    if (!ok) return;
-
-    try {
-      systemInfo = await getSystemInfoForUrl(url);
-      bridgeUpdateStatus = await getBridgeUpdateStatusForUrl(url);
-      const identity = await getBridgeIdentityForUrl(url);
-      bridgeIdentity = identity.claimed ? identity : await claimBridgeForUrl(url);
-    } catch (error) {
-      systemInfoError = error instanceof Error ? error.message : String(error);
-    }
-  }
-
-  async function save(): Promise<void> {
-    await settingsState.setBridgeUrl(url);
-    saved = true;
-    window.setTimeout(() => {
-      saved = false;
-    }, 1200);
-  }
-
-  async function updateBridgeNow(): Promise<void> {
-    if (bridgeUpdateBusy) return;
-    bridgeUpdateBusy = true;
-    bridgeUpdateMessage = null;
-    try {
-      bridgeUpdateStatus = await triggerBridgeUpdateForUrl(url);
-      bridgeUpdateMessage = "bridge update requested; it may restart if a newer release is available";
-    } catch (error) {
-      bridgeUpdateMessage = String(error);
-    } finally {
-      bridgeUpdateBusy = false;
-    }
-  }
-
-  function onUrlInput(): void {
-    probe = "idle";
-    saved = false;
-    systemInfo = null;
-    systemInfoError = null;
-    bridgeIdentity = null;
-    bridgeUpdateStatus = null;
-    bridgeUpdateMessage = null;
-  }
-
-  function compareVersion(a: string, b: string): number {
-    const aa = a.split(".").map((n) => Number.parseInt(n, 10) || 0);
-    const bb = b.split(".").map((n) => Number.parseInt(n, 10) || 0);
-    for (let index = 0; index < Math.max(aa.length, bb.length); index += 1) {
-      const diff = (aa[index] ?? 0) - (bb[index] ?? 0);
-      if (diff !== 0) return diff;
-    }
-    return 0;
-  }
+  const connection = createBridgeConnectionState();
 </script>
 
 <section class="space-y-4">
@@ -119,7 +22,7 @@
         autocorrect="off"
         spellcheck={false}
         bind:value={url}
-        oninput={onUrlInput}
+        oninput={connection.resetForUrlInput}
         placeholder="http://localhost:7777"
         class="h-10 text-[13px]"
       />
@@ -128,13 +31,13 @@
         variant="outline"
         class="h-10 w-12 px-0"
         aria-label="Test connection"
-        onclick={test}
+        onclick={() => connection.test(url)}
       >
-        {#if probe === "checking"}
+        {#if connection.probe === "checking"}
           <Loader2 class="size-3.5 animate-spin text-[color:var(--color-fg-muted)]" />
-        {:else if probe === "ok"}
+        {:else if connection.probe === "ok"}
           <Check class="size-3.5 text-[color:var(--color-accent)]" />
-        {:else if probe === "fail"}
+        {:else if connection.probe === "fail"}
           <X class="size-3.5 text-[color:var(--color-danger)]" />
         {:else}
           <span class="text-[10px] uppercase tracking-[0.08em] text-[color:var(--color-fg-muted)]">test</span>
@@ -150,62 +53,62 @@
     </p>
   </div>
 
-  {#if systemInfo}
+  {#if connection.systemInfo}
     <div class="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-2 text-[11px] leading-relaxed text-[color:var(--color-fg-muted)]">
       <div class="flex items-center justify-between gap-2">
-        <span>bridge {systemInfo.bridgeVersion}</span>
+        <span>bridge {connection.systemInfo.bridgeVersion}</span>
         <span
-          class={compatibility?.level === "danger"
+          class={connection.compatibility?.level === "danger"
             ? "text-[color:var(--color-danger)]"
-            : compatibility?.level === "warn"
+            : connection.compatibility?.level === "warn"
               ? "text-[color:var(--color-warning,#d97706)]"
               : "text-[color:var(--color-accent)]"}
         >
-          {compatibility?.text}
+          {connection.compatibility?.text}
         </span>
       </div>
       <div class="mt-1">
-        protocol {systemInfo.protocolVersion} · updates {systemInfo.autoUpdate ? "on" : "off"} · {systemInfo.updateChannel}
+        protocol {connection.systemInfo.protocolVersion} · updates {connection.systemInfo.autoUpdate ? "on" : "off"} · {connection.systemInfo.updateChannel}
       </div>
 
-      {#if bridgeUpdateStatus}
+      {#if connection.bridgeUpdateStatus}
         <div class="mt-2 flex items-center justify-between gap-2">
           <span>
-            manual update {bridgeUpdateStatus.manualUpdate ? "available" : "unavailable"}
-            {#if bridgeUpdateStatus.failure}
-              · last failed {bridgeUpdateStatus.failure.version}
+            manual update {connection.bridgeUpdateStatus.manualUpdate ? "available" : "unavailable"}
+            {#if connection.bridgeUpdateStatus.failure}
+              · last failed {connection.bridgeUpdateStatus.failure.version}
             {/if}
           </span>
           <Button
             type="button"
             variant="outline"
             size="xs"
-            disabled={!bridgeUpdateStatus.manualUpdate || bridgeUpdateBusy}
-            onclick={updateBridgeNow}
+            disabled={!connection.bridgeUpdateStatus.manualUpdate || connection.bridgeUpdateBusy}
+            onclick={() => connection.updateBridgeNow(url)}
           >
-            {bridgeUpdateBusy ? "requesting" : "update now"}
+            {connection.bridgeUpdateBusy ? "requesting" : "update now"}
           </Button>
         </div>
       {/if}
 
-      {#if bridgeUpdateMessage}
-        <div class="mt-1 text-[color:var(--color-fg-faint)]">{bridgeUpdateMessage}</div>
+      {#if connection.bridgeUpdateMessage}
+        <div class="mt-1 text-[color:var(--color-fg-faint)]">{connection.bridgeUpdateMessage}</div>
       {/if}
-      {#if bridgeIdentity}
+      {#if connection.bridgeIdentity}
         <div class="mt-1">
-          tailscale owner {bridgeIdentity.user} · {bridgeIdentity.claimed ? "claimed" : "unclaimed"}
+          tailscale owner {connection.bridgeIdentity.user} · {connection.bridgeIdentity.claimed ? "claimed" : "unclaimed"}
         </div>
       {/if}
     </div>
   {/if}
 
-  {#if systemInfoError}
+  {#if connection.systemInfoError}
     <div class="rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-2 text-[11px] leading-relaxed text-[color:var(--color-fg-faint)]">
       bridge is reachable, but does not expose system info yet. likely an older bridge.
     </div>
   {/if}
 
-  <Button type="button" class="h-10 w-full" onclick={save}>
-    {saved ? "saved ✓" : "save"}
+  <Button type="button" class="h-10 w-full" onclick={() => connection.save(url)}>
+    {connection.saved ? "saved ✓" : "save"}
   </Button>
 </section>

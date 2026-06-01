@@ -7,13 +7,19 @@
     value = $bindable(""),
     placeholder,
     secret = false,
+    onValue,
   }: {
     id: string;
     label: string;
     value: string;
     placeholder: string;
     secret?: boolean;
+    onValue?: (value: string) => void;
   } = $props();
+
+  function handleInput(event: Event): void {
+    onValue?.((event.currentTarget as HTMLInputElement).value);
+  }
 </script>
 
 <div>
@@ -25,6 +31,7 @@
     autocorrect="off"
     spellcheck={false}
     bind:value
+    oninput={handleInput}
     {placeholder}
     class="bg-[color:var(--color-bg)] text-[12px]"
   />
