@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { MoreHorizontal } from "@lucide/svelte";
   import { createAgentActionsState } from "@/features/chat/actions/agent-actions.state.svelte";
   import { exportSessionHtml } from "@/features/chat/api";
@@ -16,10 +17,13 @@
 
   async function exportToHtml(): Promise<void> {
     actions.setError(null);
+    actions.close();
+    await tick();
+
     try {
-      await exportSessionHtml(sessionId);
-      actions.done();
+      if (await exportSessionHtml(sessionId)) actions.done();
     } catch (error) {
+      actions.setOpen(true);
       actions.setError(error instanceof Error ? error.message : String(error));
     }
   }

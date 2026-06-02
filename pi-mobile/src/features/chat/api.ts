@@ -39,7 +39,7 @@ export function getSessionStats(sessionId: string): Promise<SessionStats> {
 const safeFilenamePart = (value: string): string =>
   value.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "session";
 
-export async function exportSessionHtml(sessionId: string): Promise<void> {
+export async function exportSessionHtml(sessionId: string): Promise<boolean> {
   const url = client().sessionExportHtmlUrl(sessionId);
   const response = await fetch(url);
   if (!response.ok) {
@@ -57,12 +57,22 @@ export async function exportSessionHtml(sessionId: string): Promise<void> {
     recursive: true,
   });
   const { uri } = await Filesystem.getUri({ path, directory: Directory.Cache });
-  await Share.share({
-    title: "Export to HTML",
-    text: filename,
-    files: [uri],
-    dialogTitle: "Export to HTML",
-  });
+
+  try {
+    await Share.share({
+      title: filename,
+      url: uri,
+      dialogTitle: "Export to HTML",
+    });
+    return true;
+  } catch (error) {
+    if (isShareCanceled(error)) return false;
+    throw error;
+  }
+}
+
+function isShareCanceled(error: unknown): boolean {
+  return error instanceof Error && error.message === "Share canceled";
 }
 
 export function getSessionTree(sessionId: string): Promise<SessionTree> {
