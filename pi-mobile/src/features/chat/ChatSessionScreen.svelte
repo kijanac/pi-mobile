@@ -16,7 +16,7 @@
   import StatusDot from "@/shared/components/StatusDot.svelte";
   import { Button } from "@/shared/ui/button";
   import EdgeSwipeBack from "@/shared/components/EdgeSwipeBack.svelte";
-  import SessionsPreview from "@/features/sessions/components/SessionsPreview.svelte";
+  import HomePreview from "@/features/sessions/components/HomePreview.svelte";
 
   let { sessionId }: { sessionId: string } = $props();
 
@@ -31,7 +31,7 @@
 
 <EdgeSwipeBack href="/">
   {#snippet preview()}
-    <SessionsPreview />
+    <HomePreview />
   {/snippet}
 
 <main class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">

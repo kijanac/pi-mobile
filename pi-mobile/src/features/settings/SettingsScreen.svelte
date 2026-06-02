@@ -7,7 +7,7 @@
   import AdvancedCloudInitCard from "@/features/settings/components/AdvancedCloudInitCard.svelte";
   import { Button } from "@/shared/ui/button";
   import EdgeSwipeBack from "@/shared/components/EdgeSwipeBack.svelte";
-  import SessionsPreview from "@/features/sessions/components/SessionsPreview.svelte";
+  import HomePreview from "@/features/sessions/components/HomePreview.svelte";
 
   let bridgeUrlDraft = $state(settingsState.bridgeUrl);
 
@@ -25,7 +25,7 @@
 
 <EdgeSwipeBack href="/">
   {#snippet preview()}
-    <SessionsPreview />
+    <HomePreview />
   {/snippet}
 
 <main class="flex min-h-0 flex-1 flex-col">

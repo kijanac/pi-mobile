@@ -13,7 +13,7 @@
   import { Textarea } from "@/shared/ui/textarea";
   import { Carousel, CarouselContent, CarouselItem } from "@/shared/ui/carousel";
   import EdgeSwipeBack from "@/shared/components/EdgeSwipeBack.svelte";
-  import SessionsPreview from "@/features/sessions/components/SessionsPreview.svelte";
+  import HomePreview from "@/features/sessions/components/HomePreview.svelte";
 
   const onboarding = createOnboardingState();
 
@@ -39,7 +39,7 @@
 {:else}
   <EdgeSwipeBack href="/settings">
     {#snippet preview()}
-      <SessionsPreview />
+      <HomePreview />
     {/snippet}
 
   <main class="flex min-h-0 flex-1 flex-col">
