@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from "svelte";
   import { ArrowUp, ImagePlus, ListTodo, Mic, MicOff, Plus, Square } from "@lucide/svelte";
-  import type { ImageAttachment, QueueState } from "@pi-mobile/protocol";
+  import type { CommandEntry, ImageAttachment, QueueState } from "@pi-mobile/protocol";
   import { activeSessionState } from "@/features/chat/model/active-session.state.svelte";
   import { createSpeechRecognitionState } from "@/shared/mobile/speech.svelte";
   import { pickImages } from "@/shared/mobile/image-picker";
@@ -12,6 +12,8 @@
   import { Button } from "@/shared/ui/button";
   import ImageTray from "@/features/chat/components/ImageTray.svelte";
   import QueuedMessagesSheet from "@/features/chat/components/QueuedMessagesSheet.svelte";
+  import SlashCommandSuggestions from "@/features/chat/components/SlashCommandSuggestions.svelte";
+  import { createSlashCommandsState, type SlashCommandCompletion } from "@/features/chat/components/slash-commands.state.svelte";
 
   const LONG_PRESS_MS = 500;
   const MAX_IMAGES = 4;
@@ -19,7 +21,9 @@
 
   let { sessionId }: { sessionId: string } = $props();
 
+  let textarea = $state<HTMLTextAreaElement | null>(null);
   let value = $state("");
+  let cursor = $state(0);
   let composing = $state(false);
   let holding = $state(false);
   let actionsOpen = $state(false);
@@ -35,6 +39,11 @@
   let draftEditVersion = 0;
 
   const stt = createSpeechRecognitionState();
+  const slashCommands = createSlashCommandsState(
+    () => sessionId,
+    () => value,
+    () => cursor,
+  );
   let textBeforeRecording = "";
 
   onMount(() => {
@@ -103,11 +112,16 @@
     return { update: resize };
   }
 
+  function updateCursor(node: HTMLTextAreaElement): void {
+    cursor = node.selectionStart ?? value.length;
+  }
+
   async function restoreDraft(id: string): Promise<void> {
     const requestId = ++draftLoadRequestId;
     const editVersion = draftEditVersion;
     draftLoadedFor = null;
     value = "";
+    cursor = 0;
     images = [];
     textBeforeRecording = "";
 
@@ -132,6 +146,7 @@
       ...(images.length > 0 ? { images } : {}),
     });
     value = "";
+    cursor = 0;
     images = [];
     textBeforeRecording = "";
     void clearChatDraft(sessionId);
@@ -166,6 +181,27 @@
   function handleSendClick(): void {
     if (sendPress.consumeClick()) return;
     submit("steer");
+  }
+
+  function applyCommandCompletion(completion: SlashCommandCompletion): void {
+    value = completion.value;
+    cursor = completion.cursor;
+    draftEditVersion += 1;
+    requestAnimationFrame(() => {
+      textarea?.focus();
+      textarea?.setSelectionRange(completion.cursor, completion.cursor);
+    });
+  }
+
+  function completeCommand(entry: CommandEntry): void {
+    applyCommandCompletion(slashCommands.complete(entry));
+  }
+
+  function handleCommandKey(event: KeyboardEvent): boolean {
+    const completion = slashCommands.handleKey(event);
+    if (!completion) return event.defaultPrevented;
+    applyCommandCompletion(completion);
+    return true;
   }
 
   function toggleActions(): void {
@@ -230,6 +266,17 @@
 </script>
 
 <div class="hairline-t sticky bottom-0 z-20 bg-[color:var(--color-bg)]/95 backdrop-blur-md" style="padding-bottom: env(safe-area-inset-bottom)">
+  {#if slashCommands.query !== null}
+    <SlashCommandSuggestions
+      entries={slashCommands.matches}
+      selectedIndex={slashCommands.selectedIndex}
+      loading={slashCommands.loading}
+      error={slashCommands.error}
+      onPick={completeCommand}
+      onSelect={slashCommands.select}
+    />
+  {/if}
+
   <ImageTray {images} onRemove={removeImage} />
 
   <div class="flex items-start gap-1.5 px-2 py-2">
@@ -247,12 +294,23 @@
 
     <div class="min-h-9 flex-1 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] focus-within:border-[color:var(--color-border-strong)]">
       <textarea
+        bind:this={textarea}
         bind:value
         use:autosize={value}
-        oninput={() => (draftEditVersion += 1)}
+        oninput={(event) => {
+          draftEditVersion += 1;
+          updateCursor(event.currentTarget);
+        }}
+        onclick={(event) => updateCursor(event.currentTarget)}
+        onkeyup={(event) => updateCursor(event.currentTarget)}
+        onselect={(event) => updateCursor(event.currentTarget)}
         oncompositionstart={() => (composing = true)}
-        oncompositionend={() => (composing = false)}
+        oncompositionend={(event) => {
+          composing = false;
+          updateCursor(event.currentTarget);
+        }}
         onkeydown={(event) => {
+          if (handleCommandKey(event)) return;
           if (event.key === "Enter" && !event.shiftKey && !composing) {
             event.preventDefault();
             submit("steer");
