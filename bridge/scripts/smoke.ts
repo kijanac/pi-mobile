@@ -15,6 +15,7 @@ process.env.NODE_ENV = "production";
 process.env.PI_USE_MOCK = "1";
 process.env.BRIDGE_DB = join(tempRoot, "bridge.db");
 process.env.PI_WORKSPACES_DIR = workspaceDir;
+process.env.PI_CODING_AGENT_DIR = join(tempRoot, "agent");
 
 const authHeaders = { "tailscale-user-login": "smoke@example.test" };
 
@@ -111,10 +112,6 @@ try {
     const fsListing = await trpcQuery<{ path: string; entries: unknown[] }>(baseUrl, "fs.ls", { path: workspaceDir });
     assert.equal(fsListing.path, workspaceDir);
     assert(Array.isArray(fsListing.entries));
-
-    const branches = await trpcQuery<{ isRepo: boolean; branches: unknown[] }>(baseUrl, "git.branches", { cwd: workspaceDir });
-    assert.equal(branches.isRepo, false);
-    assert.deepEqual(branches.branches, []);
 
     const listBefore = await trpcQuery<unknown[]>(baseUrl, "sessions.list");
     assert.deepEqual(listBefore, []);

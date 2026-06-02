@@ -7,7 +7,6 @@ import { authorizeHeaders, claimBridgeOwner } from "../auth.ts";
 import { loadCommands } from "../commands.ts";
 import { SessionNotFound } from "../errors.ts";
 import { listFs } from "../fs.ts";
-import { listGitBranches } from "../git.ts";
 import { PiError } from "../pi.ts";
 import { ProviderAuth } from "../provider-auth.ts";
 import { SessionManager } from "../session.ts";
@@ -132,9 +131,6 @@ function makeContext(runtime: BridgeRuntime, req: Request): BridgeTrpcServices {
     },
     fs: {
       ls: async ({ path }) => listFs(path),
-    },
-    git: {
-      branches: ({ cwd }) => runEffectForTrpc(runtime, listGitBranches(cwd)),
     },
   };
 }

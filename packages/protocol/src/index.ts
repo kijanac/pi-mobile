@@ -242,7 +242,6 @@ export const SessionMeta = v.object({
   id: v.string(),
   title: v.string(),
   cwd: v.string(),
-  branch: v.optional(v.string()),
   status: SessionStatus,
   updatedAt: v.string(),
   tokens: v.object({ in: v.number(), out: v.number() }),
@@ -250,31 +249,6 @@ export const SessionMeta = v.object({
   archived: v.boolean(),
 });
 export type SessionMeta = v.InferOutput<typeof SessionMeta>;
-
-export const LocalGitBranch = v.object({
-  kind: v.literal("local"),
-  name: v.string(),
-  current: v.boolean(),
-});
-export type LocalGitBranch = v.InferOutput<typeof LocalGitBranch>;
-
-export const RemoteGitBranch = v.object({
-  kind: v.literal("remote"),
-  name: v.string(),
-  remote: v.string(),
-});
-export type RemoteGitBranch = v.InferOutput<typeof RemoteGitBranch>;
-
-export const GitBranch = v.variant("kind", [LocalGitBranch, RemoteGitBranch]);
-export type GitBranch = v.InferOutput<typeof GitBranch>;
-
-export const GitBranchesResponse = v.object({
-  isRepo: v.boolean(),
-  root: v.optional(v.string()),
-  current: v.optional(v.string()),
-  branches: v.array(GitBranch),
-});
-export type GitBranchesResponse = v.InferOutput<typeof GitBranchesResponse>;
 
 export const SessionControlOption = v.object({
   value: v.string(),

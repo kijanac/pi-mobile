@@ -146,9 +146,7 @@ const scriptedFlow = (q: Queue.Queue<PiEmission>, userText: string) =>
 
 const makeMockSession = (opts: {
   cwd: string;
-  executionCwd: string;
   title: string;
-  branch?: string;
 }): Effect.Effect<PiSession, PiError> =>
   Effect.gen(function* () {
     const q = yield* Queue.unbounded<PiEmission>();
@@ -161,7 +159,6 @@ const makeMockSession = (opts: {
       id: nextId("s"),
       title: opts.title,
       cwd: opts.cwd,
-      branch: opts.branch,
       status: "idle",
       updatedAt: new Date().toISOString(),
       tokens: { in: 0, out: 0 },

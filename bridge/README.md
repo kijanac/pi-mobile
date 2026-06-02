@@ -47,8 +47,7 @@ node --experimental-strip-types smoke.ts   # in another
 | ------ | ---------------- | --- |
 | GET    | `/healthz`       | liveness |
 | GET    | `/sessions`      | list active bridge sessions |
-| GET    | `/git/branches?cwd=:path` | list branches for a git repo |
-| POST   | `/sessions`      | create — body `{ cwd, title, branch? }`; git sessions run in a per-session worktree |
+| POST   | `/sessions`      | create — body `{ cwd, title }`; runs pi directly in `cwd` |
 | GET    | `/sessions/:id`  | metadata |
 | WS     | `/ws?session=:id&cursor=:n` | live event stream + send |
 
@@ -66,10 +65,10 @@ mobile WS ──▶ Node http upgrade ──▶ ws ───────┴─�
 
 ## Migrations and protocol boundaries
 
-SQLite schema changes are additive at startup. Runtime-only bridge fields stay
-inside bridge record types; public protocol responses should not expose bridge
-execution details such as worktree paths. Upstream pi event/tool payloads are
-parsed into canonical shared protocol shapes at the `src/pi.ts` adapter boundary.
+SQLite schema changes run at startup. Runtime-only bridge fields stay inside
+bridge record types; public protocol responses should expose only the mobile
+contract. Upstream pi event/tool payloads are parsed into canonical shared
+protocol shapes at the `src/pi.ts` adapter boundary.
 
 ## Wiring real pi
 

@@ -7,8 +7,6 @@ import type {
   BridgeUpdateStatus,
   ClientEvent,
   Commands,
-  GitBranch,
-  GitBranchesResponse,
   QueueState,
   SessionControls,
   SessionMeta,
@@ -23,9 +21,6 @@ import { createBridgeTrpcClient } from "@/shared/lib/trpc-client";
 
 export type { CommandEntry, Commands } from "@pi-mobile/protocol";
 export type { BridgeIdentity, FsListing } from "@pi-mobile/protocol/trpc";
-
-export type GitBranchInfo = GitBranch;
-export type GitBranchesResult = GitBranchesResponse;
 
 export interface StreamHandlers {
   onOpen?: () => void;
@@ -98,7 +93,7 @@ export class ApiClient {
     return rpc("listSessions", this.trpc.sessions.list.query(opts ?? {}));
   }
 
-  createSession(opts: { cwd: string; title: string; branch?: string }): Promise<SessionMeta> {
+  createSession(opts: { cwd: string; title: string }): Promise<SessionMeta> {
     return rpc("createSession", this.trpc.sessions.create.mutate(opts));
   }
 
@@ -108,10 +103,6 @@ export class ApiClient {
 
   deleteSession(id: string): Promise<void> {
     return rpc("deleteSession", this.trpc.sessions.remove.mutate({ id }));
-  }
-
-  listGitBranches(cwd: string): Promise<GitBranchesResult> {
-    return rpc("listGitBranches", this.trpc.git.branches.query({ cwd }));
   }
 
   getSystemInfo(): Promise<SystemInfo> {

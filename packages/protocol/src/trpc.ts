@@ -5,7 +5,6 @@ import type {
   AuthProviders,
   BridgeUpdateStatus,
   Commands,
-  GitBranchesResponse,
   QueueState,
   SessionControls,
   SessionMeta,
@@ -34,7 +33,7 @@ export interface FsListing {
 export type EmptyInput = Record<string, never>;
 export type IdInput = { id: string };
 export type ListSessionsInput = { archived?: boolean };
-export type CreateSessionInput = { cwd: string; title: string; branch?: string };
+export type CreateSessionInput = { cwd: string; title: string };
 export type PatchSessionInput = IdInput & { title?: string; archived?: boolean };
 export type PatchControlInput = IdInput & { key: string; value: string | boolean };
 export type CompactSessionInput = IdInput & { instructions?: string };
@@ -44,7 +43,6 @@ export type AuthJobInput = { jobId: string };
 export type AuthInput = AuthJobInput & { value: string };
 export type AuthApiKeyInput = ProviderIdInput & { apiKey: string };
 export type FsLsInput = { path?: string };
-export type GitBranchesInput = { cwd: string };
 
 export interface SystemTrpcService {
   readonly info: () => Promise<SystemInfo>;
@@ -83,17 +81,12 @@ export interface FsTrpcService {
   readonly ls: (input: FsLsInput) => Promise<FsListing>;
 }
 
-export interface GitTrpcService {
-  readonly branches: (input: GitBranchesInput) => Promise<GitBranchesResponse>;
-}
-
 export interface BridgeTrpcServices {
   readonly system: SystemTrpcService;
   readonly sessions: SessionTrpcService;
   readonly auth: AuthTrpcService;
   readonly commands: { readonly list: () => Promise<Commands> };
   readonly fs: FsTrpcService;
-  readonly git: GitTrpcService;
 }
 
 const t = initTRPC.context<BridgeTrpcServices>().create();
@@ -102,7 +95,7 @@ const procedure = t.procedure;
 const Empty = v.optional(v.object({}), {});
 const Id = v.object({ id: v.string() });
 const ListSessions = v.optional(v.object({ archived: v.optional(v.boolean()) }), {});
-const CreateSession = v.object({ cwd: v.pipe(v.string(), v.trim(), v.nonEmpty()), title: v.pipe(v.string(), v.trim(), v.nonEmpty()), branch: v.optional(v.string()) });
+const CreateSession = v.object({ cwd: v.pipe(v.string(), v.trim(), v.nonEmpty()), title: v.pipe(v.string(), v.trim(), v.nonEmpty()) });
 const PatchSession = v.object({ id: v.string(), title: v.optional(v.pipe(v.string(), v.trim(), v.nonEmpty())), archived: v.optional(v.boolean()) });
 const PatchControl = v.object({ id: v.string(), key: v.string(), value: v.union([v.string(), v.boolean()]) });
 const CompactSession = v.object({ id: v.string(), instructions: v.optional(v.string()) });
@@ -112,7 +105,6 @@ const AuthJob = v.object({ jobId: v.string() });
 const AuthInputBody = v.object({ jobId: v.string(), value: v.string() });
 const AuthApiKey = v.object({ providerId: v.string(), apiKey: v.pipe(v.string(), v.trim(), v.nonEmpty()) });
 const FsLs = v.optional(v.object({ path: v.optional(v.string()) }), {});
-const GitBranches = v.object({ cwd: v.pipe(v.string(), v.trim(), v.nonEmpty()) });
 
 export const appRouter = t.router({
   system: t.router({
@@ -150,9 +142,6 @@ export const appRouter = t.router({
   }),
   fs: t.router({
     ls: procedure.input(FsLs).query(({ ctx, input }) => ctx.fs.ls(input)),
-  }),
-  git: t.router({
-    branches: procedure.input(GitBranches).query(({ ctx, input }) => ctx.git.branches(input)),
   }),
 });
 

@@ -46,7 +46,7 @@
           <div class="min-w-0 flex-1">
             <div class="truncate text-[13px] font-medium leading-tight">{session.title}</div>
             <div class="truncate text-[10px] text-[color:var(--color-fg-faint)]">
-              {cwdDisplayName(session.cwd)}{session.branch ? ` · ${session.branch}` : ""}
+              {cwdDisplayName(session.cwd)}
             </div>
           </div>
         </div>

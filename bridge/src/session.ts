@@ -25,8 +25,7 @@ import type {
   WireEvent,
 } from "@pi-mobile/protocol";
 import { Store } from "./store.ts";
-import { createSessionWorktree, removeSessionWorktree } from "./git.ts";
-import { toSessionMeta, type WorkspaceBinding } from "./session-record.ts";
+import { toSessionMeta } from "./session-record.ts";
 
 type QueuedUserMessage = Extract<WireEvent, { t: "queue" }>["queued"][number];
 
@@ -80,7 +79,6 @@ export class SessionManager extends Context.Tag("SessionManager")<
     readonly create: (opts: {
       cwd: string;
       title: string;
-      branch?: string;
     }) => Effect.Effect<SessionMeta, PiError>;
     readonly list: (filter?: { archived?: boolean }) => Effect.Effect<SessionMeta[]>;
     readonly get: (id: string) => Effect.Effect<Option.Option<SessionMeta>>;
@@ -252,28 +250,11 @@ const make = Effect.gen(function* () {
       return { ...state, pumpFiber };
     });
 
-  const create = (opts: { cwd: string; title: string; branch?: string }) =>
+  const create = (opts: { cwd: string; title: string }) =>
     Effect.gen(function* () {
-      const worktree = yield* createSessionWorktree({ cwd: opts.cwd, branch: opts.branch });
-      const displayCwd = worktree ? worktree.repoRoot : opts.cwd;
-      const executionCwd = worktree ? worktree.worktreePath : opts.cwd;
-      const branch = worktree?.baseBranch;
-      const workspace: WorkspaceBinding = worktree
-        ? {
-            kind: "git-worktree",
-            repoRoot: worktree.repoRoot,
-            worktreePath: worktree.worktreePath,
-            baseBranch: worktree.baseBranch,
-            baseRef: worktree.baseRef,
-            sessionBranch: worktree.sessionBranch,
-            ownedBySession: true,
-          }
-        : { kind: "plain" };
       const piSession = yield* pi.create({
-        cwd: displayCwd,
-        executionCwd,
+        cwd: opts.cwd,
         title: opts.title,
-        branch,
       });
       const meta = piSession.meta;
 
@@ -281,16 +262,11 @@ const make = Effect.gen(function* () {
         id: meta.id,
         title: meta.title,
         cwd: meta.cwd,
-        branch: meta.branch,
         status: meta.status,
         updatedAtMs: Date.parse(meta.updatedAt),
         tokens: meta.tokens,
         costUsd: meta.costUsd,
         archived: meta.archived,
-        runtime: {
-          executionCwd,
-          workspace,
-        },
       });
 
       const ms = yield* buildManagedSession(meta.id, piSession);
@@ -496,15 +472,6 @@ const make = Effect.gen(function* () {
         yield* Fiber.interrupt(live.value.pumpFiber);
         yield* live.value.pi.close();
         yield* Ref.update(sessions, (m) => HashMap.remove(m, id));
-      }
-      if (existing.value.runtime.workspace.kind === "git-worktree" && existing.value.runtime.workspace.ownedBySession) {
-        yield* Effect.ignoreLogged(
-          removeSessionWorktree({
-            repoRoot: existing.value.runtime.workspace.repoRoot,
-            worktreePath: existing.value.runtime.workspace.worktreePath,
-            sessionBranch: existing.value.runtime.workspace.sessionBranch,
-          }),
-        );
       }
       yield* store.deleteSession(id);
     });

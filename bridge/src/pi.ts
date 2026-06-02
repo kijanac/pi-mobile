@@ -149,9 +149,7 @@ export class PiClient extends Context.Tag("PiClient")<
   {
     readonly create: (opts: {
       cwd: string;
-      executionCwd: string;
       title: string;
-      branch?: string;
     }) => Effect.Effect<PiSession, PiError>;
     readonly resume: (
       storedRecord: import("./session-record.ts").SessionRecord,
@@ -778,19 +776,16 @@ const makeLiveSession = (
   fauxModel: Model<any> | null,
   opts: {
     cwd: string;
-    executionCwd: string;
     title: string;
-    branch?: string;
   },
 ): Effect.Effect<PiSession, PiError> =>
   Effect.gen(function* () {
     const piSession = yield* Effect.tryPromise<AgentSession, PiError>({
       try: async () => {
-        const sessionCwd = opts.executionCwd;
         const sessionManager =
           process.env.PI_EPHEMERAL === "1"
-            ? PiSessionManager.inMemory()
-            : PiSessionManager.create(sessionCwd);
+            ? PiSessionManager.inMemory(opts.cwd)
+            : PiSessionManager.create(opts.cwd);
 
         const { session } = await createAgentSessionFromServices({
           services,
@@ -807,7 +802,6 @@ const makeLiveSession = (
       id: piSession.sessionId,
       title: opts.title,
       cwd: opts.cwd,
-      branch: opts.branch,
       status: "idle",
       updatedAt: new Date().toISOString(),
       tokens: { in: 0, out: 0 },
@@ -829,8 +823,7 @@ const makeResumedSession = (
       PiError | SessionNotFound
     >({
       try: async () => {
-        const sessionCwd = storedRecord.runtime.executionCwd;
-        const infos = await PiSessionManager.list(sessionCwd);
+        const infos = await PiSessionManager.list(storedRecord.cwd);
         const found = infos.find((i) => i.id === storedRecord.id);
         if (!found) {
           throw new SessionNotFound(storedRecord.id);
@@ -856,7 +849,6 @@ const makeResumedSession = (
       id: storedRecord.id,
       title: storedRecord.title,
       cwd: storedRecord.cwd,
-      branch: storedRecord.branch,
       status: "idle",
       updatedAt: new Date().toISOString(),
       tokens: storedRecord.tokens,
@@ -876,11 +868,11 @@ const loadServices = (cwd: string) =>
 
 export const PiClientLive = Layer.succeed(PiClient, {
   create: (opts) =>
-    Effect.flatMap(loadServices(opts.executionCwd), (services) =>
+    Effect.flatMap(loadServices(opts.cwd), (services) =>
       makeLiveSession(services, fauxModel, opts),
     ),
   resume: (storedMeta) =>
-    Effect.flatMap(loadServices(storedMeta.runtime.executionCwd), (services) =>
+    Effect.flatMap(loadServices(storedMeta.cwd), (services) =>
       makeResumedSession(services, fauxModel, storedMeta),
     ),
 });

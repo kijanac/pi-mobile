@@ -6,7 +6,7 @@ import {
   SessionStatus,
   type WireEvent,
 } from "@pi-mobile/protocol";
-import { parseWorkspaceBinding, type SessionRecord } from "./session-record.ts";
+import type { SessionRecord } from "./session-record.ts";
 
 
 export class Store extends Context.Tag("Store")<
@@ -43,9 +43,6 @@ const SCHEMA = `
     id          TEXT PRIMARY KEY,
     title       TEXT NOT NULL,
     cwd         TEXT NOT NULL,
-    execution_cwd TEXT NOT NULL,
-    workspace_json TEXT NOT NULL,
-    branch      TEXT,
     status      TEXT NOT NULL,
     updated_at  INTEGER NOT NULL,
     tokens_in   INTEGER NOT NULL DEFAULT 0,
@@ -70,8 +67,6 @@ const SCHEMA = `
 
 const MIGRATIONS = [
   `ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`,
-  `ALTER TABLE sessions ADD COLUMN execution_cwd TEXT`,
-  `ALTER TABLE sessions ADD COLUMN workspace_json TEXT`,
 ];
 
 
@@ -81,7 +76,6 @@ const SessionRow = v.object({
   id: v.string(),
   title: v.string(),
   cwd: v.string(),
-  branch: v.nullable(v.string()),
   status: SessionStatus,
   updated_at: v.number(),
   tokens_in: v.number(),
@@ -89,8 +83,6 @@ const SessionRow = v.object({
   cost_usd: v.number(),
   archived: SqlBool,
   created_at: v.number(),
-  execution_cwd: v.string(),
-  workspace_json: v.string(),
 });
 type SessionRow = v.InferOutput<typeof SessionRow>;
 
@@ -100,16 +92,11 @@ const rowToRecord = (raw: unknown): SessionRecord => {
     id: r.id,
     title: r.title,
     cwd: r.cwd,
-    branch: r.branch ?? undefined,
     status: r.status,
     updatedAtMs: r.updated_at,
     tokens: { in: r.tokens_in, out: r.tokens_out },
     costUsd: r.cost_usd,
     archived: r.archived === 1,
-    runtime: {
-      executionCwd: r.execution_cwd,
-      workspace: parseWorkspaceBinding(JSON.parse(r.workspace_json)),
-    },
   };
 };
 
@@ -121,6 +108,13 @@ const make = (dbPath: string) =>
       d.exec("PRAGMA journal_mode = WAL");
       d.exec("PRAGMA synchronous = NORMAL");
       d.exec("PRAGMA foreign_keys = ON");
+
+      const sessionColumns = d.prepare("PRAGMA table_info(sessions)").all() as Array<{ name: string }>;
+      if (sessionColumns.some((column) => column.name === "execution_cwd" || column.name === "workspace_json")) {
+        d.exec("DROP TABLE IF EXISTS events");
+        d.exec("DROP TABLE IF EXISTS sessions");
+      }
+
       d.exec(SCHEMA);
       for (const sql of MIGRATIONS) {
         try {
@@ -134,9 +128,9 @@ const make = (dbPath: string) =>
 
     const stmtUpsertSession: StatementSync = db.prepare(`
       INSERT OR REPLACE INTO sessions
-        (id, title, cwd, execution_cwd, workspace_json, branch, status, updated_at,
+        (id, title, cwd, status, updated_at,
          tokens_in, tokens_out, cost_usd, created_at, archived)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const stmtGetSession: StatementSync = db.prepare(
@@ -182,9 +176,6 @@ const make = (dbPath: string) =>
             record.id,
             record.title,
             record.cwd,
-            record.runtime.executionCwd,
-            JSON.stringify(record.runtime.workspace),
-            record.branch ?? null,
             record.status,
             record.updatedAtMs,
             record.tokens.in,
@@ -216,9 +207,6 @@ const make = (dbPath: string) =>
             merged.id,
             merged.title,
             merged.cwd,
-            merged.runtime.executionCwd,
-            JSON.stringify(merged.runtime.workspace),
-            merged.branch ?? null,
             merged.status,
             merged.updatedAtMs,
             merged.tokens.in,

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { GitBranch, Plus, Settings as SettingsIcon } from "@lucide/svelte";
+  import { Plus, Settings as SettingsIcon } from "@lucide/svelte";
   import { sessionListState } from "@/features/sessions/model/session-list.state.svelte";
   import StatusDot from "@/shared/components/StatusDot.svelte";
   import { formatCost, relativeTime } from "@/shared/lib/format";
@@ -28,12 +28,6 @@
           </div>
           <div class="flex items-center gap-3 text-[11px] text-[color:var(--color-fg-muted)]">
             <span class="truncate">{cwdDisplayName(session.cwd)}</span>
-            {#if session.branch}
-              <span class="flex shrink-0 items-center gap-1">
-                <GitBranch class="size-2.5" />
-                {session.branch}
-              </span>
-            {/if}
             <span class="ml-auto shrink-0 tabular-nums">{formatCost(session.costUsd)}</span>
           </div>
         </div>

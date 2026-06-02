@@ -30,7 +30,7 @@
     })();
   });
 
-  async function createSession(input: { cwd: string; title: string; branch?: string }): Promise<void> {
+  async function createSession(input: { cwd: string; title: string }): Promise<void> {
     const session = await sessionListState.create(input);
     newSessionOpen = false;
     navigateTo(routePaths.session(session.id));
@@ -143,7 +143,6 @@
                 </div>
                 <div class="flex items-center gap-3 text-[11px] text-[color:var(--color-fg-muted)]">
                   <span class="truncate">{cwdDisplayName(session.cwd)}</span>
-                  {#if session.branch}<span class="shrink-0">{session.branch}</span>{/if}
                   <span class="ml-auto shrink-0 tabular-nums">{formatCost(session.costUsd)}</span>
                 </div>
               </button>
