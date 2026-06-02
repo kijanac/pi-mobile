@@ -2,6 +2,7 @@ import type { ClientEvent, SessionMeta, WireEvent } from "@pi-mobile/protocol";
 import type { ApiClient, StreamHandle } from "@/shared/lib/api-client";
 import { activeSessionState, type ConnectionStatus } from "@/features/chat/model/active-session.state.svelte";
 import { chatLogState } from "@/features/chat/model/chat-log.state.svelte";
+import { chatQueueState } from "@/features/chat/model/chat-queue.state.svelte";
 import { sessionListState } from "@/features/sessions/model/session-list.state.svelte";
 
 export interface SessionStreamControllerOptions {
@@ -97,6 +98,7 @@ export class SessionStreamController {
       });
     }
 
+    chatQueueState.applyWireEvent(this.sessionId, event);
     chatLogState.applyWireEvent(this.sessionId, event);
     activeSessionState.applyWireEvent(this.sessionId, event);
     this.#onEvent?.(event);

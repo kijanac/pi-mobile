@@ -5,7 +5,6 @@
   import { exportSessionHtml } from "@/features/chat/api";
   import AgentActionSheet from "@/features/chat/actions/AgentActionSheet.svelte";
   import AuthView from "@/features/chat/actions/AuthView.svelte";
-  import CompactView from "@/features/chat/actions/CompactView.svelte";
   import MenuView from "@/features/chat/actions/MenuView.svelte";
   import SessionInfoView from "@/features/chat/actions/SessionInfoView.svelte";
   import SessionSettingsView from "@/features/chat/actions/SessionSettingsView.svelte";
@@ -50,7 +49,6 @@
       <MenuView
         onModels={() => actions.setView("models")}
         onAuth={() => actions.setView("auth")}
-        onCompact={() => actions.setView("compact")}
         onTree={() => actions.setView("tree")}
         onSettings={() => actions.setView("settings")}
         onInfo={() => actions.setView("info")}
@@ -58,8 +56,6 @@
       />
     {:else if actions.view === "models"}
       <SessionSettingsView {sessionId} onError={actions.setError} filterKeys={["model"]} />
-    {:else if actions.view === "compact"}
-      <CompactView {sessionId} onDone={actions.done} onError={actions.setError} />
     {:else if actions.view === "settings"}
       <SessionSettingsView {sessionId} onError={actions.setError} excludeKeys={["model"]} />
     {:else if actions.view === "tree"}

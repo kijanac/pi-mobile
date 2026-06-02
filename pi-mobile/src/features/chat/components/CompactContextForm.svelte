@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Loader2 } from "@lucide/svelte";
-  import type { ActionErrorHandler } from "./types";
+  import type { ActionErrorHandler } from "@/features/chat/actions/types";
   import { compactSession } from "@/features/chat/api";
   import { Button } from "@/shared/ui/button";
   import { Textarea } from "@/shared/ui/textarea";

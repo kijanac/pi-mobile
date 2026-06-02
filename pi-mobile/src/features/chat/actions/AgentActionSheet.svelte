@@ -8,7 +8,6 @@
   const titles: Record<AgentActionView, string> = {
     menu: "session",
     models: "model",
-    compact: "compact context",
     settings: "session settings",
     tree: "tree",
     auth: "providers",

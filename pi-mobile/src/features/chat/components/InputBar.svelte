@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from "svelte";
-  import { ArrowUp, ImagePlus, ListTodo, Mic, MicOff, Plus, Square } from "@lucide/svelte";
-  import type { CommandEntry, ImageAttachment, QueueState } from "@pi-mobile/protocol";
+  import { Archive, ArrowUp, ImagePlus, ListTodo, Mic, MicOff, Plus, Square } from "@lucide/svelte";
+  import type { CommandEntry, ImageAttachment } from "@pi-mobile/protocol";
   import { activeSessionState } from "@/features/chat/model/active-session.state.svelte";
+  import { chatQueueState } from "@/features/chat/model/chat-queue.state.svelte";
   import { createSpeechRecognitionState } from "@/shared/mobile/speech.svelte";
   import { pickImages } from "@/shared/mobile/image-picker";
   import { haptics } from "@/shared/mobile/haptics";
@@ -11,6 +12,7 @@
   import { clearChatDraft, loadChatDraft, saveChatDraft } from "@/features/chat/model/chat-draft";
   import { Button } from "@/shared/ui/button";
   import ImageTray from "@/features/chat/components/ImageTray.svelte";
+  import CompactContextSheet from "@/features/chat/components/CompactContextSheet.svelte";
   import QueuedMessagesSheet from "@/features/chat/components/QueuedMessagesSheet.svelte";
   import SlashCommandSuggestions from "@/features/chat/components/SlashCommandSuggestions.svelte";
   import { createSlashCommandsState, type SlashCommandCompletion } from "@/features/chat/components/slash-commands.state.svelte";
@@ -27,9 +29,9 @@
   let composing = $state(false);
   let holding = $state(false);
   let actionsOpen = $state(false);
+  let compactOpen = $state(false);
   let queueOpen = $state(false);
   let images = $state<ImageAttachment[]>([]);
-  let queueState = $state<QueueState | null>(null);
   let queueLoading = $state(false);
   let queueError = $state<string | null>(null);
   let clearing = $state(false);
@@ -58,7 +60,8 @@
   const hasText = $derived(value.trim().length > 0);
   const hasSendable = $derived(hasText || images.length > 0);
   const canSend = $derived(activeSessionState.send !== null);
-  const queueCount = $derived((queueState?.steering.length ?? 0) + (queueState?.followUp.length ?? 0));
+  const queue = $derived(chatQueueState.get(sessionId));
+  const queueCount = $derived(chatQueueState.count(sessionId));
 
   $effect(() => {
     if (!stt.listening) return;
@@ -68,13 +71,11 @@
   });
 
   $effect(() => {
-    activeSessionState.status;
-    void refreshQueueCount();
-  });
-
-  $effect(() => {
     const id = sessionId;
-    untrack(() => void restoreDraft(id));
+    untrack(() => {
+      void restoreDraft(id);
+      void syncQueue();
+    });
   });
 
   $effect(() => {
@@ -138,7 +139,6 @@
     const text = value.trim();
     const send = activeSessionState.send;
     if ((!text && images.length === 0) || !send) return;
-    const queued = busy;
     send({
       t: "send",
       text,
@@ -150,7 +150,6 @@
     images = [];
     textBeforeRecording = "";
     void clearChatDraft(sessionId);
-    if (queued) window.setTimeout(() => void refreshQueueCount(), 120);
     haptics.light();
   }
 
@@ -213,6 +212,10 @@
     await action();
   }
 
+  function openCompactSheet(): void {
+    compactOpen = true;
+  }
+
   async function attachImages(): Promise<void> {
     try {
       const remaining = MAX_IMAGES - images.length;
@@ -228,36 +231,34 @@
     images = images.filter((_, candidate) => candidate !== index);
   }
 
-  async function refreshQueueCount(): Promise<void> {
+  async function syncQueue(options: { showLoading?: boolean } = {}): Promise<void> {
     const requestId = ++queueRequestId;
+    if (options.showLoading) {
+      queueLoading = true;
+      queueError = null;
+    }
+
     try {
       const next = await getSessionQueue(sessionId);
-      if (requestId === queueRequestId) queueState = next;
-    } catch {
+      if (requestId !== queueRequestId) return;
+      chatQueueState.set(sessionId, next);
+    } catch (error) {
+      if (requestId !== queueRequestId || !options.showLoading) return;
+      queueError = String(error);
+    } finally {
+      if (requestId === queueRequestId && options.showLoading) queueLoading = false;
     }
   }
 
-  async function loadQueue(): Promise<void> {
-    const requestId = ++queueRequestId;
-    queueLoading = true;
-    queueError = null;
-    try {
-      const next = await getSessionQueue(sessionId);
-      if (requestId !== queueRequestId) return;
-      queueState = next;
-    } catch (error) {
-      if (requestId !== queueRequestId) return;
-      queueError = String(error);
-    } finally {
-      if (requestId === queueRequestId) queueLoading = false;
-    }
+  function loadQueue(): Promise<void> {
+    return syncQueue({ showLoading: true });
   }
 
   async function clearQueuedMessages(): Promise<void> {
     clearing = true;
     try {
-      queueState = await clearSessionQueue(sessionId);
-      await refreshQueueCount();
+      await clearSessionQueue(sessionId);
+      chatQueueState.clear(sessionId);
     } finally {
       clearing = false;
     }
@@ -283,6 +284,7 @@
     <div class="relative shrink-0" data-input-actions>
       {#if actionsOpen}
         <div class="absolute bottom-10 left-0 z-40 flex flex-col gap-1.5 pb-1">
+          {@render ActionFab("Compact context", false, () => runAction(openCompactSheet), "compact")}
           {@render ActionFab("Attach image", images.length >= MAX_IMAGES, () => runAction(attachImages), "image")}
           {@render ActionFab("Dictate", stt.available === false, () => runAction(toggleMic), "mic")}
         </div>
@@ -358,9 +360,11 @@
     {/if}
   </div>
 
+  <CompactContextSheet bind:open={compactOpen} {sessionId} />
+
   <QueuedMessagesSheet
     bind:open={queueOpen}
-    queue={queueState}
+    {queue}
     loading={queueLoading}
     error={queueError}
     {clearing}
@@ -369,8 +373,8 @@
   />
 </div>
 
-{#snippet ActionFab(label: string, disabled: boolean, onClick: () => void | Promise<void>, icon: "image" | "mic")}
+{#snippet ActionFab(label: string, disabled: boolean, onClick: () => void | Promise<void>, icon: "compact" | "image" | "mic")}
   <button type="button" onpointerdown={(event) => event.preventDefault()} onclick={() => void onClick()} {disabled} class="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-fg-muted)] shadow-lg backdrop-blur-md active:bg-[color:var(--color-surface-2)] disabled:opacity-40" aria-label={label} title={label}>
-    {#if icon === "image"}<ImagePlus class="size-4" />{:else}<Mic class="size-4" />{/if}
+    {#if icon === "compact"}<Archive class="size-4" />{:else if icon === "image"}<ImagePlus class="size-4" />{:else}<Mic class="size-4" />{/if}
   </button>
 {/snippet}
