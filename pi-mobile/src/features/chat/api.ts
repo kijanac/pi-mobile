@@ -61,7 +61,7 @@ export async function exportSessionHtml(sessionId: string): Promise<boolean> {
   try {
     await Share.share({
       title: filename,
-      url: uri,
+      files: [uri],
       dialogTitle: "Export to HTML",
     });
     return true;
