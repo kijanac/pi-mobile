@@ -2,3 +2,9 @@ packages:
   - bridge
   - pi-mobile
   - packages/*
+
+onlyBuiltDependencies:
+  - esbuild
+
+patchedDependencies:
+  '@types/node@25.9.1': patches/@types__node@25.9.1.patch

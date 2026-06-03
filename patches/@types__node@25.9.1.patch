@@ -1,0 +1,16 @@
+diff --git a/crypto.d.ts b/crypto.d.ts
+index 1933d6030140e4245b4e84d0655e8572fb2cb274..38c5d8f0b5ccd7957464b24eff79bd7f027a0864 100644
+--- a/crypto.d.ts
++++ b/crypto.d.ts
+@@ -3157,6 +3157,11 @@ declare module "node:crypto" {
+      * @since v15.6.0, v14.17.0
+      */
+     function randomUUID(options?: RandomUUIDOptions): UUID;
++    /**
++     * Generates a random RFC 9562 version 7 UUID.
++     * @since v26.1.0
++     */
++    function randomUUIDv7(options?: RandomUUIDOptions): UUID;
+     interface X509CheckOptions {
+         /**
+          * @default 'always'
