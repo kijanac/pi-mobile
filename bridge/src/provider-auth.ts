@@ -1,7 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { Context, Effect, Layer } from "effect";
 import type { AuthLoginJob, AuthProvider, AuthProviders } from "@pi-mobile/protocol";
 import { getAgentServices, PiError, reloadAgentAuth } from "./pi.ts";
+import { uuidv7 } from "./ids.ts";
 
 interface AuthJobState {
   job: AuthLoginJob;
@@ -9,7 +9,6 @@ interface AuthJobState {
   resolveInput?: (value: string) => void;
 }
 
-const nextId = (prefix: string) => `${prefix}_${randomUUID()}`;
 const TERMINAL_JOB_TTL_MS = 60_000;
 const BEDROCK_PROVIDER_ID = "amazon-bedrock";
 const isTerminalStatus = (status: AuthLoginJob["status"]) => ["success", "failed", "cancelled"].includes(status);
@@ -86,7 +85,7 @@ export const ProviderAuthLive = Layer.effect(
           Effect.sync(() => {
             const provider = services.modelRegistry.authStorage.getOAuthProviders().find((p) => p.id === providerId);
             if (!provider) throw new PiError(`auth provider not found: ${providerId}`);
-            const id = nextId("auth");
+            const id = uuidv7();
             const abort = new AbortController();
             const state: AuthJobState = {
               abort,

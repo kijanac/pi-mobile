@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import {
   Context,
   Effect,
@@ -29,6 +28,7 @@ import type {
 import { Store } from "./store.ts";
 import { toSessionMeta } from "./session-record.ts";
 import { SessionNotFound } from "./errors.ts";
+import { uuidv7 } from "./ids.ts";
 
 interface PendingSend extends QueuedMessage {
   readonly at: number;
@@ -506,7 +506,7 @@ const make = Effect.gen(function* () {
       const compacting = (yield* Ref.get(ms.compacting)) || (yield* ms.pi.isCompacting());
       const queued = compacting || currentMeta.status === "thinking" || currentMeta.status === "tool";
       const queueKind: QueuedMessage["queueKind"] = mode === "follow_up" ? "follow_up" : "steer";
-      const userMessageId = `u_${randomUUID()}`;
+      const userMessageId = uuidv7();
       const at = Date.now();
       const seq = yield* Ref.updateAndGet(ms.seq, (n) => n + 1);
       const userEvent: WireEvent = {

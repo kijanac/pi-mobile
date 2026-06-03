@@ -22,7 +22,6 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { AssistantMessage as PiAssistantMessage, Model } from "@earendil-works/pi-ai";
 import * as v from "valibot";
-import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -49,6 +48,7 @@ import {
 import { SessionNotFound } from "./errors.ts";
 import { BRIDGE_DATA_DIR } from "./config.ts";
 import { setupFauxIfEnabled } from "./pi-faux.ts";
+import { uuidv7 } from "./ids.ts";
 
 
 export type SdkQueueState = Pick<Extract<AgentSessionEvent, { type: "queue_update" }>, "steering" | "followUp">;
@@ -164,8 +164,6 @@ export class PiClient extends Context.Tag("PiClient")<
   }
 >() {}
 
-
-const nextId = (prefix: string) => `${prefix}_${randomUUID()}`;
 
 const EXPORT_DIR = join(BRIDGE_DATA_DIR, "exports");
 const EXPORT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -520,7 +518,7 @@ const wirePiSession = (
         case "message_update": {
           const inner = event.assistantMessageEvent;
           if (inner?.type !== "text_delta") return;
-          if (!assistantId) assistantId = nextId("m");
+          if (!assistantId) assistantId = uuidv7();
           Queue.unsafeOffer(q, {
             t: "assistant_delta",
             id: assistantId,
@@ -533,7 +531,7 @@ const wirePiSession = (
           const message = event.message;
           if (message.role !== "assistant") return;
 
-          const id = assistantId ?? nextId("m");
+          const id = assistantId ?? uuidv7();
           if (!assistantId) {
             const text = assistantText(message.content);
             if (text.length > 0) Queue.unsafeOffer(q, { t: "assistant_delta", id, text });
@@ -599,7 +597,7 @@ const wirePiSession = (
           return;
 
         case "compaction_start": {
-          compactionId = nextId("c");
+          compactionId = uuidv7();
           Queue.unsafeOffer(q, {
             t: "compaction",
             entry: {
@@ -614,7 +612,7 @@ const wirePiSession = (
         }
 
         case "compaction_end": {
-          const id = compactionId ?? nextId("c");
+          const id = compactionId ?? uuidv7();
           compactionId = null;
           Queue.unsafeOffer(q, {
             t: "compaction",
@@ -775,7 +773,7 @@ const wirePiSession = (
             await cleanupOldExports();
 
             const base = `pi-session-${safeFilenamePart(piSession.sessionId)}-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-            const tmpPath = join(EXPORT_DIR, `${base}-${randomUUID()}.html.tmp`);
+            const tmpPath = join(EXPORT_DIR, `${base}-${uuidv7()}.html.tmp`);
             const finalName = `${base}.html`;
             const finalPath = join(EXPORT_DIR, finalName);
 
