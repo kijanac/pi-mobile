@@ -1,7 +1,10 @@
-import type { AuthLoginJob, AuthProvider } from "@pi-mobile/protocol";
 import { settingsState } from "@/features/settings/settings.state.svelte";
 import { cancelAuthLogin, getAuthLoginJob, listAuthProviders, saveAuthApiKey, startAuthLogin, submitAuthLoginInput } from "@/features/auth/api";
 import { haptics } from "@/shared/mobile/haptics";
+
+type AuthProviders = Awaited<ReturnType<typeof listAuthProviders>>;
+type AuthProvider = AuthProviders["providers"][number];
+type AuthLoginJob = Awaited<ReturnType<typeof startAuthLogin>>;
 
 export interface ProviderAuthStateOptions {
   onError: (message: string | null) => void;

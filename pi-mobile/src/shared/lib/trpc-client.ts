@@ -1,4 +1,4 @@
-import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import { createTRPCClient, httpLink } from "@trpc/client";
 import type { AppRouter } from "@pi-mobile/protocol/trpc";
 
 type BridgeTrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
@@ -11,7 +11,7 @@ export function createBridgeTrpcClient(baseUrl: string): BridgeTrpcClient {
 
   const client = createTRPCClient<AppRouter>({
     links: [
-      httpBatchLink({
+      httpLink({
         url: `${baseUrl}/trpc`,
       }),
     ],

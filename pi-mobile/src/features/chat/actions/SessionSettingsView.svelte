@@ -1,8 +1,10 @@
 <script lang="ts">
-  import type { SessionControl, SessionControls } from "@pi-mobile/protocol";
   import type { ActionErrorHandler } from "./types";
   import { getSessionSettings, patchSessionSetting } from "@/features/chat/api";
   import { haptics } from "@/shared/mobile/haptics";
+
+  type SessionControls = Awaited<ReturnType<typeof getSessionSettings>>;
+  type SessionControl = SessionControls["controls"][number];
 
   let {
     sessionId,

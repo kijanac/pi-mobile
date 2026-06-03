@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { Home } from "@lucide/svelte";
-  import type { ContextUsage, SessionStats } from "@pi-mobile/protocol";
   import { navigateTo, routePaths } from "@/app/routes";
   import {
     activeSessionState,
@@ -19,6 +18,9 @@
   import { Button } from "@/shared/ui/button";
   import EdgeSwipeBack from "@/shared/components/EdgeSwipeBack.svelte";
   import HomePreview from "@/features/sessions/components/HomePreview.svelte";
+
+  type SessionStats = Awaited<ReturnType<typeof getSessionStats>>;
+  type ContextUsage = NonNullable<SessionStats["contextUsage"]>;
 
   let { sessionId }: { sessionId: string } = $props();
 

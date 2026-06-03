@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from "svelte";
   import { Archive, ArrowUp, ImagePlus, ListTodo, Mic, MicOff, Plus, Square } from "@lucide/svelte";
-  import type { CommandEntry, ImageAttachment } from "@pi-mobile/protocol";
+  import type { ImageAttachment } from "@pi-mobile/protocol";
   import { activeSessionState } from "@/features/chat/model/active-session.state.svelte";
   import { chatQueueState } from "@/features/chat/model/chat-queue.state.svelte";
   import { createSpeechRecognitionState } from "@/shared/mobile/speech.svelte";
@@ -15,7 +15,7 @@
   import CompactContextSheet from "@/features/chat/components/CompactContextSheet.svelte";
   import QueuedMessagesSheet from "@/features/chat/components/QueuedMessagesSheet.svelte";
   import SlashCommandSuggestions from "@/features/chat/components/SlashCommandSuggestions.svelte";
-  import { createSlashCommandsState, type SlashCommandCompletion } from "@/features/chat/components/slash-commands.state.svelte";
+  import { createSlashCommandsState, type CommandEntry, type SlashCommandCompletion } from "@/features/chat/components/slash-commands.state.svelte";
 
   const LONG_PRESS_MS = 500;
   const MAX_IMAGES = 4;

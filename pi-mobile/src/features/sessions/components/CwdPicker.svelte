@@ -1,9 +1,10 @@
 <script lang="ts">
   import { Check, ChevronLeft, ChevronRight, Folder, Home } from "@lucide/svelte";
-  import type { FsListing } from "@/shared/lib/api-client";
   import { settingsState } from "@/features/settings/settings.state.svelte";
   import { listDirectories } from "@/features/sessions/api";
   import { Button } from "@/shared/ui/button";
+
+  type FsListing = Awaited<ReturnType<typeof listDirectories>>;
 
   let { initial, onSelect }: { initial?: string; onSelect: (path: string) => void } = $props();
 

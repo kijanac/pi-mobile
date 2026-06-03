@@ -1,6 +1,8 @@
 import { untrack } from "svelte";
-import type { CommandEntry, Commands } from "@pi-mobile/protocol";
 import { listSessionCommands } from "@/features/chat/api";
+
+type Commands = Awaited<ReturnType<typeof listSessionCommands>>;
+export type CommandEntry = Commands["builtins"][number] | Commands["prompts"][number] | Commands["skills"][number];
 
 export interface SlashCommandCompletion {
   value: string;

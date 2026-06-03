@@ -1,7 +1,8 @@
 <script lang="ts">
-  import type { SessionStats } from "@pi-mobile/protocol";
   import { getSessionStats } from "@/features/chat/api";
   import { formatCost, formatTokens } from "@/shared/lib/format";
+
+  type SessionStats = Awaited<ReturnType<typeof getSessionStats>>;
 
   let { sessionId }: { sessionId: string } = $props();
 

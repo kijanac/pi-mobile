@@ -1,6 +1,6 @@
 <script lang="ts">
   import { FileText, Hash, Sparkles } from "@lucide/svelte";
-  import type { CommandEntry } from "@/shared/lib/api-client";
+  import type { CommandEntry } from "@/features/chat/components/slash-commands.state.svelte";
 
   let {
     entries,

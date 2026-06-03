@@ -22,9 +22,7 @@ runtime.runFork(
   Effect.logInfo(
     `pi-bridge listening on http://${HOST}:${PORT}  ${USING_MOCK ? "(mock pi)" : "(live pi)"}\n` +
       `   db   :  ${DB_PATH}\n` +
-      `   HTTP :  GET    /healthz, /system/info, /system/update\n` +
-      `           POST   /system/update, /setup/claim\n` +
-      `           GET    /sessions/:id/export.html\n` +
+      `   HTTP :  GET    /healthz, /sessions/:id/export.html\n` +
       `   tRPC :  /trpc/*\n` +
       `   WS   :  /ws?session=:id&cursor=:n`,
   ),

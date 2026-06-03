@@ -1,8 +1,10 @@
 <script lang="ts">
   import { Loader2 } from "@lucide/svelte";
-  import type { TreeEntry, SessionTree } from "@pi-mobile/protocol";
   import type { ActionErrorHandler } from "./types";
   import { getSessionTree, navigateSessionTree } from "@/features/chat/api";
+
+  type SessionTree = Awaited<ReturnType<typeof getSessionTree>>;
+  type TreeEntry = SessionTree["entries"][number];
 
   let { sessionId, onDone, onError }: { sessionId: string; onDone: () => void; onError: ActionErrorHandler } = $props();
 

@@ -1,6 +1,4 @@
-import type { FsListing } from "@/shared/lib/api-client";
-import type { SessionMeta } from "@pi-mobile/protocol";
-import { getBridgeClient } from "@/shared/lib/bridge-client";
+import { getBridgeTrpc } from "@/shared/lib/bridge-client";
 
 export interface LoadSessionListOptions {
   archived?: boolean;
@@ -11,26 +9,26 @@ export interface CreateSessionInput {
   title: string;
 }
 
-export function loadSessionList(opts?: LoadSessionListOptions): Promise<SessionMeta[]> {
-  return getBridgeClient().listSessions(opts);
+export function loadSessionList(opts?: LoadSessionListOptions) {
+  return getBridgeTrpc().sessions.list.query(opts ?? {});
 }
 
-export function createSession(input: CreateSessionInput): Promise<SessionMeta> {
-  return getBridgeClient().createSession(input);
+export function createSession(input: CreateSessionInput) {
+  return getBridgeTrpc().sessions.create.mutate(input);
 }
 
-export function renameSession(sessionId: string, title: string): Promise<SessionMeta> {
-  return getBridgeClient().patchSession(sessionId, { title });
+export function renameSession(sessionId: string, title: string) {
+  return getBridgeTrpc().sessions.patch.mutate({ id: sessionId, title });
 }
 
-export function setSessionArchived(sessionId: string, archived: boolean): Promise<SessionMeta> {
-  return getBridgeClient().patchSession(sessionId, { archived });
+export function setSessionArchived(sessionId: string, archived: boolean) {
+  return getBridgeTrpc().sessions.patch.mutate({ id: sessionId, archived });
 }
 
-export function deleteSession(sessionId: string): Promise<void> {
-  return getBridgeClient().deleteSession(sessionId);
+export function deleteSession(sessionId: string) {
+  return getBridgeTrpc().sessions.remove.mutate({ id: sessionId });
 }
 
-export function listDirectories(path?: string): Promise<FsListing> {
-  return getBridgeClient().lsFs(path);
+export function listDirectories(path?: string) {
+  return getBridgeTrpc().fs.ls.query({ path });
 }

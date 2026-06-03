@@ -28,9 +28,6 @@ const firstHeader = (value: string | string[] | undefined): string | undefined =
   Array.isArray(value) ? value[0] : value;
 
 const UNCLAIMED_ALLOWED_PATHS = new Set([
-  "/system/info",
-  "/system/identity",
-  "/setup/claim",
   "/trpc/system.info",
   "/trpc/system.identity",
   "/trpc/system.claim",
