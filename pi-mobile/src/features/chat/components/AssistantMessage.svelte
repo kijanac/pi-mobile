@@ -73,7 +73,7 @@
 </div>
 
 <Sheet.Root bind:open={detailsOpen}>
-  <Sheet.Content side="bottom" class="flex flex-col gap-0 overflow-hidden rounded-t-[12px] border-[color:var(--color-border-strong)] bg-[color:var(--color-bg)] p-0 text-[color:var(--color-fg)] shadow-none" style="padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem)">
+  <Sheet.BottomContent>
     <Sheet.Header class="hairline-b space-y-0 px-3 py-3 pr-12 text-left">
       <Sheet.Title class="min-w-0 flex-1 px-1 text-[13px] font-medium">message details</Sheet.Title>
     </Sheet.Header>
@@ -93,6 +93,6 @@
         </div>
       {/if}
     </div>
-  </Sheet.Content>
+  </Sheet.BottomContent>
 </Sheet.Root>
 

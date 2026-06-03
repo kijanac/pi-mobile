@@ -6,6 +6,7 @@
   import AssistantMessageView from "@/features/chat/components/AssistantMessage.svelte";
   import ToolCallView from "@/features/chat/components/ToolCall.svelte";
   import PermissionGate from "@/features/chat/components/PermissionGate.svelte";
+  import CompactionMessageView from "@/features/chat/components/CompactionMessage.svelte";
 
   let { sessionId }: { sessionId: string } = $props();
 
@@ -60,6 +61,8 @@
         <ToolCallView msg={entry} />
       {:else if entry.kind === "permission"}
         <PermissionGate req={entry} />
+      {:else if entry.kind === "compaction"}
+        <CompactionMessageView msg={entry} />
       {/if}
     {/each}
   </div>

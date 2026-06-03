@@ -31,6 +31,7 @@ import {
   BashToolArgs,
   CustomToolArgs,
   type Commands,
+  type CompactionEntry as ProtocolCompactionEntry,
   EditToolArgs,
   type LogEntry,
   ReadToolArgs,
@@ -82,6 +83,7 @@ export type PiEmission =
       durationMs: number;
     }
   | { t: "permission"; entry: PermissionRequest }
+  | { t: "compaction"; entry: ProtocolCompactionEntry }
   | { t: "status"; status: SessionStatus }
   | { t: "queue"; steering: string[]; followUp: string[] }
   | { t: "cost"; tokensIn: number; tokensOut: number; costUsd: number }
@@ -116,6 +118,12 @@ export interface ExportedHtml {
   readonly filename?: string;
 }
 
+export interface QueuedSend {
+  readonly text: string;
+  readonly mode: SendMode;
+  readonly images?: SendImage[];
+}
+
 export interface PiSession {
   readonly meta: SessionMeta;
   readonly events: Stream.Stream<PiEmission, PiError>;
@@ -123,6 +131,11 @@ export interface PiSession {
     text: string,
     mode?: SendMode,
     images?: SendImage[],
+  ) => Effect.Effect<void, PiError>;
+  readonly isCompacting: () => Effect.Effect<boolean, PiError>;
+  readonly flushAfterCompaction: (
+    messages: readonly QueuedSend[],
+    opts?: { willRetry?: boolean },
   ) => Effect.Effect<void, PiError>;
   readonly interrupt: () => Effect.Effect<void, PiError>;
   readonly approve: (
@@ -437,8 +450,21 @@ const logEntriesFromCurrentBranch = (piSession: AgentSession): LogEntry[] => {
   const byToolCallId = new Map<string, ToolCallMessage>();
 
   for (const entry of piSession.sessionManager.getBranch()) {
-    if (entry.type !== "message") continue;
     const at = new Date(entry.timestamp).getTime();
+
+    if (entry.type === "compaction") {
+      logEntries.push({
+        kind: "compaction",
+        id: entry.id,
+        at,
+        status: "success",
+        summary: entry.summary,
+        tokensBefore: entry.tokensBefore,
+      });
+      continue;
+    }
+
+    if (entry.type !== "message") continue;
     const message = entry.message;
 
     if (message.role === "user") {
@@ -503,6 +529,7 @@ const wirePiSession = (
     const q = yield* Queue.unbounded<PiEmission>();
 
     let assistantId: string | null = null;
+    let compactionId: string | null = null;
     const toolStarts = new Map<string, { startedAt: number }>();
 
     const queueBranchSnapshot = (): void => {
@@ -584,6 +611,41 @@ const wirePiSession = (
             followUp: [...event.followUp],
           });
           return;
+
+        case "compaction_start": {
+          compactionId = nextId("c");
+          Queue.unsafeOffer(q, {
+            t: "compaction",
+            entry: {
+              kind: "compaction",
+              id: compactionId,
+              at: Date.now(),
+              status: "running",
+              reason: event.reason,
+            },
+          });
+          return;
+        }
+
+        case "compaction_end": {
+          const id = compactionId ?? nextId("c");
+          compactionId = null;
+          Queue.unsafeOffer(q, {
+            t: "compaction",
+            entry: {
+              kind: "compaction",
+              id,
+              at: Date.now(),
+              status: event.aborted ? "aborted" : event.errorMessage ? "error" : "success",
+              reason: event.reason,
+              ...(event.result?.summary ? { summary: event.result.summary } : {}),
+              ...(event.result?.tokensBefore !== undefined ? { tokensBefore: event.result.tokensBefore } : {}),
+              ...(event.errorMessage ? { errorMessage: event.errorMessage } : {}),
+              ...(event.willRetry ? { willRetry: true } : {}),
+            },
+          });
+          return;
+        }
 
         case "turn_start":
           Queue.unsafeOffer(q, { t: "status", status: "thinking" });
@@ -670,6 +732,37 @@ const wirePiSession = (
                 `${useFollowUp ? "followUp" : "steer"} failed: ${String(e)}`,
               ),
           });
+        }),
+      isCompacting: () => Effect.sync(() => piSession.isCompacting),
+      flushAfterCompaction: (messages, opts) =>
+        Effect.tryPromise({
+          try: async () => {
+            if (messages.length === 0) return;
+
+            const queueIntoTurn = async (message: QueuedSend) => {
+              const images = message.images && message.images.length > 0
+                ? message.images.map((i) => ({ type: "image" as const, data: i.data, mimeType: i.mimeType }))
+                : undefined;
+              if (message.mode === "follow_up") await piSession.followUp(message.text, images);
+              else await piSession.steer(message.text, images);
+            };
+
+            if (opts?.willRetry) {
+              for (const message of messages) await queueIntoTurn(message);
+              return;
+            }
+
+            const [first, ...rest] = messages;
+            if (!first) return;
+            const firstImages = first.images && first.images.length > 0
+              ? first.images.map((i) => ({ type: "image" as const, data: i.data, mimeType: i.mimeType }))
+              : undefined;
+            Queue.unsafeOffer(q, { t: "status", status: "thinking" });
+            const prompt = piSession.prompt(first.text, firstImages ? { images: firstImages } : undefined);
+            for (const message of rest) await queueIntoTurn(message);
+            void prompt.catch((error) => console.error("[pi] queued post-compaction prompt failed:", error));
+          },
+          catch: (e) => new PiError(`flushAfterCompaction failed: ${String(e)}`),
         }),
       interrupt: () =>
         Effect.gen(function* () {

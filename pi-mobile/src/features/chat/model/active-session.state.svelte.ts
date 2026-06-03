@@ -6,6 +6,7 @@ export type ConnectionStatus = "offline" | "connecting" | "connected" | "reconne
 let activeSessionId = $state<string | null>(null);
 let activeStatus = $state<SessionMeta["status"]>("idle");
 let connectionStatus = $state<ConnectionStatus>("offline");
+let compacting = $state(false);
 let activeSend = $state<((event: ClientEvent) => void) | null>(null);
 
 export const activeSessionState = {
@@ -21,6 +22,10 @@ export const activeSessionState = {
     return connectionStatus;
   },
 
+  get compacting() {
+    return compacting;
+  },
+
   get send() {
     return activeSend;
   },
@@ -28,6 +33,7 @@ export const activeSessionState = {
   activate(sessionId: string): void {
     activeSessionId = sessionId;
     activeStatus = "idle";
+    compacting = false;
     retryState.reset();
   },
 
@@ -35,6 +41,7 @@ export const activeSessionState = {
     if (sessionId !== undefined && activeSessionId !== sessionId) return;
     activeSessionId = null;
     activeStatus = "idle";
+    compacting = false;
     connectionStatus = "offline";
     activeSend = null;
     retryState.reset();
@@ -53,6 +60,11 @@ export const activeSessionState = {
 
     if (event.t === "status") {
       activeStatus = event.status;
+      return;
+    }
+
+    if (event.t === "compaction") {
+      compacting = event.entry.status === "running";
       return;
     }
 

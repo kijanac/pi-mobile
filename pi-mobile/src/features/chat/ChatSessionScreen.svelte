@@ -41,6 +41,7 @@
   $effect(() => {
     sessionId;
     activeSessionState.status;
+    activeSessionState.compacting;
     void loadStats();
   });
 

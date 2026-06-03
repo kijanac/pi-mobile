@@ -40,11 +40,7 @@
 </script>
 
 <Sheet.Root bind:open>
-  <Sheet.Content
-    side="bottom"
-    class="flex max-h-[92dvh] flex-col gap-0 overflow-hidden rounded-t-[12px] border-[color:var(--color-border-strong)] bg-[color:var(--color-bg)] p-0 text-[color:var(--color-fg)] shadow-none"
-    style="padding-bottom: calc(env(safe-area-inset-bottom) + var(--keyboard-bottom-inset, 0px) + 0.5rem)"
-  >
+  <Sheet.BottomContent class="max-h-[92dvh]">
     <Sheet.Header class="hairline-b flex-row items-center gap-1 space-y-0 px-2 py-2 pr-12 text-left">
       {#if pickerOpen}
         <Button type="button" variant="ghost" size="icon" onclick={() => (pickerOpen = false)} aria-label="Back">
@@ -98,5 +94,5 @@
         </Button>
       </div>
     {/if}
-  </Sheet.Content>
+  </Sheet.BottomContent>
 </Sheet.Root>

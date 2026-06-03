@@ -176,6 +176,16 @@ const makeMockSession = (opts: {
           const f = yield* Effect.forkDaemon(scriptedFlow(q, text));
           yield* Ref.set(currentFiber, f);
         }),
+      isCompacting: () => Effect.succeed(false),
+      flushAfterCompaction: (messages) =>
+        Effect.gen(function* () {
+          const first = messages[0];
+          if (!first) return;
+          const prev = yield* Ref.get(currentFiber);
+          if (prev) yield* Fiber.interrupt(prev);
+          const f = yield* Effect.forkDaemon(scriptedFlow(q, first.text));
+          yield* Ref.set(currentFiber, f);
+        }),
       interrupt: () =>
         Effect.gen(function* () {
           const prev = yield* Ref.get(currentFiber);

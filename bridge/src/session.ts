@@ -12,7 +12,7 @@ import {
   Option,
   pipe,
 } from "effect";
-import { PiClient, type PiSession, type PiEmission, type ExportedHtml, PiError } from "./pi.ts";
+import { PiClient, type PiSession, type PiEmission, type ExportedHtml, PiError, type SendImage } from "./pi.ts";
 import { parseWireEvent } from "@pi-mobile/protocol";
 import type {
   Commands,
@@ -28,6 +28,9 @@ import { Store } from "./store.ts";
 import { toSessionMeta } from "./session-record.ts";
 
 type QueuedUserMessage = Extract<WireEvent, { t: "queue" }>["queued"][number];
+interface QueuedCompactionMessage extends QueuedUserMessage {
+  readonly images?: SendImage[];
+}
 
 interface ManagedSessionState {
   readonly meta: Ref.Ref<SessionMeta>;
@@ -36,6 +39,8 @@ interface ManagedSessionState {
   readonly seq: Ref.Ref<number>;
   readonly deltaBuffers: Ref.Ref<Map<string, { text: string; seq: number }>>;
   readonly queuedMessages: Ref.Ref<QueuedUserMessage[]>;
+  readonly compactionQueuedMessages: Ref.Ref<QueuedCompactionMessage[]>;
+  readonly compacting: Ref.Ref<boolean>;
 }
 
 interface ManagedSession extends ManagedSessionState {
@@ -71,6 +76,17 @@ function reconcileQueuedMessages(
   }
 
   return next.reverse();
+}
+
+function publicCompactionQueue(messages: readonly QueuedCompactionMessage[]): QueuedUserMessage[] {
+  return messages.map(({ id, text, queueKind }) => ({ id, text, queueKind }));
+}
+
+function queueTexts(messages: readonly QueuedUserMessage[]): QueueState {
+  return {
+    steering: messages.filter((message) => message.queueKind === "steer").map((message) => message.text),
+    followUp: messages.filter((message) => message.queueKind === "follow_up").map((message) => message.text),
+  };
 }
 
 export class SessionManager extends Context.Tag("SessionManager")<
@@ -147,6 +163,53 @@ const make = Effect.gen(function* () {
     >(),
   );
 
+  const publishQueueSnapshot = (
+    ms: ManagedSessionState,
+    sessionId: string,
+  ): Effect.Effect<void, PiError> =>
+    Effect.gen(function* () {
+      const seq = yield* Ref.updateAndGet(ms.seq, (n) => n + 1);
+      const queued = yield* Ref.get(ms.queuedMessages);
+      const compactionQueued = yield* Ref.get(ms.compactionQueuedMessages);
+      const event = parseWireEvent({
+        t: "queue",
+        seq,
+        queued: [...queued, ...publicCompactionQueue(compactionQueued)],
+      });
+      yield* store.appendEvent(sessionId, event);
+      yield* PubSub.publish(ms.pubsub, event);
+    });
+
+  const flushCompactionQueue = (
+    ms: ManagedSessionState,
+    sessionId: string,
+    opts?: { willRetry?: boolean },
+  ): Effect.Effect<void, PiError> =>
+    Effect.gen(function* () {
+      const queued = yield* Ref.getAndSet(ms.compactionQueuedMessages, []);
+      if (queued.length === 0) return;
+
+      const messagesForSdk = queued.map(({ text, queueKind, images }) => ({
+        text,
+        mode: queueKind === "follow_up" ? "follow_up" as const : "steer" as const,
+        ...(images && images.length > 0 ? { images } : {}),
+      }));
+      const stillQueued = publicCompactionQueue(opts?.willRetry ? queued : queued.slice(1));
+      yield* ms.pi.flushAfterCompaction(messagesForSdk, opts).pipe(
+        Effect.tap(() =>
+          Ref.update(ms.queuedMessages, (pending) => [...pending, ...stillQueued]).pipe(
+            Effect.andThen(publishQueueSnapshot(ms, sessionId)),
+          ),
+        ),
+        Effect.catchAll((error) =>
+          Ref.set(ms.compactionQueuedMessages, queued).pipe(
+            Effect.andThen(publishQueueSnapshot(ms, sessionId)),
+            Effect.andThen(Effect.logError("[session] failed to flush compaction queue", error)),
+          ),
+        ),
+      );
+    });
+
   const startPump = (
     ms: ManagedSessionState,
     sessionId: string,
@@ -160,9 +223,12 @@ const make = Effect.gen(function* () {
             ? parseWireEvent({
                 t: "queue",
                 seq,
-                queued: yield* Ref.updateAndGet(ms.queuedMessages, (pending) =>
-                  reconcileQueuedMessages(pending, emission),
-                ),
+                queued: [
+                  ...(yield* Ref.updateAndGet(ms.queuedMessages, (pending) =>
+                    reconcileQueuedMessages(pending, emission),
+                  )),
+                  ...publicCompactionQueue(yield* Ref.get(ms.compactionQueuedMessages)),
+                ],
               })
             : parseWireEvent({ ...emission, seq });
 
@@ -227,6 +293,15 @@ const make = Effect.gen(function* () {
           }
 
           yield* PubSub.publish(ms.pubsub, event);
+
+          if (event.t === "compaction") {
+            if (event.entry.status === "running") {
+              yield* Ref.set(ms.compacting, true);
+            } else {
+              yield* Ref.set(ms.compacting, false);
+              yield* flushCompactionQueue(ms, sessionId, { willRetry: event.entry.willRetry });
+            }
+          }
         }),
       ),
     );
@@ -245,6 +320,8 @@ const make = Effect.gen(function* () {
           new Map<string, { text: string; seq: number }>(),
         ),
         queuedMessages: yield* Ref.make<QueuedUserMessage[]>([]),
+        compactionQueuedMessages: yield* Ref.make<QueuedCompactionMessage[]>([]),
+        compacting: yield* Ref.make(false),
       };
       const pumpFiber = yield* Effect.forkDaemon(startPump(state, sessionId));
       return { ...state, pumpFiber };
@@ -369,7 +446,8 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       const ms = yield* lookupOrReattach(id);
       const currentMeta = yield* Ref.get(ms.meta);
-      const queued = currentMeta.status === "thinking" || currentMeta.status === "tool";
+      const compacting = (yield* Ref.get(ms.compacting)) || (yield* ms.pi.isCompacting());
+      const queued = compacting || currentMeta.status === "thinking" || currentMeta.status === "tool";
       const queueKind: QueuedUserMessage["queueKind"] = mode === "follow_up" ? "follow_up" : "steer";
       const userMessageId = `u_${randomUUID()}`;
       const seq = yield* Ref.updateAndGet(ms.seq, (n) => n + 1);
@@ -384,14 +462,24 @@ const make = Effect.gen(function* () {
           ...(queued ? { queued: true, queueKind } : {}),
         },
       };
+      yield* store.appendEvent(id, userEvent);
+      yield* PubSub.publish(ms.pubsub, userEvent);
+
+      if (compacting) {
+        yield* Ref.update(ms.compactionQueuedMessages, (pending) => [
+          ...pending,
+          { id: userMessageId, text, queueKind, ...(images && images.length > 0 ? { images } : {}) },
+        ]);
+        yield* publishQueueSnapshot(ms, id);
+        return;
+      }
+
       if (queued) {
         yield* Ref.update(ms.queuedMessages, (pending) => [
           ...pending,
           { id: userMessageId, text, queueKind },
         ]);
       }
-      yield* store.appendEvent(id, userEvent);
-      yield* PubSub.publish(ms.pubsub, userEvent);
       yield* ms.pi.send(text, mode, images);
     });
 
@@ -402,7 +490,18 @@ const make = Effect.gen(function* () {
     Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.approve(msgId, choice));
 
   const compact = (id: string, instructions?: string) =>
-    Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.compact(instructions));
+    Effect.gen(function* () {
+      const ms = yield* lookupOrReattach(id);
+      if ((yield* Ref.get(ms.compacting)) || (yield* ms.pi.isCompacting())) return;
+      yield* Ref.set(ms.compacting, true);
+      yield* ms.pi.compact(instructions).pipe(
+        Effect.onExit(() =>
+          Ref.get(ms.compacting).pipe(
+            Effect.flatMap((stillCompacting) => stillCompacting ? Ref.set(ms.compacting, false) : Effect.void),
+          ),
+        ),
+      );
+    });
 
   const exportHtml = (id: string) =>
     Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.exportHtml());
@@ -411,10 +510,25 @@ const make = Effect.gen(function* () {
     Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.listCommands());
 
   const getQueue = (id: string) =>
-    Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.getQueue());
+    Effect.gen(function* () {
+      const ms = yield* lookupOrReattach(id);
+      const normal = yield* ms.pi.getQueue();
+      const compaction = queueTexts(publicCompactionQueue(yield* Ref.get(ms.compactionQueuedMessages)));
+      return {
+        steering: [...normal.steering, ...compaction.steering],
+        followUp: [...normal.followUp, ...compaction.followUp],
+      };
+    });
 
   const clearQueue = (id: string) =>
-    Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.clearQueue());
+    Effect.gen(function* () {
+      const ms = yield* lookupOrReattach(id);
+      yield* Ref.set(ms.queuedMessages, []);
+      yield* Ref.set(ms.compactionQueuedMessages, []);
+      yield* ms.pi.clearQueue();
+      yield* publishQueueSnapshot(ms, id);
+      return { steering: [], followUp: [] };
+    });
 
   const getSettings = (id: string) =>
     Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.getSettings());

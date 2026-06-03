@@ -284,7 +284,7 @@
     <div class="relative shrink-0" data-input-actions>
       {#if actionsOpen}
         <div class="absolute bottom-[calc(100%+0.75rem)] left-0 z-40 flex flex-col gap-1.5">
-          {@render ActionFab("Compact context", false, () => runAction(openCompactSheet), "compact")}
+          {@render ActionFab("Compact context", activeSessionState.compacting, () => runAction(openCompactSheet), "compact")}
           {@render ActionFab("Attach image", images.length >= MAX_IMAGES, () => runAction(attachImages), "image")}
           {@render ActionFab("Dictate", stt.available === false, () => runAction(toggleMic), "mic")}
         </div>
@@ -356,7 +356,7 @@
         disabled={!hasSendable || !canSend}
         class={`rounded-[var(--radius-sm)] bg-[color:var(--color-accent)] text-[color:var(--color-bg)] transition-transform duration-100 hover:bg-[color:var(--color-accent)] active:opacity-80 disabled:bg-[color:var(--color-surface)] disabled:text-[color:var(--color-fg-faint)] disabled:opacity-100 ${holding ? "scale-95" : ""}`}
         aria-label={busy ? "Queue message (hold to follow-up)" : "Send"}
-        title={hasSendable ? (busy ? "Tap to steer · hold to queue follow-up" : "Send (hold to queue as follow-up)") : "Draft a message to send"}
+        title={hasSendable ? (activeSessionState.compacting ? "Queue until compaction finishes" : busy ? "Tap to steer · hold to queue follow-up" : "Send (hold to queue as follow-up)") : "Draft a message to send"}
       >
         <ArrowUp class="size-3.5" strokeWidth={2.5} />
       </Button>

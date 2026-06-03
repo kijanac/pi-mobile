@@ -8,6 +8,7 @@ import Header from "./sheet-header.svelte";
 import Footer from "./sheet-footer.svelte";
 import Title from "./sheet-title.svelte";
 import Description from "./sheet-description.svelte";
+import BottomContent from "./bottom-sheet-content.svelte";
 
 export {
 	Root,
@@ -20,6 +21,7 @@ export {
 	Footer,
 	Title,
 	Description,
+	BottomContent,
 	Root as Sheet,
 	Close as SheetClose,
 	Trigger as SheetTrigger,
@@ -30,4 +32,5 @@ export {
 	Footer as SheetFooter,
 	Title as SheetTitle,
 	Description as SheetDescription,
+	BottomContent as SheetBottomContent,
 };

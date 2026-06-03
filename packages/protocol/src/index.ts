@@ -229,11 +229,30 @@ export const PermissionRequest = v.variant("toolKind", [
 ]);
 export type PermissionRequest = v.InferOutput<typeof PermissionRequest>;
 
+export const CompactionReason = v.picklist(["manual", "threshold", "overflow"]);
+export type CompactionReason = v.InferOutput<typeof CompactionReason>;
+
+export const CompactionStatus = v.picklist(["running", "success", "error", "aborted"]);
+export type CompactionStatus = v.InferOutput<typeof CompactionStatus>;
+
+export const CompactionEntry = v.object({
+  kind: v.literal("compaction"),
+  ...Base,
+  status: CompactionStatus,
+  reason: v.optional(CompactionReason),
+  summary: v.optional(v.string()),
+  tokensBefore: v.optional(v.number()),
+  errorMessage: v.optional(v.string()),
+  willRetry: v.optional(v.boolean()),
+});
+export type CompactionEntry = v.InferOutput<typeof CompactionEntry>;
+
 export const LogEntry = v.union([
   UserMessage,
   AssistantMessage,
   ToolCallMessage,
   PermissionRequest,
+  CompactionEntry,
 ]);
 export type LogEntry = v.InferOutput<typeof LogEntry>;
 
@@ -475,6 +494,7 @@ export const WireEvent = v.variant("t", [
     durationMs: v.number(),
   }),
   v.object({ t: v.literal("permission"), ...Seq, entry: PermissionRequest }),
+  v.object({ t: v.literal("compaction"), ...Seq, entry: CompactionEntry }),
   v.object({ t: v.literal("status"), ...Seq, status: SessionStatus }),
   v.object({
     t: v.literal("queue"),

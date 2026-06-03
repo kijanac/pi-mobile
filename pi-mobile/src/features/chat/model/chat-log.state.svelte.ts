@@ -1,4 +1,4 @@
-import type { AssistantMessage, LogEntry, WireEvent } from "@pi-mobile/protocol";
+import type { AssistantMessage, CompactionEntry, LogEntry, WireEvent } from "@pi-mobile/protocol";
 
 interface SessionLog {
   entries: LogEntry[];
@@ -107,6 +107,27 @@ function assistantFromEnd(event: AssistantEndEvent): AssistantMessage {
   return message;
 }
 
+function applyCompaction(log: SessionLog, entry: CompactionEntry): void {
+  const existing = findEntry(log, entry.id);
+  if (existing?.kind === "compaction") {
+    existing.at = entry.at;
+    existing.status = entry.status;
+    if (entry.reason) existing.reason = entry.reason;
+    else delete existing.reason;
+    if (entry.summary !== undefined) existing.summary = entry.summary;
+    else delete existing.summary;
+    if (entry.tokensBefore !== undefined) existing.tokensBefore = entry.tokensBefore;
+    else delete existing.tokensBefore;
+    if (entry.errorMessage !== undefined) existing.errorMessage = entry.errorMessage;
+    else delete existing.errorMessage;
+    if (entry.willRetry !== undefined) existing.willRetry = entry.willRetry;
+    else delete existing.willRetry;
+  } else {
+    appendEntry(log, entry);
+  }
+  bumpActivity(log);
+}
+
 function reconcileQueuedMessages(log: SessionLog, event: Extract<WireEvent, { t: "queue" }>): void {
   const queuedIds = new Set(event.queued.map((message) => message.id));
   let changed = false;
@@ -145,6 +166,10 @@ function applyWireEventForSession(sessionId: string, event: WireEvent): void {
 
     case "queue":
       reconcileQueuedMessages(log, event);
+      return;
+
+    case "compaction":
+      applyCompaction(log, event.entry);
       return;
 
     case "user_message":
