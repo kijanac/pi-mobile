@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Download, Info, KeyRound, ListTree, Settings, SlidersHorizontal } from "@lucide/svelte";
+  import ActionRow from "@/shared/components/ActionRow.svelte";
 
   let {
     onModels,
@@ -32,10 +33,10 @@
 </div>
 
 {#snippet MenuItem(title: string, onClick: () => void, icon: "model" | "auth" | "tree" | "settings" | "export" | "info")}
-  <button type="button" onclick={onClick} class="hairline-b flex min-h-11 w-full items-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2.5 text-left active:bg-[color:var(--color-surface-2)]">
+  <ActionRow variant="card" onclick={onClick} class="hairline-b min-h-11 py-2.5">
     <span class="text-[color:var(--color-fg-muted)]">
       {#if icon === "model"}<SlidersHorizontal class="size-3.5" />{:else if icon === "auth"}<KeyRound class="size-3.5" />{:else if icon === "tree"}<ListTree class="size-3.5" />{:else if icon === "settings"}<Settings class="size-3.5" />{:else if icon === "export"}<Download class="size-3.5" />{:else}<Info class="size-3.5" />{/if}
     </span>
     <span class="text-copy min-w-0 flex-1 truncate font-medium">{title}</span>
-  </button>
+  </ActionRow>
 {/snippet}

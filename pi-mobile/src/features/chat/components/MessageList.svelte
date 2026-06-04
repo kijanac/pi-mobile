@@ -7,6 +7,7 @@
   import ToolCallView from "@/features/chat/components/ToolCall.svelte";
   import PermissionGate from "@/features/chat/components/PermissionGate.svelte";
   import CompactionMessageView from "@/features/chat/components/CompactionMessage.svelte";
+  import { Button } from "@/shared/ui/button";
 
   let { sessionId }: { sessionId: string } = $props();
 
@@ -68,16 +69,18 @@
   </div>
 
   {#if !stuckToBottom}
-    <button
+    <Button
       type="button"
+      variant={hasNewActivity ? "default" : "outline"}
+      size="sm"
       onpointerdown={(event) => event.preventDefault()}
       onclick={() => scrollToLatest()}
-      class={`text-meta absolute right-3 z-30 flex items-center gap-1.5 rounded-full border px-3 py-1.5 shadow-lg backdrop-blur-md ${hasNewActivity ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent)] text-[color:var(--color-bg)] active:opacity-85" : "border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)]/95 text-[color:var(--color-fg)] active:bg-[color:var(--color-surface-2)]"}`}
+      class={`text-meta absolute right-3 z-30 h-auto rounded-full px-3 py-1.5 shadow-lg backdrop-blur-md ${hasNewActivity ? "active:opacity-85" : "border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)]/95 text-[color:var(--color-fg)] active:bg-[color:var(--color-surface-2)]"}`}
       style="bottom: 0.75rem"
       aria-label={hasNewActivity ? "Scroll to new messages" : "Scroll to latest message"}
     >
       <ArrowDown class="size-3.5" />
       <span>{hasNewActivity ? "new" : "latest"}</span>
-    </button>
+    </Button>
   {/if}
 </div>

@@ -66,10 +66,11 @@
       <div class="flex-1 space-y-3 overflow-y-auto px-3 pb-3">
         <label class="block">
           <div class="label mb-1.5">cwd</div>
-          <button
+          <Button
             type="button"
+            variant="outline"
             onclick={() => (pickerOpen = true)}
-            class="flex w-full items-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2.5 text-left active:bg-[color:var(--color-surface-2)]"
+            class="h-auto w-full justify-start gap-2 rounded-[var(--radius-md)] border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2.5 text-left active:bg-[color:var(--color-surface-2)]"
           >
             <Folder class="size-3.5 shrink-0 text-[color:var(--color-fg-muted)]" />
             {#if cwd}
@@ -77,7 +78,7 @@
             {:else}
               <span class="text-copy text-[color:var(--color-fg-muted)]">choose a directory…</span>
             {/if}
-          </button>
+          </Button>
         </label>
 
         <div>

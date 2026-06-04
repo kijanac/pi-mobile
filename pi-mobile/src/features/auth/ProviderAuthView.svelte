@@ -4,6 +4,7 @@
   import { authJobShouldPoll, createProviderAuthState } from "@/features/auth/provider-auth.state.svelte";
   import { Button } from "@/shared/ui/button";
   import { Textarea } from "@/shared/ui/textarea";
+  import ActionRow from "@/shared/components/ActionRow.svelte";
 
   let {
     onError,
@@ -39,11 +40,11 @@
       {/if}
 
       {#each auth.providers as provider (provider.id)}
-        <button
-          type="button"
+        <ActionRow
+          variant="card"
           onclick={() => auth.start(provider)}
           disabled={auth.startingProviderId !== null}
-          class="hairline-b flex w-full items-center gap-3 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-3 text-left active:bg-[color:var(--color-surface-2)] disabled:opacity-70"
+          class="hairline-b gap-3"
         >
           <span class="min-w-0 flex-1">
             <span class="block text-copy font-medium">{provider.name}</span>
@@ -60,7 +61,7 @@
           {#if auth.startingProviderId === provider.id}
             <Loader2 class="size-3.5 animate-spin" />
           {/if}
-        </button>
+        </ActionRow>
       {/each}
     </div>
   {:else if auth.apiKeyProvider}

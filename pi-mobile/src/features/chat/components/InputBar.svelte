@@ -289,12 +289,12 @@
           {@render ActionFab("Dictate", stt.available === false, () => runAction(toggleMic), "mic")}
         </div>
       {/if}
-      <button type="button" onpointerdown={(event) => event.preventDefault()} onclick={toggleActions} class="relative flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]" aria-label="More input actions" title="More input actions" aria-expanded={actionsOpen}>
+      <Button type="button" variant="ghost" size="icon-lg" onpointerdown={(event) => event.preventDefault()} onclick={toggleActions} class="relative rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]" aria-label="More input actions" title="More input actions" aria-expanded={actionsOpen}>
         {#if actionsOpen}
           <span class="absolute h-7 w-7 rotate-45 rounded-[var(--radius-sm)] bg-[color:var(--color-surface)]" aria-hidden="true"></span>
         {/if}
         <Plus class={`relative size-4 transition-transform ${actionsOpen ? "rotate-45" : ""}`} />
-      </button>
+      </Button>
     </div>
 
     <div class="min-h-9 flex-1 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] focus-within:border-[color:var(--color-border-strong)]">
@@ -327,12 +327,12 @@
     </div>
 
     {#if queueCount > 0}
-      <button type="button" onclick={() => (queueOpen = true)} class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]" aria-label="Queued messages" title="Queued messages">
+      <Button type="button" variant="ghost" size="icon-lg" onclick={() => (queueOpen = true)} class="relative shrink-0 rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]" aria-label="Queued messages" title="Queued messages">
         <ListTodo class="size-4" />
         <span class="absolute right-0.5 top-0.5 flex min-w-4 translate-x-1/3 -translate-y-1/3 items-center justify-center rounded-full border border-[color:var(--color-bg)] bg-[color:var(--color-accent)] px-1 py-0.5 text-[0.625rem] font-medium leading-none text-[color:var(--color-bg)]">
           {queueCount > 99 ? "99+" : queueCount}
         </span>
-      </button>
+      </Button>
     {/if}
 
     {#if stt.listening}

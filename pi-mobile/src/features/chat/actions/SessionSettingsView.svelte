@@ -2,6 +2,7 @@
   import type { ActionErrorHandler } from "./types";
   import { getSessionSettings, patchSessionSetting } from "@/features/chat/api";
   import { haptics } from "@/shared/mobile/haptics";
+  import ActionRow from "@/shared/components/ActionRow.svelte";
 
   type SessionControls = Awaited<ReturnType<typeof getSessionSettings>>;
   type SessionControl = SessionControls["controls"][number];
@@ -98,10 +99,10 @@
 {/snippet}
 
 {#snippet ToggleRow(label: string, checked: boolean, disabled: boolean, onChange: (checked: boolean) => void)}
-  <button type="button" disabled={disabled} onclick={() => onChange(!checked)} class="flex w-full items-center justify-between rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-3 text-left active:bg-[color:var(--color-surface-2)] disabled:opacity-70">
+  <ActionRow variant="card" justify="between" disabled={disabled} onclick={() => onChange(!checked)}>
     <span class="text-copy font-medium">{label}</span>
     <span class={checked ? "text-meta text-[color:var(--color-accent)]" : "text-meta text-[color:var(--color-fg-muted)]"}>{checked ? "on" : "off"}</span>
-  </button>
+  </ActionRow>
 {/snippet}
 
 {#snippet Segmented(label: string, options: readonly { value: string; label: string; description?: string; disabled?: boolean }[], value: string, disabled: boolean, onChange: (value: string) => void)}
@@ -122,13 +123,13 @@
     <div class="label mb-1.5">{label}</div>
     <div class="overflow-hidden rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)]">
       {#each options as option (option.value)}
-        <button type="button" disabled={disabled || option.disabled || option.value === value} onclick={() => onChange(option.value)} class="hairline-b flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-[color:var(--color-surface-2)] disabled:opacity-70">
+        <ActionRow disabled={disabled || option.disabled || option.value === value} onclick={() => onChange(option.value)} class="gap-3 active:bg-[color:var(--color-surface-2)]">
           <span class="min-w-0 flex-1">
             <span class="text-copy block truncate text-[color:var(--color-fg)]">{option.label}</span>
             {#if option.description}<span class="text-meta mt-0.5 block truncate text-[color:var(--color-fg-muted)]">{option.description}</span>{/if}
           </span>
           {#if option.value === value}<span class="text-meta text-[color:var(--color-accent)]">selected</span>{/if}
-        </button>
+        </ActionRow>
       {/each}
     </div>
   </div>

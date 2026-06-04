@@ -3,6 +3,7 @@
   import type { PermissionRequest } from "@pi-mobile/protocol";
   import { activeSessionState } from "@/features/chat/model/active-session.state.svelte";
   import { chatLogState } from "@/features/chat/model/chat-log.state.svelte";
+  import { Button } from "@/shared/ui/button";
 
   let { req }: { req: PermissionRequest } = $props();
 
@@ -43,9 +44,9 @@
       {/if}
 
       <div class="grid grid-cols-3 gap-1.5">
-        <button type="button" onclick={() => choose("deny")} class="text-meta rounded-[var(--radius-sm)] border border-[color:var(--color-border)] px-2 py-2 text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface-2)]">deny</button>
-        <button type="button" onclick={() => choose("allow")} class="text-meta rounded-[var(--radius-sm)] border border-[color:var(--color-border-strong)] px-2 py-2 text-[color:var(--color-fg)] active:bg-[color:var(--color-surface-2)]">allow once</button>
-        <button type="button" onclick={() => choose("allow_session")} class="text-meta rounded-[var(--radius-sm)] bg-[color:var(--color-accent)] px-2 py-2 font-medium text-[color:var(--color-bg)] active:opacity-80">session</button>
+        <Button type="button" variant="outline" size="sm" onclick={() => choose("deny")} class="text-meta rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface-2)]">deny</Button>
+        <Button type="button" variant="outline" size="sm" onclick={() => choose("allow")} class="text-meta rounded-[var(--radius-sm)] border-[color:var(--color-border-strong)] text-[color:var(--color-fg)] active:bg-[color:var(--color-surface-2)]">allow once</Button>
+        <Button type="button" size="sm" onclick={() => choose("allow_session")} class="text-meta rounded-[var(--radius-sm)] active:opacity-80">session</Button>
       </div>
     </div>
   </div>

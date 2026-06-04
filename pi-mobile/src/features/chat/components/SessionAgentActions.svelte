@@ -9,6 +9,7 @@
   import SessionInfoView from "@/features/chat/actions/SessionInfoView.svelte";
   import SessionSettingsView from "@/features/chat/actions/SessionSettingsView.svelte";
   import TreeView from "@/features/chat/actions/TreeView.svelte";
+  import { Button } from "@/shared/ui/button";
 
   let { sessionId }: { sessionId: string } = $props();
 
@@ -28,15 +29,17 @@
   }
 </script>
 
-<button
+<Button
   type="button"
+  variant="ghost"
+  size="icon"
   onclick={() => actions.setOpen(true)}
-  class="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]"
+  class="rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]"
   aria-label="Agent actions"
   title="Agent actions"
 >
   <MoreHorizontal class="size-4" />
-</button>
+</Button>
 
 {#if actions.open}
   <AgentActionSheet

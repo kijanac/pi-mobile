@@ -3,6 +3,7 @@
   import { settingsState } from "@/features/settings/settings.state.svelte";
   import { listDirectories } from "@/features/sessions/api";
   import { Button } from "@/shared/ui/button";
+  import ActionRow from "@/shared/components/ActionRow.svelte";
 
   type FsListing = Awaited<ReturnType<typeof listDirectories>>;
 
@@ -79,25 +80,29 @@
           {#if index > 0}
             <ChevronRight class="size-2.5 shrink-0 text-[color:var(--color-fg-faint)]" />
           {/if}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="xs"
             onclick={() => (path = segment.path)}
-            class="text-meta rounded-[var(--radius-sm)] px-1.5 py-0.5 text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]"
+            class="h-auto rounded-[var(--radius-sm)] px-1.5 py-0.5 text-meta text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]"
           >
             {segment.name}
-          </button>
+          </Button>
         {/each}
       </div>
     </div>
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="icon"
       onclick={goHome}
-      class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]"
+      class="shrink-0 rounded-[var(--radius-sm)] text-[color:var(--color-fg-muted)] active:bg-[color:var(--color-surface)]"
       aria-label="Home"
       title="Go to home directory"
     >
       <Home class="size-3.5" />
-    </button>
+    </Button>
   </div>
 
   <div class="flex-1 overflow-y-auto">
@@ -109,17 +114,17 @@
     {/if}
     {#if listing}
       {#if listing.parent !== null}
-        <button type="button" onclick={goUp} class="hairline-b flex w-full items-center gap-2 px-3 py-2.5 text-left active:bg-[color:var(--color-surface)]">
+        <ActionRow onclick={goUp}>
           <ChevronLeft class="size-3.5 text-[color:var(--color-fg-muted)]" />
           <span class="text-copy text-[color:var(--color-fg-muted)]">..</span>
-        </button>
+        </ActionRow>
       {/if}
       {#each listing.entries as entry (entry.name)}
-        <button type="button" onclick={() => drill(entry.name)} class="hairline-b flex w-full items-center gap-2 px-3 py-2.5 text-left active:bg-[color:var(--color-surface)]">
+        <ActionRow onclick={() => drill(entry.name)}>
           <Folder class="size-3.5 shrink-0 text-[color:var(--color-fg-muted)]" />
           <span class="text-copy min-w-0 flex-1 truncate">{entry.name}</span>
           <ChevronRight class="size-3 shrink-0 text-[color:var(--color-fg-faint)]" />
-        </button>
+        </ActionRow>
       {:else}
         <div class="text-copy px-3 py-3 text-[color:var(--color-fg-muted)]">(no subdirectories)</div>
       {/each}

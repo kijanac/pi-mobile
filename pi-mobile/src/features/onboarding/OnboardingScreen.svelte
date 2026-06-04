@@ -86,9 +86,9 @@
                 <SettingsField id="ts_auth_key" label="tailscale auth key" value={onboarding.tsAuthKey} onValue={onboarding.setTsAuthKey} placeholder="tskey-auth-..." secret />
                 <SettingsField id="tailnet" label="tailnet DNS name" value={onboarding.tailnet} onValue={onboarding.setTailnet} placeholder="tailabc123.ts.net" />
               </div>
-              <button type="button" onclick={() => onboarding.setShowAdvanced(!onboarding.showAdvanced)} class="text-meta text-left text-[color:var(--color-accent)] active:opacity-70">
+              <Button type="button" variant="link" size="sm" onclick={() => onboarding.setShowAdvanced(!onboarding.showAdvanced)} class="h-auto justify-start p-0 text-meta text-[color:var(--color-accent)] active:opacity-70">
                 {onboarding.showAdvanced ? "hide" : "show"} advanced hostname
-              </button>
+              </Button>
               {#if onboarding.showAdvanced}
                 <SettingsField id="bridge_hostname" label="bridge hostname" value={onboarding.bridgeHostname} onValue={onboarding.setBridgeHostname} placeholder="pi-bridge-ab12cd" />
               {/if}
