@@ -13,10 +13,18 @@
   let { msg }: { msg: ToolCallMessage } = $props();
 
   const result = $derived(unwrapContentEnvelope(msg.result ?? ""));
+  const contentText = $derived.by(() =>
+    msg.resultContent
+      ?.filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("\n") || result,
+  );
+  const images = $derived(msg.resultContent?.filter((part) => part.type === "image") ?? []);
+  const detailsJson = $derived(msg.details === undefined ? "" : JSON.stringify(msg.details, null, 2));
   const displayText = $derived.by(() => {
-    if (msg.status === "error") return result;
-    if (msg.toolKind === "builtin" && msg.tool === "write") return msg.args.content || result;
-    return result;
+    if (msg.status === "error") return contentText;
+    if (msg.toolKind === "builtin" && msg.tool === "write") return msg.args.content || contentText;
+    return contentText;
   });
   const path = $derived.by(() => (msg.toolKind === "builtin" && (msg.tool === "read" || msg.tool === "write") ? msg.args.path : ""));
   const bashHtml = $derived.by(() => {
@@ -74,12 +82,29 @@
   }
 </script>
 
-{#if msg.status === "error"}
-  <pre class={RAW_CLASS}>{displayText}</pre>
-{:else if msg.toolKind === "builtin" && msg.tool === "bash"}
-  {@html `<pre class="${BASH_CLASS}">${bashHtml}</pre>`}
-{:else if highlightedHtml}
-  <div class={CODE_BLOCK_CLASS}>{@html highlightedHtml}</div>
-{:else}
-  <pre class={RAW_CLASS}>{displayText}</pre>
+{#if displayText}
+  {#if msg.status === "error"}
+    <pre class={RAW_CLASS}>{displayText}</pre>
+  {:else if msg.toolKind === "builtin" && msg.tool === "bash"}
+    {@html `<pre class="${BASH_CLASS}">${bashHtml}</pre>`}
+  {:else if highlightedHtml}
+    <div class={CODE_BLOCK_CLASS}>{@html highlightedHtml}</div>
+  {:else}
+    <pre class={RAW_CLASS}>{displayText}</pre>
+  {/if}
+{/if}
+
+{#if images.length > 0}
+  <div class="mt-1 grid gap-2">
+    {#each images as image}
+      <img class="max-h-72 rounded-[var(--radius-sm)] border border-[color:var(--color-border)] object-contain" src={`data:${image.mimeType};base64,${image.data}`} alt="tool result" />
+    {/each}
+  </div>
+{/if}
+
+{#if detailsJson}
+  <details class="type-code mt-1 rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-2 text-[color:var(--color-fg-muted)]">
+    <summary class="cursor-pointer select-none">details</summary>
+    <pre class="mt-2 whitespace-pre-wrap break-words">{detailsJson}</pre>
+  </details>
 {/if}

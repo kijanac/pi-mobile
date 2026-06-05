@@ -113,6 +113,8 @@ const connection = (
             return mgr.interrupt(bindings.sessionId);
           case "permission_reply":
             return mgr.approve(bindings.sessionId, evt.id, evt.choice);
+          case "extension_ui_response":
+            return mgr.extensionUiResponse(bindings.sessionId, evt.id, evt.value);
         }
       }),
       Effect.forever,

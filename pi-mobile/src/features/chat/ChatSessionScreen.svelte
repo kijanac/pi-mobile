@@ -10,6 +10,8 @@
   import MessageList from "@/features/chat/components/MessageList.svelte";
   import InputBar from "@/features/chat/components/InputBar.svelte";
   import SessionAgentActions from "@/features/chat/components/SessionAgentActions.svelte";
+  import ExtensionUiSheet from "@/features/chat/components/ExtensionUiSheet.svelte";
+  import ExtensionNotifications from "@/features/chat/components/ExtensionNotifications.svelte";
   import { getSessionStats } from "@/features/chat/api";
   import { sessionListState } from "@/features/sessions/model/session-list.state.svelte";
   import { formatCost, formatTokens } from "@/shared/lib/format";
@@ -114,5 +116,7 @@
     <MessageList {sessionId} />
     <InputBar {sessionId} />
   {/if}
+  <ExtensionUiSheet />
+  <ExtensionNotifications />
 </main>
 </EdgeSwipeBack>

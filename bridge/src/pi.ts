@@ -36,9 +36,12 @@ import {
   type LogEntry,
   ReadToolArgs,
   WriteToolArgs,
+  type ExtensionUiRequest,
+  type ExtensionUiResponseValue,
   type PermissionChoice,
   type PermissionRequest,
   type SessionControls,
+  type ToolResultContent,
   type SessionMeta,
   type SessionStats,
   type SessionStatus,
@@ -48,6 +51,8 @@ import {
 } from "@pico/protocol";
 import { SessionNotFound } from "./errors.ts";
 import { BRIDGE_DATA_DIR } from "./config.ts";
+import { createMobileExtensionUiBridge } from "./mobile-extension-ui.ts";
+import { normalizeToolResult, normalizeToolResultContent, textFromContent } from "./tool-result-normalization.ts";
 
 
 export type SdkQueueState = Pick<Extract<AgentSessionEvent, { type: "queue_update" }>, "steering" | "followUp">;
@@ -72,6 +77,8 @@ export type PiEmission =
       t: "tool_result";
       id: string;
       result: string;
+      resultContent?: ToolResultContent[];
+      details?: unknown;
       status: "ok" | "error";
       durationMs: number;
     }
@@ -92,7 +99,8 @@ export type PiEmission =
       success: boolean;
       attempt: number;
       finalError?: string;
-    };
+    }
+  | { t: "extension_ui_request"; request: ExtensionUiRequest };
 
 export class PiError extends Error {
   readonly _tag = "PiError";
@@ -131,6 +139,10 @@ export interface PiSession {
     opts?: { willRetry?: boolean },
   ) => Effect.Effect<void, PiError>;
   readonly interrupt: () => Effect.Effect<void, PiError>;
+  readonly extensionUiResponse: (
+    id: string,
+    value: ExtensionUiResponseValue,
+  ) => Effect.Effect<void, PiError>;
   readonly approve: (
     id: string,
     choice: PermissionChoice,
@@ -197,24 +209,6 @@ async function cleanupOldExports(now = Date.now()): Promise<void> {
       }),
   );
 }
-
-const textFromContent = (content: unknown): string => {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  return content
-    .map((part) => {
-      if (typeof part === "string") return part;
-      if (part && typeof part === "object" && "text" in part) {
-        return String((part as { text?: unknown }).text ?? "");
-      }
-      if (part && typeof part === "object" && "type" in part) {
-        return `[${String((part as { type?: unknown }).type)}]`;
-      }
-      return "";
-    })
-    .filter(Boolean)
-    .join(" ");
-};
 
 const queueModeOptions = [
   { value: "one-at-a-time", label: "one-at-a-time" },
@@ -491,8 +485,11 @@ const logEntriesFromCurrentBranch = (piSession: AgentSession): LogEntry[] => {
     if (message.role === "toolResult") {
       const toolCall = byToolCallId.get(message.toolCallId);
       if (!toolCall) continue;
+      const resultContent = normalizeToolResultContent(message.content);
       toolCall.status = message.isError ? "error" : "ok";
       toolCall.result = textFromContent(message.content);
+      if (resultContent) toolCall.resultContent = resultContent;
+      if ("details" in message && message.details !== undefined) toolCall.details = message.details;
       toolCall.durationMs = 0;
     }
   }
@@ -506,6 +503,9 @@ const wirePiSession = (
 ): Effect.Effect<PiSession> =>
   Effect.gen(function* () {
     const q = yield* Queue.unbounded<PiEmission>();
+    const extensionUi = createMobileExtensionUiBridge((request) => {
+      Queue.unsafeOffer(q, { t: "extension_ui_request", request });
+    });
 
     let assistantId: string | null = null;
     let compactionId: string | null = null;
@@ -570,17 +570,14 @@ const wirePiSession = (
           const start = toolStarts.get(event.toolCallId);
           toolStarts.delete(event.toolCallId);
 
-          const resultText =
-            typeof event.result === "string"
-              ? event.result
-              : event.result == null
-                ? ""
-                : JSON.stringify(event.result);
+          const result = normalizeToolResult(event.result);
 
           Queue.unsafeOffer(q, {
             t: "tool_result",
             id: event.toolCallId,
-            result: resultText,
+            result: result.text,
+            ...(result.content ? { resultContent: result.content } : {}),
+            ...(result.details !== undefined ? { details: result.details } : {}),
             status: event.isError ? "error" : "ok",
             durationMs: start ? Date.now() - start.startedAt : 0,
           });
@@ -664,6 +661,24 @@ const wirePiSession = (
     };
 
     const unsub = piSession.subscribe(mapEvent);
+
+    yield* Effect.tryPromise({
+      try: () => piSession.bindExtensions({
+        uiContext: extensionUi.uiContext,
+        onError: (error) => {
+          Queue.unsafeOffer(q, {
+            t: "extension_ui_request",
+            request: {
+              kind: "notify",
+              id: randomUUIDv7(),
+              message: error instanceof Error ? error.message : String(error),
+              level: "error",
+            },
+          });
+        },
+      }),
+      catch: (e) => new PiError(`bindExtensions failed: ${String(e)}`),
+    }).pipe(Effect.catchAll((e) => Effect.logError("[pi] extension bind failed", e)));
 
     return {
       meta,
@@ -756,6 +771,10 @@ const wirePiSession = (
           });
           yield* Queue.offer(q, { t: "status", status: "idle" });
         }),
+      extensionUiResponse: (id, value) =>
+        Effect.sync(() => {
+          extensionUi.respond(id, value);
+        }),
       approve: (_id, _choice) =>
         Effect.sync(() => {
         }),
@@ -842,6 +861,7 @@ const wirePiSession = (
         }),
       close: () =>
         Effect.sync(() => {
+          extensionUi.close();
           unsub();
           piSession.dispose();
         }),

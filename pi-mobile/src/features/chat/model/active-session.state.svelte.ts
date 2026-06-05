@@ -1,12 +1,16 @@
-import type { ClientEvent, SessionMeta, WireEvent } from "@pico/protocol";
+import type { ClientEvent, ExtensionUiRequest, SessionMeta, WireEvent } from "@pico/protocol";
 import { retryState } from "@/features/chat/model/retry-state.svelte";
 
 export type ConnectionStatus = "offline" | "connecting" | "connected" | "reconnecting" | "error" | "gone";
+export type InteractiveExtensionUiRequest = Extract<ExtensionUiRequest, { kind: "confirm" | "select" | "input" }>;
+export type ExtensionUiNotification = Extract<ExtensionUiRequest, { kind: "notify" }>;
 
 let activeSessionId = $state<string | null>(null);
 let activeStatus = $state<SessionMeta["status"]>("idle");
 let connectionStatus = $state<ConnectionStatus>("offline");
 let compacting = $state(false);
+let extensionUiRequests = $state<InteractiveExtensionUiRequest[]>([]);
+let extensionUiNotifications = $state<ExtensionUiNotification[]>([]);
 let activeSend = $state<((event: ClientEvent) => void) | null>(null);
 
 export const activeSessionState = {
@@ -26,6 +30,14 @@ export const activeSessionState = {
     return compacting;
   },
 
+  get extensionUiRequests() {
+    return extensionUiRequests;
+  },
+
+  get extensionUiNotifications() {
+    return extensionUiNotifications;
+  },
+
   get send() {
     return activeSend;
   },
@@ -34,6 +46,8 @@ export const activeSessionState = {
     activeSessionId = sessionId;
     activeStatus = "idle";
     compacting = false;
+    extensionUiRequests = [];
+    extensionUiNotifications = [];
     retryState.reset();
   },
 
@@ -42,6 +56,8 @@ export const activeSessionState = {
     activeSessionId = null;
     activeStatus = "idle";
     compacting = false;
+    extensionUiRequests = [];
+    extensionUiNotifications = [];
     connectionStatus = "offline";
     activeSend = null;
     retryState.reset();
@@ -55,6 +71,15 @@ export const activeSessionState = {
     activeSend = send;
   },
 
+  respondToExtensionUi(id: string, value: string | boolean | null): void {
+    activeSend?.({ t: "extension_ui_response", id, value });
+    extensionUiRequests = extensionUiRequests.filter((request) => request.id !== id);
+  },
+
+  dismissExtensionNotification(id: string): void {
+    extensionUiNotifications = extensionUiNotifications.filter((request) => request.id !== id);
+  },
+
   applyWireEvent(sessionId: string, event: WireEvent): void {
     if (activeSessionId !== sessionId) return;
 
@@ -65,6 +90,16 @@ export const activeSessionState = {
 
     if (event.t === "compaction") {
       compacting = event.entry.status === "running";
+      return;
+    }
+
+    if (event.t === "extension_ui_request") {
+      const request = event.request;
+      if (request.kind === "notify") {
+        extensionUiNotifications = [request, ...extensionUiNotifications].slice(0, 3);
+      } else if (request.kind === "confirm" || request.kind === "select" || request.kind === "input") {
+        extensionUiRequests = [...extensionUiRequests.filter((existing) => existing.id !== request.id), request];
+      }
       return;
     }
 

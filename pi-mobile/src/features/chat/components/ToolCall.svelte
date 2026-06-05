@@ -61,7 +61,7 @@
       <div class="mt-1">
         <EditDiff args={msg.args} />
       </div>
-    {:else if msg.result || (msg.toolKind === "builtin" && msg.tool === "write" && msg.args.content.length > 0)}
+    {:else if msg.result || msg.resultContent || msg.details !== undefined || (msg.toolKind === "builtin" && msg.tool === "write" && msg.args.content.length > 0)}
       <ToolResult {msg} />
     {/if}
   {/if}

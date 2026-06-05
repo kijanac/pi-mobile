@@ -16,6 +16,7 @@ import { PiClient, type PiSession, type PiEmission, type ExportedHtml, PiError, 
 import { parseWireEvent } from "@pico/protocol";
 import type {
   Commands,
+  ExtensionUiResponseValue,
   LogEntry,
   PermissionChoice,
   SessionMeta,
@@ -133,6 +134,11 @@ export class SessionManager extends Context.Tag("SessionManager")<
     ) => Effect.Effect<void, PiError | SessionNotFound>;
     readonly interrupt: (
       id: string,
+    ) => Effect.Effect<void, PiError | SessionNotFound>;
+    readonly extensionUiResponse: (
+      id: string,
+      requestId: string,
+      value: ExtensionUiResponseValue,
     ) => Effect.Effect<void, PiError | SessionNotFound>;
     readonly approve: (
       id: string,
@@ -327,7 +333,9 @@ const make = Effect.gen(function* () {
             yield* Ref.update(ms.meta, (m) => ({ ...m, updatedAt: new Date().toISOString() }));
           }
 
-          yield* store.appendEvent(sessionId, event);
+          if (event.t !== "extension_ui_request") {
+            yield* store.appendEvent(sessionId, event);
+          }
 
           yield* PubSub.publish(ms.pubsub, event);
 
@@ -558,6 +566,13 @@ const make = Effect.gen(function* () {
   const interrupt = (id: string) =>
     Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.interrupt());
 
+  const extensionUiResponse = (
+    id: string,
+    requestId: string,
+    value: ExtensionUiResponseValue,
+  ) =>
+    Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.extensionUiResponse(requestId, value));
+
   const approve = (id: string, msgId: string, choice: PermissionChoice) =>
     Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.approve(msgId, choice));
 
@@ -677,6 +692,7 @@ const make = Effect.gen(function* () {
     subscribe,
     send,
     interrupt,
+    extensionUiResponse,
     approve,
     compact,
     exportHtml,

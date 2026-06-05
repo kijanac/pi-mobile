@@ -120,12 +120,31 @@ export const CustomToolArgs = v.record(v.string(), v.unknown());
 export type CustomToolArgs = v.InferOutput<typeof CustomToolArgs>;
 
 const ToolStatus = v.picklist(["pending", "running", "ok", "error"]);
+
+export const ToolTextContent = v.object({
+  type: v.literal("text"),
+  text: v.string(),
+});
+export type ToolTextContent = v.InferOutput<typeof ToolTextContent>;
+
+export const ToolImageContent = v.object({
+  type: v.literal("image"),
+  data: v.string(),
+  mimeType: v.string(),
+});
+export type ToolImageContent = v.InferOutput<typeof ToolImageContent>;
+
+export const ToolResultContent = v.variant("type", [ToolTextContent, ToolImageContent]);
+export type ToolResultContent = v.InferOutput<typeof ToolResultContent>;
+
 const BuiltinToolCallBase = {
   kind: v.literal("tool_call"),
   toolKind: v.literal("builtin"),
   ...Base,
   status: ToolStatus,
   result: v.optional(v.string()),
+  resultContent: v.optional(v.array(ToolResultContent)),
+  details: v.optional(v.unknown()),
   durationMs: v.optional(v.number()),
 } as const;
 
@@ -173,6 +192,8 @@ export const CustomToolCallMessage = v.object({
   args: CustomToolArgs,
   status: ToolStatus,
   result: v.optional(v.string()),
+  resultContent: v.optional(v.array(ToolResultContent)),
+  details: v.optional(v.unknown()),
   durationMs: v.optional(v.number()),
 });
 export type CustomToolCallMessage = v.InferOutput<typeof CustomToolCallMessage>;
@@ -424,6 +445,53 @@ export const QueueState = v.object({
 });
 export type QueueState = v.InferOutput<typeof QueueState>;
 
+const ExtensionUiBase = {
+  id: v.string(),
+  title: v.string(),
+  timeoutMs: v.optional(v.number()),
+} as const;
+
+export const ExtensionUiConfirmRequest = v.object({
+  kind: v.literal("confirm"),
+  ...ExtensionUiBase,
+  message: v.string(),
+});
+export const ExtensionUiSelectRequest = v.object({
+  kind: v.literal("select"),
+  ...ExtensionUiBase,
+  options: v.array(v.string()),
+});
+export const ExtensionUiInputRequest = v.object({
+  kind: v.literal("input"),
+  ...ExtensionUiBase,
+  placeholder: v.optional(v.string()),
+  initialValue: v.optional(v.string()),
+  multiline: v.optional(v.boolean()),
+});
+export const ExtensionUiNotifyRequest = v.object({
+  kind: v.literal("notify"),
+  id: v.string(),
+  message: v.string(),
+  level: v.picklist(["info", "warning", "error"]),
+});
+export const ExtensionUiStatusRequest = v.object({
+  kind: v.literal("status"),
+  id: v.string(),
+  key: v.string(),
+  text: v.nullable(v.string()),
+});
+export const ExtensionUiRequest = v.variant("kind", [
+  ExtensionUiConfirmRequest,
+  ExtensionUiSelectRequest,
+  ExtensionUiInputRequest,
+  ExtensionUiNotifyRequest,
+  ExtensionUiStatusRequest,
+]);
+export type ExtensionUiRequest = v.InferOutput<typeof ExtensionUiRequest>;
+
+export const ExtensionUiResponseValue = v.nullable(v.union([v.string(), v.boolean()]));
+export type ExtensionUiResponseValue = v.InferOutput<typeof ExtensionUiResponseValue>;
+
 export const TreeEntry = v.object({
   id: v.string(),
   parentId: v.nullable(v.string()),
@@ -502,6 +570,8 @@ export const WireEvent = v.variant("t", [
     ...Seq,
     id: v.string(),
     result: v.string(),
+    resultContent: v.optional(v.array(ToolResultContent)),
+    details: v.optional(v.unknown()),
     status: v.picklist(["ok", "error"]),
     durationMs: v.number(),
   }),
@@ -535,6 +605,11 @@ export const WireEvent = v.variant("t", [
     attempt: v.number(),
     finalError: v.optional(v.string()),
   }),
+  v.object({
+    t: v.literal("extension_ui_request"),
+    ...Seq,
+    request: ExtensionUiRequest,
+  }),
 ]);
 export type WireEvent = v.InferOutput<typeof WireEvent>;
 
@@ -558,6 +633,11 @@ export const ClientEvent = v.variant("t", [
     choice: PermissionChoice,
   }),
   v.object({ t: v.literal("interrupt") }),
+  v.object({
+    t: v.literal("extension_ui_response"),
+    id: v.string(),
+    value: ExtensionUiResponseValue,
+  }),
 ]);
 export type ClientEvent = v.InferOutput<typeof ClientEvent>;
 

@@ -190,6 +190,7 @@ const makeMockSession = (opts: {
           if (prev) yield* Fiber.interrupt(prev);
           yield* Queue.offer(q, { t: "status", status: "idle" });
         }),
+      extensionUiResponse: () => Effect.void,
       approve: (id) =>
         Effect.gen(function* () {
           yield* Queue.offer(q, { t: "status", status: "thinking" });
