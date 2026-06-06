@@ -37,7 +37,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build mobile web assets
-        run: pnpm --filter pi-mobile build
+        working-directory: pi-mobile
+        run: pnpm build
 
       - name: Sync Capacitor iOS project
         working-directory: pi-mobile
@@ -102,13 +103,14 @@ jobs:
         run: |
           python3 - <<'PY'
           import os
+          import re
           from pathlib import Path
 
           path = Path("pi-mobile/ios/App/App.xcodeproj/project.pbxproj")
           text = path.read_text()
 
           text = text.replace("DEVELOPMENT_TEAM = 489S8NPVP6;", f"DEVELOPMENT_TEAM = {os.environ['APPLE_TEAM_ID']};")
-          text = text.replace("PRODUCT_BUNDLE_IDENTIFIER = dev.pi.mobile;", f"PRODUCT_BUNDLE_IDENTIFIER = {os.environ['IOS_BUNDLE_ID']};")
+          text = re.sub(r"PRODUCT_BUNDLE_IDENTIFIER = [^;]+;", f"PRODUCT_BUNDLE_IDENTIFIER = {os.environ['IOS_BUNDLE_ID']};", text)
           text = text.replace("CODE_SIGN_STYLE = Automatic;", "CODE_SIGN_STYLE = Manual;")
           text = text.replace(
               "CODE_SIGN_STYLE = Manual;\n\t\t\t\tCURRENT_PROJECT_VERSION",
