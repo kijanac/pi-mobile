@@ -52,7 +52,7 @@ import {
 import { SessionNotFound } from "./errors.ts";
 import { BRIDGE_DATA_DIR } from "./config.ts";
 import { createMobileExtensionUiBridge } from "./mobile-extension-ui.ts";
-import { normalizeToolResult, normalizeToolResultContent, textFromContent } from "./tool-result-normalization.ts";
+import { projectToolResult, projectToolResultContent, textFromContent } from "./tool-result-projection.ts";
 
 
 export type SdkQueueState = Pick<Extract<AgentSessionEvent, { type: "queue_update" }>, "steering" | "followUp">;
@@ -73,6 +73,13 @@ export type PiEmission =
       usage?: PiAssistantMessage["usage"];
     }
   | { t: "tool_call"; entry: ToolCallMessage }
+  | {
+      t: "tool_update";
+      id: string;
+      result: string;
+      resultContent?: ToolResultContent[];
+      details?: unknown;
+    }
   | {
       t: "tool_result";
       id: string;
@@ -485,7 +492,7 @@ const logEntriesFromCurrentBranch = (piSession: AgentSession): LogEntry[] => {
     if (message.role === "toolResult") {
       const toolCall = byToolCallId.get(message.toolCallId);
       if (!toolCall) continue;
-      const resultContent = normalizeToolResultContent(message.content);
+      const resultContent = projectToolResultContent(message.content);
       toolCall.status = message.isError ? "error" : "ok";
       toolCall.result = textFromContent(message.content);
       if (resultContent) toolCall.resultContent = resultContent;
@@ -566,11 +573,24 @@ const wirePiSession = (
           return;
         }
 
+        case "tool_execution_update": {
+          const result = projectToolResult(event.partialResult);
+
+          Queue.unsafeOffer(q, {
+            t: "tool_update",
+            id: event.toolCallId,
+            result: result.text,
+            ...(result.content ? { resultContent: result.content } : {}),
+            ...(result.details !== undefined ? { details: result.details } : {}),
+          });
+          return;
+        }
+
         case "tool_execution_end": {
           const start = toolStarts.get(event.toolCallId);
           toolStarts.delete(event.toolCallId);
 
-          const result = normalizeToolResult(event.result);
+          const result = projectToolResult(event.result);
 
           Queue.unsafeOffer(q, {
             t: "tool_result",

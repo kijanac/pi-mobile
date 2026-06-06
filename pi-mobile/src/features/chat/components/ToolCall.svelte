@@ -9,6 +9,10 @@
   // svelte-ignore state_referenced_locally
   let open = $state(msg.toolKind === "builtin" && msg.tool === "edit");
 
+  $effect(() => {
+    if (msg.status === "running" && (msg.result || msg.resultContent || msg.details !== undefined)) open = true;
+  });
+
   const label = $derived(msg.toolKind === "builtin" ? msg.tool : msg.tool);
   const summary = $derived.by(() => {
     if (msg.toolKind === "custom") return JSON.stringify(msg.args);

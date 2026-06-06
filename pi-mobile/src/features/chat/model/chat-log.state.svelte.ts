@@ -211,11 +211,26 @@ function applyWireEventForSession(sessionId: string, event: WireEvent): void {
       bumpActivity(log);
       return;
 
+    case "tool_update": {
+      const entry = findEntry(log, event.id);
+      if (entry?.kind === "tool_call") {
+        entry.result = event.result;
+        if (event.resultContent) entry.resultContent = event.resultContent;
+        if (event.details !== undefined) entry.details = event.details;
+        bumpActivity(log);
+      }
+      return;
+    }
+
     case "tool_result": {
       const entry = findEntry(log, event.id);
       if (entry?.kind === "tool_call") {
         entry.status = event.status;
         entry.result = event.result;
+        if (event.resultContent) entry.resultContent = event.resultContent;
+        else delete entry.resultContent;
+        if (event.details !== undefined) entry.details = event.details;
+        else delete entry.details;
         entry.durationMs = event.durationMs;
         bumpActivity(log);
       }

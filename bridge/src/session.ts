@@ -333,7 +333,7 @@ const make = Effect.gen(function* () {
             yield* Ref.update(ms.meta, (m) => ({ ...m, updatedAt: new Date().toISOString() }));
           }
 
-          if (event.t !== "extension_ui_request") {
+          if (event.t !== "extension_ui_request" && event.t !== "tool_update") {
             yield* store.appendEvent(sessionId, event);
           }
 

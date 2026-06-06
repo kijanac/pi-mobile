@@ -20,7 +20,7 @@
       .join("\n") || result,
   );
   const images = $derived(msg.resultContent?.filter((part) => part.type === "image") ?? []);
-  const detailsJson = $derived(msg.details === undefined ? "" : JSON.stringify(msg.details, null, 2));
+  const detailsJson = $derived(formatDetails(msg.details));
   const displayText = $derived.by(() => {
     if (msg.status === "error") return contentText;
     if (msg.toolKind === "builtin" && msg.tool === "write") return msg.args.content || contentText;
@@ -54,6 +54,15 @@
       cancelled = true;
     };
   });
+
+  function formatDetails(details: unknown): string {
+    if (details === undefined) return "";
+    try {
+      return JSON.stringify(details, null, 2) ?? "";
+    } catch {
+      return String(details);
+    }
+  }
 
   function unwrapContentEnvelope(text: string): string {
     const trimmed = text.trim();

@@ -566,6 +566,14 @@ export const WireEvent = v.variant("t", [
   }),
   v.object({ t: v.literal("tool_call"), ...Seq, entry: ToolCallMessage }),
   v.object({
+    t: v.literal("tool_update"),
+    ...Seq,
+    id: v.string(),
+    result: v.string(),
+    resultContent: v.optional(v.array(ToolResultContent)),
+    details: v.optional(v.unknown()),
+  }),
+  v.object({
     t: v.literal("tool_result"),
     ...Seq,
     id: v.string(),
