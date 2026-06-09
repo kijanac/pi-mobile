@@ -1,7 +1,6 @@
 import { readdirSync, realpathSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve as resolvePath } from "node:path";
 import type { FsListing } from "@pico/protocol/trpc";
-import type { Context } from "hono";
 import { WORKSPACES_DIR } from "./config.ts";
 
 const workspaceRoot = () => resolvePath(WORKSPACES_DIR);
@@ -62,16 +61,4 @@ export function listFs(path?: string, opts?: { showHidden?: boolean }): FsListin
   })();
 
   return { path: target, parent, home: root, entries: dirs };
-}
-
-export function handleFsLs(c: Context) {
-  try {
-    return c.json(listFs(c.req.query("path"), { showHidden: c.req.query("hidden") === "1" }));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message === "not_found") return c.json({ error: "not_found" }, 404);
-    if (message === "outside_workspace_root") return c.json({ error: "outside_workspace_root", root: workspaceRoot() }, 403);
-    if (message === "forbidden") return c.json({ error: "forbidden" }, 403);
-    return c.json({ error: "ls_failed", detail: message }, 500);
-  }
 }

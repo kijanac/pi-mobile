@@ -181,6 +181,13 @@ export { SessionNotFound } from "./errors.ts";
 
 const IDLE_EVICT_MS = 15 * 60 * 1000;
 
+// Ceiling on per-session live event buffering: a subscriber that falls this
+// far behind loses oldest events and heals on reconnect via cursor replay.
+const LIVE_BUFFER_CAPACITY = 4096;
+
+// Backstop against a runaway client queueing sends forever.
+const MAX_PENDING_SENDS = 200;
+
 const make = Effect.gen(function* () {
   const pi = yield* PiClient;
   const store = yield* Store;
@@ -365,7 +372,7 @@ const make = Effect.gen(function* () {
       const state: ManagedSessionState = {
         meta: yield* Ref.make(piSession.meta),
         pi: piSession,
-        pubsub: yield* PubSub.unbounded<WireEvent>(),
+        pubsub: yield* PubSub.sliding<WireEvent>(LIVE_BUFFER_CAPACITY),
         seq: yield* Ref.make(yield* store.maxSeq(sessionId)),
         subscribers: yield* Ref.make(0),
         idleEvictionTimer: yield* Ref.make<ReturnType<typeof setTimeout> | null>(null),
@@ -471,7 +478,8 @@ const make = Effect.gen(function* () {
         const queueSnapshotEvent = queueEvent(0, pending);
 
         let replayEvents: WireEvent[];
-        if (fromCursor < 0 || fromCursor > cursorAtSubscribe) {
+        const prunedThrough = yield* store.prunedThrough(id);
+        if (fromCursor < 0 || fromCursor > cursorAtSubscribe || fromCursor < prunedThrough) {
           replayEvents = [{
             t: "log_reset",
             seq: cursorAtSubscribe,
@@ -513,6 +521,9 @@ const make = Effect.gen(function* () {
       const currentMeta = yield* Ref.get(ms.meta);
       const compacting = (yield* Ref.get(ms.compacting)) || (yield* ms.pi.isCompacting());
       const queued = compacting || currentMeta.status === "thinking" || currentMeta.status === "tool";
+      if (queued && (yield* Ref.get(ms.pendingSends)).length >= MAX_PENDING_SENDS) {
+        return yield* Effect.fail(new PiError(`send queue full (${MAX_PENDING_SENDS})`));
+      }
       const queueKind: QueuedMessage["queueKind"] = mode === "follow_up" ? "follow_up" : "steer";
       const userMessageId = randomUUIDv7();
       const at = Date.now();

@@ -33,6 +33,8 @@ export class Store extends Context.Tag("Store")<
 
     readonly maxSeq: (sessionId: string) => Effect.Effect<number>;
 
+    readonly prunedThrough: (sessionId: string) => Effect.Effect<number>;
+
     readonly close: () => Effect.Effect<void>;
   }
 >() {}
@@ -63,7 +65,18 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_events_session_seq
     ON events(session_id, seq);
+
+  CREATE TABLE IF NOT EXISTS session_prune (
+    session_id     TEXT PRIMARY KEY,
+    pruned_through INTEGER NOT NULL
+  ) STRICT;
 `;
+
+// Cap stored events per session so the events table (and reconnect replay)
+// stays bounded. Clients whose cursor falls below the pruned boundary get a
+// full log_reset instead of a stored replay.
+const EVENTS_RETAIN_PER_SESSION = 5000;
+const PRUNE_EVERY = 256;
 
 const MIGRATIONS = [
   `ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0`,
@@ -168,6 +181,22 @@ const make = (dbPath: string) =>
       SELECT COALESCE(MAX(seq), 0) AS m FROM events WHERE session_id = ?
     `);
 
+    const stmtPruneEvents: StatementSync = db.prepare(
+      `DELETE FROM events WHERE session_id = ? AND seq <= ?`,
+    );
+
+    const stmtSetPrunedThrough: StatementSync = db.prepare(
+      `INSERT OR REPLACE INTO session_prune (session_id, pruned_through) VALUES (?, ?)`,
+    );
+
+    const stmtGetPrunedThrough: StatementSync = db.prepare(
+      `SELECT pruned_through FROM session_prune WHERE session_id = ?`,
+    );
+
+    const stmtDeletePrune: StatementSync = db.prepare(
+      `DELETE FROM session_prune WHERE session_id = ?`,
+    );
+
     return Store.of({
       insertSession: (record) =>
         Effect.sync(() => {
@@ -222,6 +251,7 @@ const make = (dbPath: string) =>
           db.exec("BEGIN");
           try {
             stmtDeleteSessionEvents.run(id);
+            stmtDeletePrune.run(id);
             stmtDeleteSession.run(id);
             db.exec("COMMIT");
           } catch (e) {
@@ -239,6 +269,11 @@ const make = (dbPath: string) =>
             JSON.stringify(event),
             Date.now(),
           );
+          const boundary = event.seq - EVENTS_RETAIN_PER_SESSION;
+          if (boundary > 0 && event.seq % PRUNE_EVERY === 0) {
+            const result = stmtPruneEvents.run(sessionId, boundary);
+            if (result.changes > 0) stmtSetPrunedThrough.run(sessionId, boundary);
+          }
         }),
 
       loadEventsAfter: (sessionId, afterSeq) =>
@@ -253,6 +288,14 @@ const make = (dbPath: string) =>
         Effect.sync(() => {
           const row = stmtMaxSeq.get(sessionId) as { m: number };
           return row.m;
+        }),
+
+      prunedThrough: (sessionId) =>
+        Effect.sync(() => {
+          const row = stmtGetPrunedThrough.get(sessionId) as
+            | { pruned_through: number }
+            | undefined;
+          return row?.pruned_through ?? 0;
         }),
 
       close: () => Effect.sync(() => db.close()),

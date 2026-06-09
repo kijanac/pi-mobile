@@ -10,6 +10,8 @@ interface AuthJobState {
 }
 
 const TERMINAL_JOB_TTL_MS = 60_000;
+// Abandoned logins (never completed, never cancelled) expire outright.
+const MAX_JOB_AGE_MS = 30 * 60_000;
 const BEDROCK_PROVIDER_ID = "amazon-bedrock";
 const isTerminalStatus = (status: AuthLoginJob["status"]) => ["success", "failed", "cancelled"].includes(status);
 
@@ -92,6 +94,12 @@ export const ProviderAuthLive = Layer.effect(
               job: { id, providerId, providerName: provider.name, status: "starting" },
             };
             authJobs.set(id, state);
+            setTimeout(() => {
+              const stale = authJobs.get(id);
+              if (!stale) return;
+              if (!isTerminalStatus(stale.job.status)) stale.abort.abort();
+              authJobs.delete(id);
+            }, MAX_JOB_AGE_MS).unref();
             void services.modelRegistry.authStorage.login(providerId, {
               signal: abort.signal,
               onAuth: (info) => {

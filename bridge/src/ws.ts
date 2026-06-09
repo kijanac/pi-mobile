@@ -20,6 +20,11 @@ interface WsState {
 
 const STATE = new WeakMap<WebSocket, WsState>();
 
+// A client that stops reading (locked phone, dead link) would otherwise let
+// the socket buffer grow without bound. Killing the connection is safe: the
+// client reconnects with its cursor and replays what it missed.
+const MAX_WS_BUFFERED_BYTES = 8 * 1024 * 1024;
+
 const sendOob = (ws: WebSocket, payload: object) => {
   try {
     ws.send(JSON.stringify(payload));
@@ -99,7 +104,13 @@ const connection = (
     const outgoing = pipe(
       mgr.subscribe(bindings.sessionId, bindings.cursor),
       Stream.runForEach((event) =>
-        Effect.sync(() => ws.send(encodeWireEvent(event))),
+        Effect.sync(() => {
+          if (ws.bufferedAmount > MAX_WS_BUFFERED_BYTES) {
+            ws.terminate();
+            return;
+          }
+          ws.send(encodeWireEvent(event));
+        }),
       ),
     );
 
