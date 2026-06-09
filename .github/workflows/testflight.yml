@@ -45,12 +45,7 @@ jobs:
         run: pnpm exec cap sync ios
 
       - name: Resolve marketing version
-        run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            echo "MARKETING_VERSION=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
-          else
-            node -e "console.log('MARKETING_VERSION='+require('./package.json').version)" >> "$GITHUB_ENV"
-          fi
+        run: ./scripts/resolve-version.sh MARKETING_VERSION
 
       - name: Resolve next TestFlight build number
         env:

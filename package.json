@@ -13,6 +13,7 @@
     "typecheck": "pnpm --filter @pico/protocol typecheck && pnpm --filter pi-bridge typecheck",
     "smoke:bridge": "pnpm --filter pi-bridge smoke",
     "build:mobile": "pnpm --filter pico build",
+    "release:bump": "node scripts/bump-version.mjs",
     "check": "pnpm typecheck && pnpm --filter pico build"
   }
 }
