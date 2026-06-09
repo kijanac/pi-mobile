@@ -74,7 +74,7 @@ export const ProviderAuthLive = Layer.effect(
     const getDefaultServices = () =>
       Effect.tryPromise({
         try: () => getAgentServices(process.cwd()),
-        catch: (e) => new PiError(`createAgentSessionServices failed: ${String(e)}`),
+        catch: (e) => new PiError(`createAgentSessionServices failed: ${String(e)}`, { cause: e }),
       });
 
     return {

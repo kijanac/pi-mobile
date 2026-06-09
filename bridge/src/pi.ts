@@ -697,7 +697,7 @@ const wirePiSession = (
           });
         },
       }),
-      catch: (e) => new PiError(`bindExtensions failed: ${String(e)}`),
+      catch: (e) => new PiError(`bindExtensions failed: ${String(e)}`, { cause: e }),
     }).pipe(Effect.catchAll((e) => Effect.logError("[pi] extension bind failed", e)));
 
     return {
@@ -724,7 +724,7 @@ const wirePiSession = (
                   await piSession.prompt(text, piImages ? { images: piImages } : undefined);
                 },
                 catch: (e) =>
-                  new PiError(`prompt failed: ${String(e)}`),
+                  new PiError(`prompt failed: ${String(e)}`, { cause: e }),
               }).pipe(
                 Effect.tap(() =>
                   Queue.offer(q, { t: "status", status: "idle" }),
@@ -749,6 +749,7 @@ const wirePiSession = (
             catch: (e) =>
               new PiError(
                 `${useFollowUp ? "followUp" : "steer"} failed: ${String(e)}`,
+                { cause: e },
               ),
           });
         }),
@@ -781,13 +782,13 @@ const wirePiSession = (
             for (const message of rest) await queueIntoTurn(message);
             void prompt.catch((error) => console.error("[pi] queued post-compaction prompt failed:", error));
           },
-          catch: (e) => new PiError(`flushAfterCompaction failed: ${String(e)}`),
+          catch: (e) => new PiError(`flushAfterCompaction failed: ${String(e)}`, { cause: e }),
         }),
       interrupt: () =>
         Effect.gen(function* () {
           yield* Effect.tryPromise({
             try: () => piSession.abort(),
-            catch: (e) => new PiError(`abort failed: ${String(e)}`),
+            catch: (e) => new PiError(`abort failed: ${String(e)}`, { cause: e }),
           });
           yield* Queue.offer(q, { t: "status", status: "idle" });
         }),
@@ -803,7 +804,7 @@ const wirePiSession = (
           try: async () => {
             await piSession.compact(instructions?.trim() || undefined);
           },
-          catch: (e) => new PiError(`compact failed: ${String(e)}`),
+          catch: (e) => new PiError(`compact failed: ${String(e)}`, { cause: e }),
         }),
       exportHtml: () =>
         Effect.tryPromise({
@@ -832,7 +833,7 @@ const wirePiSession = (
               ...(info ? { size: info.size } : {}),
             };
           },
-          catch: (e) => new PiError(`exportHtml failed: ${String(e)}`),
+          catch: (e) => new PiError(`exportHtml failed: ${String(e)}`, { cause: e }),
         }),
       listCommands: () =>
         Effect.sync(() => ({
@@ -866,7 +867,7 @@ const wirePiSession = (
       patchSetting: (key, value) =>
         Effect.tryPromise({
           try: () => setSessionSetting(piSession, key, value),
-          catch: (e) => e instanceof PiError ? e : new PiError(`patchSetting failed: ${String(e)}`),
+          catch: (e) => e instanceof PiError ? e : new PiError(`patchSetting failed: ${String(e)}`, { cause: e }),
         }),
       getStats: () => Effect.sync(() => sessionStatsWithCwd(piSession.getSessionStats(), meta.cwd)),
       getLog: () => Effect.sync(() => logEntriesFromCurrentBranch(piSession)),
@@ -877,7 +878,7 @@ const wirePiSession = (
             await piSession.navigateTree(entryId, { summarize });
             Queue.unsafeOffer(q, { t: "log_reset", entries: logEntriesFromCurrentBranch(piSession) });
           },
-          catch: (e) => new PiError(`navigateTree failed: ${String(e)}`),
+          catch: (e) => new PiError(`navigateTree failed: ${String(e)}`, { cause: e }),
         }),
       close: () =>
         Effect.sync(() => {
@@ -910,7 +911,7 @@ const makeLiveSession = (
 
         return session;
       },
-      catch: (e) => new PiError(`createAgentSession failed: ${String(e)}`),
+      catch: (e) => new PiError(`createAgentSession failed: ${String(e)}`, { cause: e }),
     });
 
     const meta: SessionMeta = {
@@ -954,7 +955,7 @@ const makeResumedSession = (
       },
       catch: (e) => {
         if (e instanceof SessionNotFound) return e;
-        return new PiError(`resume failed: ${String(e)}`);
+        return new PiError(`resume failed: ${String(e)}`, { cause: e });
       },
     });
 
@@ -976,7 +977,7 @@ const makeResumedSession = (
 const loadServices = (cwd: string) =>
   Effect.tryPromise({
     try: () => getAgentServices(cwd),
-    catch: (e) => new PiError(`createAgentSessionServices failed: ${String(e)}`),
+    catch: (e) => new PiError(`createAgentSessionServices failed: ${String(e)}`, { cause: e }),
   });
 
 export const PiClientLive = Layer.succeed(PiClient, {

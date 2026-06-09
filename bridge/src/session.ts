@@ -1,11 +1,13 @@
 import { randomUUIDv7 } from "node:crypto";
 import {
+  Cause,
   Context,
   Effect,
   Deferred,
   Layer,
   PubSub,
   Ref,
+  Runtime,
   Stream,
   Fiber,
   HashMap,
@@ -192,6 +194,9 @@ const make = Effect.gen(function* () {
   const pi = yield* PiClient;
   const store = yield* Store;
   const sessions = yield* Ref.make(HashMap.empty<string, ManagedSession>());
+  // Captured so the idle-eviction timer runs on the bridge runtime (with its
+  // logger config) instead of escaping to the Effect default runtime.
+  const timerRuntime = yield* Effect.runtime<never>();
 
   const reattachInFlight = yield* Ref.make(
     HashMap.empty<
@@ -293,7 +298,7 @@ const make = Effect.gen(function* () {
       yield* Ref.set(
         ms.idleEvictionTimer,
         setTimeout(() => {
-          void Effect.runPromise(evictIfIdle(sessionId).pipe(Effect.ignoreLogged));
+          void Runtime.runPromise(timerRuntime)(evictIfIdle(sessionId).pipe(Effect.ignoreLogged));
         }, IDLE_EVICT_MS).unref(),
       );
     });
@@ -379,7 +384,18 @@ const make = Effect.gen(function* () {
         pendingSends: yield* Ref.make<PendingSend[]>([]),
         compacting: yield* Ref.make(false),
       };
-      const pumpFiber = yield* Effect.forkDaemon(startPump(state, sessionId));
+      // A pump death (e.g. a store defect) silently zombifies the session —
+      // pi keeps running but no events reach the store or subscribers — so
+      // make sure it is at least loudly visible in the logs.
+      const pumpFiber = yield* Effect.forkDaemon(
+        startPump(state, sessionId).pipe(
+          Effect.tapErrorCause((cause) =>
+            Cause.isInterruptedOnly(cause)
+              ? Effect.void
+              : Effect.logError(`[session] event pump died session=${sessionId}: ${Cause.pretty(cause)}`),
+          ),
+        ),
+      );
       return { ...state, pumpFiber };
     });
 

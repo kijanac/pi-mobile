@@ -1,4 +1,4 @@
-import { Effect, Fiber, Queue, Stream, ManagedRuntime, pipe } from "effect";
+import { Cause, Effect, Fiber, Queue, Stream, ManagedRuntime, pipe } from "effect";
 import type { WebSocket } from "ws";
 import {
   decodeClientEvent,
@@ -136,11 +136,15 @@ const connection = (
     Effect.catchTag("SessionNotFound", (e) =>
       Effect.sync(() => ws.close(4004, `session not found: ${e.id}`)),
     ),
-    Effect.catchAll((e) =>
-      Effect.logError(`ws session failed: ${String(e)}`).pipe(
-        Effect.andThen(() =>
-          Effect.sync(() => ws.close(1011, "internal error")),
-        ),
-      ),
+    // catchAllCause (not catchAll) so defects also close the socket instead
+    // of killing the fiber and leaving the client on a dead connection.
+    Effect.catchAllCause((cause) =>
+      Cause.isInterruptedOnly(cause)
+        ? Effect.void
+        : Effect.logError(`ws session failed: ${Cause.pretty(cause)}`).pipe(
+            Effect.andThen(() =>
+              Effect.sync(() => ws.close(1011, "internal error")),
+            ),
+          ),
     ),
   );

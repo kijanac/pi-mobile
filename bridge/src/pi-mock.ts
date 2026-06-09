@@ -140,7 +140,7 @@ const scriptedFlow = (q: Queue.Queue<PiEmission>, userText: string) =>
       },
     });
     yield* Queue.offer(q, { t: "status", status: "waiting" });
-  }).pipe(Effect.catchAll((e) => Effect.fail(new PiError(String(e)))));
+  }).pipe(Effect.catchAll((e) => Effect.fail(new PiError(String(e), { cause: e }))));
 
 const makeMockSession = (opts: {
   cwd: string;

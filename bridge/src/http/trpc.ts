@@ -1,4 +1,4 @@
-import { Cause, Effect, Option } from "effect";
+import { Cause, Context, Effect, Option } from "effect";
 import type { Hono } from "hono";
 import { TRPCError } from "@trpc/server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
@@ -35,7 +35,13 @@ async function runEffectForTrpc<A, E>(
 ): Promise<A> {
   const result = await runtime.runPromiseExit(effect);
   if (result._tag === "Success") return result.value;
-  throw trpcError(Option.getOrUndefined(Cause.failureOption(result.cause)));
+  const failure = Option.getOrUndefined(Cause.failureOption(result.cause));
+  // Defects (e.g. a SQLite throw inside Effect.sync) carry no typed failure;
+  // log the full cause server-side so they don't surface as bare 500s only.
+  if (failure === undefined && !Cause.isInterruptedOnly(result.cause)) {
+    runtime.runFork(Effect.logError(`[trpc] request died: ${Cause.pretty(result.cause)}`));
+  }
+  throw trpcError(failure);
 }
 
 function authError(status: number, message: string): TRPCError {
@@ -74,50 +80,39 @@ function makeSystemService(req: Request): BridgeTrpcServices["system"] {
 }
 
 function makeSessionService(runtime: BridgeRuntime): BridgeTrpcServices["sessions"] {
+  const run = <A, E>(
+    f: (manager: Context.Tag.Service<SessionManager>) => Effect.Effect<A, E>,
+  ) => runEffectForTrpc(runtime, Effect.flatMap(SessionManager, f));
+
   return {
-    list: ({ archived }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.list({ archived }))),
-    create: (input) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.create(input))),
-    patch: ({ id, ...patch }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.patch(id, patch))),
-    remove: ({ id }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.remove(id))),
-    controls: ({ id }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.getSettings(id))),
-    patchControl: ({ id, key, value }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.patchSetting(id, key, value))),
-    compact: ({ id, instructions }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.compact(id, instructions))),
-    queue: ({ id }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.getQueue(id))),
-    clearQueue: ({ id }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.clearQueue(id))),
-    stats: ({ id }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.getStats(id))),
-    tree: ({ id }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.getTree(id))),
-    navigateTree: ({ id, entryId, summarize }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.navigateTree(id, entryId, summarize))),
-    commands: ({ id }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(SessionManager, (manager) => manager.listCommands(id))),
+    list: ({ archived }) => run((manager) => manager.list({ archived })),
+    create: (input) => run((manager) => manager.create(input)),
+    patch: ({ id, ...patch }) => run((manager) => manager.patch(id, patch)),
+    remove: ({ id }) => run((manager) => manager.remove(id)),
+    controls: ({ id }) => run((manager) => manager.getSettings(id)),
+    patchControl: ({ id, key, value }) => run((manager) => manager.patchSetting(id, key, value)),
+    compact: ({ id, instructions }) => run((manager) => manager.compact(id, instructions)),
+    queue: ({ id }) => run((manager) => manager.getQueue(id)),
+    clearQueue: ({ id }) => run((manager) => manager.clearQueue(id)),
+    stats: ({ id }) => run((manager) => manager.getStats(id)),
+    tree: ({ id }) => run((manager) => manager.getTree(id)),
+    navigateTree: ({ id, entryId, summarize }) => run((manager) => manager.navigateTree(id, entryId, summarize)),
+    commands: ({ id }) => run((manager) => manager.listCommands(id)),
   };
 }
 
 function makeAuthService(runtime: BridgeRuntime): BridgeTrpcServices["auth"] {
+  const run = <A, E>(
+    f: (auth: Context.Tag.Service<ProviderAuth>) => Effect.Effect<A, E>,
+  ) => runEffectForTrpc(runtime, Effect.flatMap(ProviderAuth, f));
+
   return {
-    providers: () =>
-      runEffectForTrpc(runtime, Effect.flatMap(ProviderAuth, (auth) => auth.listProviders())),
-    startLogin: ({ providerId }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(ProviderAuth, (auth) => auth.startLogin(providerId))),
-    getLogin: ({ jobId }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(ProviderAuth, (auth) => auth.getLogin(jobId))),
-    submitLoginInput: ({ jobId, value }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(ProviderAuth, (auth) => auth.submitLoginInput(jobId, value))),
-    saveApiKey: ({ providerId, apiKey }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(ProviderAuth, (auth) => auth.saveApiKey(providerId, apiKey))),
-    cancelLogin: ({ jobId }) =>
-      runEffectForTrpc(runtime, Effect.flatMap(ProviderAuth, (auth) => auth.cancelLogin(jobId))),
+    providers: () => run((auth) => auth.listProviders()),
+    startLogin: ({ providerId }) => run((auth) => auth.startLogin(providerId)),
+    getLogin: ({ jobId }) => run((auth) => auth.getLogin(jobId)),
+    submitLoginInput: ({ jobId, value }) => run((auth) => auth.submitLoginInput(jobId, value)),
+    saveApiKey: ({ providerId, apiKey }) => run((auth) => auth.saveApiKey(providerId, apiKey)),
+    cancelLogin: ({ jobId }) => run((auth) => auth.cancelLogin(jobId)),
   };
 }
 
