@@ -10,6 +10,7 @@ export const DEFAULT_BRIDGE_URL = "http://localhost:7777";
 
 const BRIDGE_URL_KEY = "bridge_url";
 const ONBOARDING_DRAFT_KEY = "onboarding_draft";
+const WELCOME_SKIPPED_KEY = "welcome_skipped";
 
 export interface OnboardingDraft {
   readonly tsAuthKey: string;
@@ -20,6 +21,7 @@ export interface OnboardingDraft {
 let loaded = $state(false);
 let bridgeUrl = $state(DEFAULT_BRIDGE_URL);
 let bridgeUrlConfigured = $state(false);
+let welcomeSkipped = $state(false);
 let onboardingDraft = $state<Partial<OnboardingDraft>>({});
 let saving = $state(false);
 let error = $state<string | null>(null);
@@ -35,6 +37,10 @@ export const settingsState = {
 
   get bridgeUrlConfigured() {
     return bridgeUrlConfigured;
+  },
+
+  get welcomeSkipped() {
+    return welcomeSkipped;
   },
 
   get onboardingDraft() {
@@ -54,6 +60,7 @@ export const settingsState = {
       const savedBridgeUrl = await getPreference(BRIDGE_URL_KEY);
       bridgeUrlConfigured = Boolean(savedBridgeUrl?.trim());
       bridgeUrl = normalizeBridgeUrl(savedBridgeUrl);
+      welcomeSkipped = (await getPreference(WELCOME_SKIPPED_KEY)) === "true";
       onboardingDraft = await getJsonPreference<Partial<OnboardingDraft>>(ONBOARDING_DRAFT_KEY, {});
       error = null;
     } catch (caught) {
@@ -76,6 +83,11 @@ export const settingsState = {
     } finally {
       saving = false;
     }
+  },
+
+  async skipWelcome(): Promise<void> {
+    welcomeSkipped = true;
+    await setPreference(WELCOME_SKIPPED_KEY, "true").catch(() => {});
   },
 
   async setOnboardingDraft(draft: OnboardingDraft): Promise<void> {

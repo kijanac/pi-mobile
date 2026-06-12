@@ -16,10 +16,12 @@
     visibleCount,
     creating = false,
     interactive = true,
+    bridgeConfigured = true,
     openSwipeSessionId = $bindable(null),
     onRefresh = async () => {},
     onToggleArchived = () => {},
     onSettings = () => {},
+    onSetupBridge = () => {},
     onNewSession = () => {},
     onOpenSession = () => {},
     onRename = () => {},
@@ -33,10 +35,12 @@
     visibleCount: number;
     creating?: boolean;
     interactive?: boolean;
+    bridgeConfigured?: boolean;
     openSwipeSessionId?: string | null;
     onRefresh?: () => Promise<void>;
     onToggleArchived?: () => void | Promise<void>;
     onSettings?: () => void;
+    onSetupBridge?: () => void;
     onNewSession?: () => void;
     onOpenSession?: (session: SessionMeta) => void;
     onRename?: (session: SessionMeta) => void;
@@ -77,7 +81,7 @@
     </div>
   </header>
 
-  {#if error}
+  {#if error && bridgeConfigured}
     <div
       class="type-meta mx-3 mt-4 rounded-[var(--radius-sm)] border border-[color:var(--color-danger)]/40 bg-[color:var(--color-danger)]/8 px-3 py-2 text-[color:var(--color-danger)]"
     >
@@ -91,10 +95,22 @@
   <PullToRefresh onRefresh={onRefresh} class="mt-4 min-h-0 flex-1">
     {#if refreshing && sessions.length === 0}
       <section class="type-copy flex min-h-full items-center justify-center text-[color:var(--color-fg-muted)]">loading sessions…</section>
+    {:else if sessions.length === 0 && !bridgeConfigured && !archivedView}
+      <section class="flex min-h-full flex-col items-center justify-center gap-4 px-6 text-center">
+        <div>
+          <p class="type-title font-medium">no bridge connected</p>
+          <p class="type-copy mt-2 max-w-[34ch] text-[color:var(--color-fg-muted)]">
+            pico drives a pi coding agent on your own server. connect a bridge to start your first session.
+          </p>
+        </div>
+        <Button type="button" variant="outline" size="sm" onclick={onSetupBridge}>set up bridge</Button>
+      </section>
     {:else if sessions.length === 0}
       <section class="flex min-h-full items-center justify-center px-6 text-center">
-        <p class="type-copy max-w-[32ch] text-[color:var(--color-fg-muted)]">
-          {archivedView ? "no archived sessions." : "no sessions yet — tap new session below."}
+        <p class="type-copy max-w-[34ch] text-[color:var(--color-fg-muted)]">
+          {archivedView
+            ? "no archived sessions."
+            : "no sessions yet. a session is one pi conversation in one working directory on your box — start your first below."}
         </p>
       </section>
     {:else}
@@ -129,15 +145,21 @@
   </PullToRefresh>
 
   <div class="p-2" style="padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem)">
-    <Button
-      type="button"
-      class="h-10 w-full"
-      disabled={creating}
-      onclick={onNewSession}
-    >
-      <Plus class="size-3.5" />
-      new session
-    </Button>
+    {#if bridgeConfigured}
+      <Button
+        type="button"
+        class="h-10 w-full"
+        disabled={creating}
+        onclick={onNewSession}
+      >
+        <Plus class="size-3.5" />
+        new session
+      </Button>
+    {:else}
+      <Button type="button" class="h-10 w-full" onclick={onSetupBridge}>
+        set up bridge
+      </Button>
+    {/if}
   </div>
 </main>
 

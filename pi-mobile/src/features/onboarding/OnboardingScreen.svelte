@@ -4,6 +4,7 @@
   import { navigateTo, routePaths } from "@/app/routes";
   import { createOnboardingState, onboardingSteps } from "@/features/onboarding/onboarding.state.svelte";
   import SettingsField from "@/features/settings/components/SettingsField.svelte";
+  import { settingsState } from "@/features/settings/settings.state.svelte";
   import ProviderSignIn from "@/features/onboarding/components/ProviderSignIn.svelte";
   import OnboardingPanel from "@/features/onboarding/components/OnboardingPanel.svelte";
   import Checklist from "@/features/onboarding/components/Checklist.svelte";
@@ -16,6 +17,10 @@
   import HomePreview from "@/features/sessions/components/HomePreview.svelte";
 
   const onboarding = createOnboardingState();
+
+  // First-run arrivals come from the welcome screen; replacing an existing
+  // bridge comes from settings. Back should return to whichever it was.
+  const backPath = $derived(settingsState.bridgeUrlConfigured ? routePaths.settings : routePaths.welcome);
 
   onMount(() => {
     void onboarding.load();
@@ -37,14 +42,14 @@
     loading onboarding…
   </main>
 {:else}
-  <EdgeSwipeBack href="/settings">
+  <EdgeSwipeBack href={backPath}>
     {#snippet preview()}
       <HomePreview />
     {/snippet}
 
   <main class="flex min-h-0 flex-1 flex-col">
     <header class="flex items-center justify-between gap-3 border-b border-[color:var(--color-border)] px-3 py-[calc(env(safe-area-inset-top)+12px)] pb-3">
-      <Button type="button" variant="ghost" size="sm" onclick={() => navigateTo(routePaths.settings, "pop")}>back</Button>
+      <Button type="button" variant="ghost" size="sm" onclick={() => navigateTo(backPath, "pop")}>back</Button>
       <h1 class="type-title font-medium">bridge onboarding</h1>
       <div class="w-12" aria-hidden="true"></div>
     </header>
@@ -152,7 +157,7 @@
                 <p class="type-title font-medium">Pico is connected to your bridge.</p>
                 <p class="type-copy mt-1 text-[color:var(--color-fg-muted)]">Provider sign-in is available from a session’s action menu when you’re ready.</p>
               </div>
-              <Button type="button" class="w-full" onclick={() => navigateTo(routePaths.sessions, "replace")}>go to sessions</Button>
+              <Button type="button" class="w-full" onclick={() => navigateTo(routePaths.sessions, "replace")}>start your first session</Button>
             </OnboardingPanel>
           </CarouselItem>
         </CarouselContent>

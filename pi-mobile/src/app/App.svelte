@@ -21,6 +21,7 @@
   const loadSession = lazy(() => import("@/routes/session/SessionPage.svelte"));
   const loadSettings = lazy(() => import("@/routes/settings/SettingsPage.svelte"));
   const loadOnboarding = lazy(() => import("@/routes/onboarding/OnboardingPage.svelte"));
+  const loadWelcome = lazy(() => import("@/routes/welcome/WelcomePage.svelte"));
 
   const NAV_TRANSITION_MS = 280;
 
@@ -92,6 +93,10 @@
   {:else if route.id === "onboarding"}
     {#await loadOnboarding() then { default: OnboardingPage }}
       <OnboardingPage />
+    {/await}
+  {:else if route.id === "welcome"}
+    {#await loadWelcome() then { default: WelcomePage }}
+      <WelcomePage />
     {/await}
   {:else}
     <main class="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
