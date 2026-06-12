@@ -44,7 +44,7 @@
 
   <main class="flex min-h-0 flex-1 flex-col">
     <header class="flex items-center justify-between gap-3 border-b border-[color:var(--color-border)] px-3 py-[calc(env(safe-area-inset-top)+12px)] pb-3">
-      <Button type="button" variant="ghost" size="sm" onclick={() => navigateTo(routePaths.settings)}>back</Button>
+      <Button type="button" variant="ghost" size="sm" onclick={() => navigateTo(routePaths.settings, "pop")}>back</Button>
       <h1 class="type-title font-medium">bridge onboarding</h1>
       <div class="w-12" aria-hidden="true"></div>
     </header>
@@ -152,7 +152,7 @@
                 <p class="type-title font-medium">Pico is connected to your bridge.</p>
                 <p class="type-copy mt-1 text-[color:var(--color-fg-muted)]">Provider sign-in is available from a session’s action menu when you’re ready.</p>
               </div>
-              <Button type="button" class="w-full" onclick={() => navigateTo(routePaths.sessions)}>go to sessions</Button>
+              <Button type="button" class="w-full" onclick={() => navigateTo(routePaths.sessions, "replace")}>go to sessions</Button>
             </OnboardingPanel>
           </CarouselItem>
         </CarouselContent>

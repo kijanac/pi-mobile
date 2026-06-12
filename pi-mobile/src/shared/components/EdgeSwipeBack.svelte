@@ -23,7 +23,7 @@
       page,
       preview: previewEl,
       shade,
-      onComplete: () => navigateTo(href),
+      onComplete: () => navigateTo(href, "swipe"),
     });
     return () => gesture.destroy();
   });

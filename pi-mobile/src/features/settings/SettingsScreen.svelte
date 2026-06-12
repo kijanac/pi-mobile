@@ -20,7 +20,7 @@
 
 <main class="flex min-h-0 flex-1 flex-col">
   <header class="flex items-center justify-between gap-3 border-b border-[color:var(--color-border)] px-3 py-[calc(env(safe-area-inset-top)+12px)] pb-3">
-    <Button type="button" variant="ghost" size="sm" onclick={() => navigateTo(routePaths.sessions)}>
+    <Button type="button" variant="ghost" size="sm" onclick={() => navigateTo(routePaths.sessions, "pop")}>
       back
     </Button>
     <h1 class="type-title font-medium">settings</h1>

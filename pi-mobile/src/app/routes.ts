@@ -34,8 +34,25 @@ export function matchRoute(path: string): RouteMatch {
   return { id: "not-found", params: { path } };
 }
 
-export function navigateTo(path: string): void {
+/**
+ * push/pop pick the screen transition direction; replace swaps instantly
+ * (e.g. finishing onboarding); swipe means a gesture already animated the
+ * change, so the transition layer must not animate again.
+ */
+export type NavKind = "push" | "pop" | "replace" | "swipe";
+
+let pendingNavKind: NavKind | null = null;
+
+/** One-shot: a popstate with no recorded kind is a real browser/system back. */
+export function consumeNavKind(): NavKind {
+  const kind = pendingNavKind ?? "pop";
+  pendingNavKind = null;
+  return kind;
+}
+
+export function navigateTo(path: string, kind: NavKind = "push"): void {
   if (window.location.pathname === path) return;
+  pendingNavKind = kind;
   window.history.pushState({}, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }

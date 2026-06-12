@@ -218,6 +218,77 @@
     contain-intrinsic-size: auto 64px;
   }
 
+  /* Screen-stack navigation transitions; the recede/reveal values mirror
+     the interactive edge-swipe gesture so push, pop, and swipe-back all
+     share one visual language. */
+  .nav-stack {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .screen-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--color-bg);
+  }
+
+  .nav-enter-push,
+  .nav-exit-pop {
+    will-change: transform;
+    box-shadow: -18px 0 34px rgba(0, 0, 0, 0.34);
+  }
+
+  .nav-enter-push {
+    animation: nav-slide-in-right 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .nav-exit-push {
+    animation: nav-recede 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .nav-enter-pop {
+    animation: nav-recede 280ms cubic-bezier(0.22, 1, 0.36, 1) both reverse;
+  }
+
+  .nav-exit-pop {
+    animation: nav-slide-in-right 280ms cubic-bezier(0.22, 1, 0.36, 1) both reverse;
+  }
+
+  @keyframes nav-slide-in-right {
+    from {
+      transform: translate3d(100%, 0, 0);
+    }
+    to {
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @keyframes nav-recede {
+    from {
+      transform: translate3d(0, 0, 0) scale(1);
+      opacity: 1;
+    }
+    to {
+      transform: translate3d(-24px, 0, 0) scale(0.985);
+      opacity: 0.74;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-enter-push,
+    .nav-exit-push,
+    .nav-enter-pop,
+    .nav-exit-pop {
+      animation: none;
+    }
+  }
+
   .edge-swipe-root {
     position: relative;
     isolation: isolate;

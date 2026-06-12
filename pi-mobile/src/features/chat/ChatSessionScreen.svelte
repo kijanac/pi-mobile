@@ -74,7 +74,7 @@
 
 <main class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
   <header class="flex items-center justify-between gap-3 border-b border-[color:var(--color-border)] px-3 py-[calc(env(safe-area-inset-top)+12px)] pb-3">
-    <Button type="button" variant="ghost" size="icon-sm" aria-label="Sessions" title="Sessions" onclick={() => navigateTo(routePaths.sessions)}>
+    <Button type="button" variant="ghost" size="icon-sm" aria-label="Sessions" title="Sessions" onclick={() => navigateTo(routePaths.sessions, "pop")}>
       <Home class="size-3.5" />
     </Button>
     <div class="min-w-0 flex-1">
@@ -112,7 +112,7 @@
       <div class="type-copy max-w-[28ch] text-[color:var(--color-fg-muted)]">
         the bridge can't find this session — its on-disk file may have been removed, or the session was started in ephemeral mode.
       </div>
-      <Button type="button" variant="outline" size="sm" class="mt-2" onclick={() => navigateTo(routePaths.sessions)}>back to sessions</Button>
+      <Button type="button" variant="outline" size="sm" class="mt-2" onclick={() => navigateTo(routePaths.sessions, "pop")}>back to sessions</Button>
     </div>
   {:else}
     <MessageList {sessionId} />
