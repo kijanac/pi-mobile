@@ -31,10 +31,9 @@ export function createSheetDrag(handle: HTMLElement, options: SheetDragOptions) 
   let dragging = false;
   let settled = false;
 
-  const overlay = (): HTMLElement | null => {
-    const all = document.querySelectorAll<HTMLElement>('[data-slot="sheet-overlay"]');
-    return all.length > 0 ? (all[all.length - 1] ?? null) : null;
-  };
+  // Last overlay in the DOM belongs to the topmost (this) sheet.
+  const overlay = (): HTMLElement | null =>
+    [...document.querySelectorAll<HTMLElement>('[data-slot="sheet-overlay"]')].at(-1) ?? null;
 
   const reducedMotion = (): boolean =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;

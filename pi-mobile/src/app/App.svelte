@@ -26,11 +26,12 @@
 
   interface Screen {
     key: number;
+    path: string;
     route: RouteMatch;
   }
 
   let screenKey = 0;
-  let current = $state<Screen>({ key: screenKey, route: matchRoute(currentPath()) });
+  let current = $state<Screen>({ key: screenKey, path: currentPath(), route: matchRoute(currentPath()) });
   // The outgoing screen stays mounted while it animates away; enterKind
   // drives the incoming animation and clears when the transition settles.
   let leaving = $state<{ screen: Screen; kind: "push" | "pop" } | null>(null);
@@ -49,16 +50,15 @@
   }
 
   function syncRoute() {
-    const next = matchRoute(currentPath());
-    const prev = current.route;
-    if (JSON.stringify(next) === JSON.stringify(prev)) return;
+    const path = currentPath();
+    if (path === current.path) return;
 
     const kind = consumeNavKind();
     const animate = (kind === "push" || kind === "pop") && !reducedMotion();
 
     settle();
     const outgoing = current;
-    current = { key: ++screenKey, route: next };
+    current = { key: ++screenKey, path, route: matchRoute(path) };
 
     if (animate) {
       leaving = { screen: outgoing, kind };

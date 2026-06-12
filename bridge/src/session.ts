@@ -21,6 +21,7 @@ import type {
   ExtensionUiResponseValue,
   LogEntry,
   PermissionChoice,
+  SendMode,
   SessionMeta,
   QueuedMessage,
   QueueState,
@@ -133,8 +134,8 @@ export class SessionManager extends Context.Tag("SessionManager")<
     readonly send: (
       id: string,
       text: string,
-      mode?: import("./pi.ts").SendMode,
-      images?: import("./pi.ts").SendImage[],
+      mode?: SendMode,
+      images?: SendImage[],
       clientId?: string,
     ) => Effect.Effect<void, PiError | SessionNotFound>;
     readonly interrupt: (
@@ -537,8 +538,8 @@ const make = Effect.gen(function* () {
   const send = (
     id: string,
     text: string,
-    mode?: import("./pi.ts").SendMode,
-    images?: import("./pi.ts").SendImage[],
+    mode?: SendMode,
+    images?: SendImage[],
     clientId?: string,
   ) =>
     Effect.gen(function* () {
