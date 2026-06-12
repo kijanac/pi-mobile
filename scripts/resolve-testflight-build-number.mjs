@@ -101,7 +101,9 @@ if (apps.length === 0) {
 const appId = apps[0].id;
 const builds = await listAll("/builds", {
   "filter[app]": appId,
-  "filter[version]": marketingVersion,
+  // preReleaseVersion.version is the marketing-version train; plain
+  // filter[version] would match on the build number itself.
+  "filter[preReleaseVersion.version]": marketingVersion,
   "fields[builds]": "version",
   limit: "200",
 });
