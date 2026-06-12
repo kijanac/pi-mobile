@@ -119,7 +119,7 @@ const connection = (
       Effect.flatMap((evt) => {
         switch (evt.t) {
           case "send":
-            return mgr.send(bindings.sessionId, evt.text, evt.mode, evt.images);
+            return mgr.send(bindings.sessionId, evt.text, evt.mode, evt.images, evt.clientId);
           case "interrupt":
             return mgr.interrupt(bindings.sessionId);
           case "permission_reply":

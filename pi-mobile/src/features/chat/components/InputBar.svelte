@@ -140,13 +140,15 @@
     const text = value.trim();
     const send = activeSessionState.send;
     if ((!text && images.length === 0) || !send) return;
-    send({
-      t: "send",
+    const event = {
+      t: "send" as const,
       text,
       mode,
       ...(images.length > 0 ? { images } : {}),
-    });
-    if (text) chatLogState.appendLocalEcho(sessionId, text);
+      clientId: crypto.randomUUID(),
+    };
+    send(event);
+    if (text) chatLogState.appendLocalEcho(sessionId, event);
     value = "";
     cursor = 0;
     images = [];

@@ -43,6 +43,9 @@ export const UserMessage = v.object({
   text: v.string(),
   queued: v.optional(v.boolean()),
   queueKind: v.optional(SendMode),
+  // Echoed from the client's send event; lets the sender reconcile its
+  // optimistic echo exactly and makes retries idempotent.
+  clientId: v.optional(v.string()),
 });
 export type UserMessage = v.InferOutput<typeof UserMessage>;
 
@@ -627,6 +630,9 @@ export const ClientEvent = v.variant("t", [
     text: v.string(),
     mode: v.optional(SendMode),
     images: v.optional(v.array(ImageAttachment)),
+    // Client-generated idempotency key: the bridge drops repeats and echoes
+    // it back on the user_message event.
+    clientId: v.optional(v.string()),
   }),
   v.object({
     t: v.literal("permission_reply"),

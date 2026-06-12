@@ -1,4 +1,7 @@
-import type { AssistantMessage, CompactionEntry, LogEntry, WireEvent } from "@pico/protocol";
+import type { AssistantMessage, ClientEvent, CompactionEntry, LogEntry, WireEvent } from "@pico/protocol";
+import { activeSessionState } from "@/features/chat/model/active-session.state.svelte";
+
+type SendEvent = Extract<ClientEvent, { t: "send" }>;
 
 interface SessionLog {
   entries: LogEntry[];
@@ -16,12 +19,46 @@ const activeLog = $derived(activeSessionId ? logs[activeSessionId] : undefined);
 
 // Optimistic local echo: sends append a placeholder user entry immediately so
 // the message appears on tap instead of after the server round trip. The
-// server's user_message ack replaces the placeholder (matched by text);
-// log_reset wipes placeholders along with everything else.
+// server's user_message ack carries the send's clientId and replaces the
+// placeholder exactly (text match is the fallback for acks without one).
+// Unacked echoes flip to "failed" after a timeout; retry re-sends the same
+// clientId, which the bridge dedupes, so retrying can't double-send.
 let localEchoCounter = 0;
+
+const ECHO_ACK_TIMEOUT_MS = 10_000;
+
+interface LocalEcho {
+  sessionId: string;
+  event: SendEvent;
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
+const localEchoes = new Map<string, LocalEcho>();
+const failedEchoes = $state<Record<string, boolean>>({});
 
 export function isLocalEcho(id: string): boolean {
   return id.startsWith("local-echo-");
+}
+
+function startEchoTimer(entryId: string, echo: LocalEcho): void {
+  if (echo.timer) clearTimeout(echo.timer);
+  echo.timer = setTimeout(() => {
+    echo.timer = null;
+    if (localEchoes.has(entryId)) failedEchoes[entryId] = true;
+  }, ECHO_ACK_TIMEOUT_MS);
+}
+
+function clearEcho(entryId: string): void {
+  const echo = localEchoes.get(entryId);
+  if (echo?.timer) clearTimeout(echo.timer);
+  localEchoes.delete(entryId);
+  delete failedEchoes[entryId];
+}
+
+function clearEchoesForSession(sessionId: string): void {
+  for (const [entryId, echo] of localEchoes) {
+    if (echo.sessionId === sessionId) clearEcho(entryId);
+  }
 }
 
 export const chatLogState = {
@@ -54,15 +91,33 @@ export const chatLogState = {
     applyWireEventForSession(sessionId, event);
   },
 
-  appendLocalEcho(sessionId: string, text: string): void {
+  appendLocalEcho(sessionId: string, event: SendEvent): void {
     const log = getLog(sessionId);
+    const entryId = `local-echo-${++localEchoCounter}`;
     appendEntry(log, {
       kind: "user",
-      id: `local-echo-${++localEchoCounter}`,
+      id: entryId,
       at: Date.now(),
-      text,
+      text: event.text,
     });
+    const echo: LocalEcho = { sessionId, event, timer: null };
+    localEchoes.set(entryId, echo);
+    startEchoTimer(entryId, echo);
     bumpActivity(log);
+  },
+
+  isEchoFailed(entryId: string): boolean {
+    return failedEchoes[entryId] === true;
+  },
+
+  retryLocalEcho(entryId: string): void {
+    const echo = localEchoes.get(entryId);
+    if (!echo || echo.sessionId !== activeSessionId) return;
+    const send = activeSessionState.send;
+    if (!send) return;
+    delete failedEchoes[entryId];
+    send(echo.event);
+    startEchoTimer(entryId, echo);
   },
 
   resolvePermission(sessionId: string, id: string, choice: "allow" | "deny" | "allow_session"): void {
@@ -170,6 +225,7 @@ function applyWireEventForSession(sessionId: string, event: WireEvent): void {
     log.cursor = event.seq;
     log.entries = [...event.entries];
     log.indexById = new Map(log.entries.map((entry, i) => [entry.id, i]));
+    clearEchoesForSession(sessionId);
     bumpActivity(log);
     return;
   }
@@ -195,11 +251,17 @@ function applyWireEventForSession(sessionId: string, event: WireEvent): void {
 
     case "user_message": {
       const entry = event.entry;
-      const echoIndex = log.entries.findIndex(
-        (e) => e.kind === "user" && isLocalEcho(e.id) && e.text === entry.text,
-      );
+      // An ack with a clientId belongs to one specific send; only its own
+      // echo may absorb it. Text matching covers acks from older bridges.
+      const echoIndex = log.entries.findIndex((e) => {
+        if (e.kind !== "user" || !isLocalEcho(e.id)) return false;
+        if (entry.clientId) return localEchoes.get(e.id)?.event.clientId === entry.clientId;
+        return e.text === entry.text;
+      });
       if (echoIndex >= 0) {
-        log.indexById.delete(log.entries[echoIndex].id);
+        const echoId = log.entries[echoIndex].id;
+        clearEcho(echoId);
+        log.indexById.delete(echoId);
         log.entries[echoIndex] = entry;
         log.indexById.set(entry.id, echoIndex);
       } else {

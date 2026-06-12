@@ -48,6 +48,8 @@ interface ManagedSessionState {
   readonly idleEvictionTimer: Ref.Ref<ReturnType<typeof setTimeout> | null>;
   readonly pendingSends: Ref.Ref<PendingSend[]>;
   readonly compacting: Ref.Ref<boolean>;
+  /** Recent send clientIds, newest last; retries with a seen id are dropped. */
+  readonly seenClientIds: Ref.Ref<string[]>;
 }
 
 interface ManagedSession extends ManagedSessionState {
@@ -133,6 +135,7 @@ export class SessionManager extends Context.Tag("SessionManager")<
       text: string,
       mode?: import("./pi.ts").SendMode,
       images?: import("./pi.ts").SendImage[],
+      clientId?: string,
     ) => Effect.Effect<void, PiError | SessionNotFound>;
     readonly interrupt: (
       id: string,
@@ -189,6 +192,10 @@ const LIVE_BUFFER_CAPACITY = 4096;
 
 // Backstop against a runaway client queueing sends forever.
 const MAX_PENDING_SENDS = 200;
+
+// Send-dedupe window; retries only race acks over seconds, not hundreds of
+// messages, so a small recency window is plenty.
+const MAX_SEEN_CLIENT_IDS = 64;
 
 const make = Effect.gen(function* () {
   const pi = yield* PiClient;
@@ -383,6 +390,7 @@ const make = Effect.gen(function* () {
         idleEvictionTimer: yield* Ref.make<ReturnType<typeof setTimeout> | null>(null),
         pendingSends: yield* Ref.make<PendingSend[]>([]),
         compacting: yield* Ref.make(false),
+        seenClientIds: yield* Ref.make<string[]>([]),
       };
       // A pump death (e.g. a store defect) silently zombifies the session —
       // pi keeps running but no events reach the store or subscribers — so
@@ -531,9 +539,15 @@ const make = Effect.gen(function* () {
     text: string,
     mode?: import("./pi.ts").SendMode,
     images?: import("./pi.ts").SendImage[],
+    clientId?: string,
   ) =>
     Effect.gen(function* () {
       const ms = yield* lookupOrReattach(id);
+      if (clientId && (yield* Ref.get(ms.seenClientIds)).includes(clientId)) {
+        // Retry of a send that already landed; the original user_message
+        // event (with this clientId) is the client's ack.
+        return;
+      }
       const currentMeta = yield* Ref.get(ms.meta);
       const compacting = (yield* Ref.get(ms.compacting)) || (yield* ms.pi.isCompacting());
       const queued = compacting || currentMeta.status === "thinking" || currentMeta.status === "tool";
@@ -553,9 +567,13 @@ const make = Effect.gen(function* () {
           at,
           text,
           ...(queued ? { queued: true, queueKind } : {}),
+          ...(clientId ? { clientId } : {}),
         },
       };
       yield* store.appendEvent(id, userEvent);
+      if (clientId) {
+        yield* Ref.update(ms.seenClientIds, (seen) => [...seen, clientId].slice(-MAX_SEEN_CLIENT_IDS));
+      }
       yield* PubSub.publish(ms.pubsub, userEvent);
 
       if (compacting) {
