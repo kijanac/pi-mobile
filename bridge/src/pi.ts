@@ -502,6 +502,21 @@ const logEntriesFromCurrentBranch = (piSession: AgentSession): LogEntry[] => {
     }
   }
 
+  // A tool call without a result is only legitimate while a turn is executing.
+  // When no turn is live (e.g. a session freshly resumed after the bridge was
+  // killed mid-command), any lingering "running" tool is an orphan from the
+  // dead process — mark it interrupted so the log doesn't replay a spinner
+  // that never resolves. isStreaming spans the whole turn including tool
+  // execution, so this never touches a genuinely in-flight tool.
+  if (!piSession.isStreaming) {
+    for (const toolCall of byToolCallId.values()) {
+      if (toolCall.status !== "running") continue;
+      toolCall.status = "error";
+      toolCall.result = "Interrupted — the bridge restarted while this command was running.";
+      toolCall.durationMs = 0;
+    }
+  }
+
   return logEntries;
 };
 

@@ -204,6 +204,17 @@ function applyCompaction(log: SessionLog, entry: CompactionEntry): void {
   bumpActivity(log);
 }
 
+function reconcileOrphanedToolCalls(log: SessionLog): void {
+  let changed = false;
+  for (const entry of log.entries) {
+    if (entry.kind !== "tool_call" || entry.status !== "running") continue;
+    entry.status = "error";
+    if (!entry.result) entry.result = "Interrupted — the bridge restarted while this command was running.";
+    changed = true;
+  }
+  if (changed) bumpActivity(log);
+}
+
 function reconcileQueuedMessages(log: SessionLog, event: Extract<WireEvent, { t: "queue" }>): void {
   const queuedIds = new Set(event.queued.map((message) => message.id));
   let changed = false;
@@ -235,7 +246,21 @@ function applyWireEventForSession(sessionId: string, event: WireEvent): void {
 
   switch (event.t) {
     case "hello":
+      // hello is the authoritative snapshot on every (re)connect. If the
+      // session is not mid-turn, any tool entry still "running" is an orphan
+      // from a turn that died with a previous bridge process — its tool_result
+      // was never persisted, so the cursor replay alone can't heal it.
+      if (event.session.status === "idle" || event.session.status === "error") {
+        reconcileOrphanedToolCalls(log);
+      }
+      return;
+
     case "status":
+      if (event.status === "idle" || event.status === "error") {
+        reconcileOrphanedToolCalls(log);
+      }
+      return;
+
     case "cost":
     case "auto_retry_start":
     case "auto_retry_end":

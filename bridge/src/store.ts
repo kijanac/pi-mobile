@@ -133,6 +133,13 @@ const make = (dbPath: string) =>
         }
       }
 
+      // At boot, no turn is executing in this process, so any non-terminal
+      // status persisted by a previous (possibly crashed) run is stale —
+      // otherwise a session caught mid-turn shows a perpetual "thinking" dot
+      // in the list until it is reopened. Reset those to idle; idle/error are
+      // terminal and left untouched.
+      d.exec("UPDATE sessions SET status = 'idle' WHERE status IN ('thinking', 'tool', 'waiting')");
+
       return d;
     });
 

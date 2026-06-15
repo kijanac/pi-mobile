@@ -83,6 +83,16 @@ export const activeSessionState = {
   applyWireEvent(sessionId: string, event: WireEvent): void {
     if (activeSessionId !== sessionId) return;
 
+    // hello is an authoritative snapshot sent on every (re)connect. Adopt its
+    // status so a reconnect re-syncs to server truth instead of carrying a
+    // pre-disconnect "thinking" forward — without this, a turn killed by a
+    // bridge restart leaves the spinner stuck and the send button replaced by
+    // Stop, since the turn-ending status event died with the old process.
+    if (event.t === "hello") {
+      activeStatus = event.session.status;
+      return;
+    }
+
     if (event.t === "status") {
       activeStatus = event.status;
       return;
