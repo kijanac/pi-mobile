@@ -19,7 +19,7 @@
   onMount(() => {
     void (async () => {
       if (!settingsState.loaded) await settingsState.load();
-      if (!settingsState.bridgeUrlConfigured) {
+      if (!settingsState.hostUrlConfigured) {
         if (!settingsState.welcomeSkipped) navigateTo(routePaths.welcome, "replace");
         return;
       }
@@ -70,8 +70,8 @@
   archivedView={sessionListState.archivedView}
   visibleCount={sessionListState.visibleCount}
   creating={sessionListState.creating}
-  bridgeConfigured={!settingsState.loaded || settingsState.bridgeUrlConfigured}
-  onSetupBridge={() => navigateTo(routePaths.welcome)}
+  hostConfigured={!settingsState.loaded || settingsState.hostUrlConfigured}
+  onSetupHost={() => navigateTo(routePaths.welcome)}
   bind:openSwipeSessionId
   onRefresh={() => sessionListState.refresh()}
   onToggleArchived={() => sessionListState.switchArchivedView(!sessionListState.archivedView)}

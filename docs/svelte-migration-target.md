@@ -15,7 +15,7 @@ Rewrite Pico as a modern Svelte 5 + TypeScript + Capacitor SPA using:
 - @lucide/svelte
 - strict feature/domain boundaries
 
-Do not preserve Solid compatibility patterns. Treat the migration as a clean Svelte-native frontend rewrite while keeping the bridge and shared protocol intact.
+Do not preserve Solid compatibility patterns. Treat the migration as a clean Svelte-native frontend rewrite while keeping the Pico host and shared protocol intact.
 
 ## Proposed directory layout
 
@@ -365,7 +365,7 @@ export async function loadSessionList(client: ApiClient, opts: LoadOptions) {
 }
 ```
 
-No component should manually build bridge URLs or call `fetch` directly.
+No component should manually build host URLs or call `fetch` directly.
 
 ## Chat streaming architecture
 
@@ -541,7 +541,7 @@ markdown rendering
 Owns persisted preferences:
 
 ```txt
-bridge URL
+host URL
 theme-ish preferences
 auth/session settings
 speech settings
@@ -631,7 +631,7 @@ ChatSessionPage.svelte
 InputBar.svelte
 chat-session.state.svelte.ts
 stream-controller.ts
-bridge-client.ts
+host-client.ts
 ```
 
 ## Testing target
@@ -740,7 +740,7 @@ shared API client
   ↓
 @pico/protocol schemas/types
   ↓
-bridge
+host
 ```
 
 Visually:

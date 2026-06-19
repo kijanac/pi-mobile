@@ -1,5 +1,4 @@
 packages:
-  - bridge
   - pi-mobile
   - packages/*
 

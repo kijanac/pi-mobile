@@ -1,5 +1,5 @@
 import { settingsState } from "@/features/settings/settings.state.svelte";
-import { getBridgeClient } from "@/shared/lib/bridge-client";
+import { getHostClient } from "@/shared/lib/host-client";
 import { activeSessionState } from "@/features/chat/model/active-session.state.svelte";
 import { chatLogState } from "@/features/chat/model/chat-log.state.svelte";
 import { retryState } from "@/features/chat/model/retry-state.svelte";
@@ -37,7 +37,7 @@ export function createChatSessionState(sessionId: string): ChatSessionState {
 
     controller = new SessionStreamController({
       sessionId,
-      client: getBridgeClient(),
+      client: getHostClient(),
       onConnectionStatus: (status) => {
         connected = status === "connected";
       },

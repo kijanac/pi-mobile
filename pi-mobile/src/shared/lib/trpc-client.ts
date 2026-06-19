@@ -1,11 +1,11 @@
 import { createTRPCClient, httpLink } from "@trpc/client";
 import type { AppRouter } from "@pico/protocol/trpc";
 
-type BridgeTrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
+type HostTrpcClient = ReturnType<typeof createTRPCClient<AppRouter>>;
 
-const clients = new Map<string, BridgeTrpcClient>();
+const clients = new Map<string, HostTrpcClient>();
 
-export function createBridgeTrpcClient(baseUrl: string): BridgeTrpcClient {
+export function createHostTrpcClient(baseUrl: string): HostTrpcClient {
   const cached = clients.get(baseUrl);
   if (cached) return cached;
 

@@ -2,16 +2,18 @@
   import { onMount } from "svelte";
   import { ArrowRight, Loader2 } from "@lucide/svelte";
   import { navigateTo, routePaths } from "@/app/routes";
-  import { claimReachableBridge, healthcheckBridgeUrl } from "@/features/onboarding/api";
+  import { claimReachableHost, healthcheckHostUrl } from "@/features/onboarding/api";
   import SettingsField from "@/features/settings/components/SettingsField.svelte";
   import { settingsState } from "@/features/settings/settings.state.svelte";
+  import HostIssuePanel from "@/shared/components/HostIssuePanel.svelte";
+  import { classifyHostIssue, type HostIssue } from "@/shared/lib/host-issues";
   import { haptics } from "@/shared/mobile/haptics";
   import { Button } from "@/shared/ui/button";
 
   let showConnect = $state(false);
   let url = $state("");
   let connecting = $state(false);
-  let connectError = $state<string | null>(null);
+  let connectIssue = $state<HostIssue | null>(null);
 
   onMount(() => {
     if (!settingsState.loaded) void settingsState.load();
@@ -27,19 +29,19 @@
     const candidate = normalizeCandidate(url);
     if (!candidate || connecting) return;
     connecting = true;
-    connectError = null;
+    connectIssue = null;
     try {
-      const reachable = await healthcheckBridgeUrl(candidate);
+      const reachable = await healthcheckHostUrl(candidate);
       if (!reachable) {
-        connectError = "bridge not reachable — check the url and that tailscale is connected on this phone.";
+        connectIssue = classifyHostIssue({ hostErrorCode: "host_unreachable" }, { url: candidate });
         return;
       }
-      await claimReachableBridge(candidate);
-      await settingsState.setBridgeUrl(candidate);
+      await claimReachableHost(candidate);
+      await settingsState.setHostUrl(candidate);
       haptics.success();
       navigateTo(routePaths.sessions, "replace");
     } catch (caught) {
-      connectError = caught instanceof Error ? caught.message : String(caught);
+      connectIssue = classifyHostIssue(caught, { url: candidate });
     } finally {
       connecting = false;
     }
@@ -58,7 +60,7 @@
         pico<span class="animate-pulse text-[color:var(--color-accent)]">▍</span>
       </h1>
       <p class="type-copy mt-3 max-w-[34ch] text-[color:var(--color-fg-muted)]">
-        a pi coding agent runs on your server. pico streams its sessions to your phone over your tailnet — no cloud in between.
+        pi runs on your machine. pico streams its sessions to your phone over your tailnet — no cloud in between.
       </p>
     </div>
 
@@ -73,35 +75,39 @@
   </div>
 
   <div class="flex shrink-0 flex-col gap-3">
-    <div>
-      <Button type="button" class="h-11 w-full" onclick={() => navigateTo(routePaths.onboarding)}>
-        set up a new bridge
-        <ArrowRight class="size-3.5" />
-      </Button>
-      <p class="type-meta mt-1.5 text-center text-[color:var(--color-fg-faint)]">fresh linux vps + tailscale · ~10 min</p>
+    <div class="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-3">
+      <p class="type-label uppercase tracking-[0.08em] text-[color:var(--color-accent)]">recommended</p>
+      <p class="type-copy mt-1 text-[color:var(--color-fg)]">On your machine, run:</p>
+      <code class="mt-2 block rounded-[var(--radius-md)] bg-[color:var(--color-bg)] px-3 py-2 font-mono text-[13px] text-[color:var(--color-fg)]">pico doctor && pico pair</code>
+      <p class="type-meta mt-2 text-[color:var(--color-fg-muted)]">Then scan the QR with your phone camera or open the pico:// link.</p>
     </div>
 
     {#if showConnect}
       <div class="space-y-2 rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-3">
         <SettingsField
-          id="existing_bridge_url"
-          label="bridge url"
+          id="existing_host_url"
+          label="host URL"
           bind:value={url}
-          placeholder="pi-bridge-ab12cd.tailabc123.ts.net"
+          placeholder="pico-host-ab12cd.tailabc123.ts.net"
           onValue={(next) => (url = next)}
         />
-        {#if connectError}
-          <p class="type-meta text-[color:var(--color-danger)]">{connectError}</p>
+        {#if connectIssue}
+          <HostIssuePanel issue={connectIssue} />
         {/if}
         <Button type="button" variant="outline" class="h-10 w-full" disabled={connecting || !url.trim()} onclick={connect}>
-          {#if connecting}<Loader2 class="size-3.5 animate-spin" /> connecting…{:else}connect{/if}
+          {#if connecting}<Loader2 class="size-3.5 animate-spin" /> connecting…{:else}connect manually{/if}
         </Button>
       </div>
     {:else}
-      <Button type="button" variant="outline" class="h-11 w-full" onclick={() => (showConnect = true)}>
-        connect to an existing bridge
+      <Button type="button" class="h-11 w-full" onclick={() => (showConnect = true)}>
+        enter host URL manually
+        <ArrowRight class="size-3.5" />
       </Button>
     {/if}
+
+    <Button type="button" variant="outline" class="h-11 w-full" onclick={() => navigateTo(routePaths.onboarding)}>
+      advanced: create cloud host
+    </Button>
 
     <button type="button" class="type-meta py-1 text-center text-[color:var(--color-fg-faint)] active:opacity-70" onclick={() => void skip()}>
       skip for now

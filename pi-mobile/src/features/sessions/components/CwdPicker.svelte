@@ -1,9 +1,11 @@
 <script lang="ts">
   import { Check, ChevronLeft, ChevronRight, Folder, Home } from "@lucide/svelte";
   import { settingsState } from "@/features/settings/settings.state.svelte";
+  import { healthcheckHostUrl, probeHostIdentity } from "@/features/settings/api";
   import { listDirectories } from "@/features/sessions/api";
-  import { Button } from "@/shared/ui/button";
   import ActionRow from "@/shared/components/ActionRow.svelte";
+  import { classifyHostRequestFailure } from "@/shared/lib/host-issues";
+  import { Button } from "@/shared/ui/button";
 
   type FsListing = Awaited<ReturnType<typeof listDirectories>>;
 
@@ -31,7 +33,8 @@
       listing = nextListing;
     } catch (caught) {
       if (requestId !== listingRequestId || nextPath !== path) return;
-      error = String(caught);
+      const issue = await classifyHostRequestFailure(caught, { url: settingsState.hostUrl, healthcheck: healthcheckHostUrl, identityProbe: probeHostIdentity });
+      error = `${issue.title}: ${issue.message}`;
     } finally {
       if (requestId === listingRequestId) loading = false;
     }

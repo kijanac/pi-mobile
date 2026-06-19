@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { App as CapacitorApp } from "@capacitor/app";
+  import { Capacitor } from "@capacitor/core";
   import AppShell from "@/app/shell/AppShell.svelte";
-  import { consumeNavKind, currentPath, matchRoute, type RouteMatch } from "@/app/routes";
+  import { consumeNavKind, currentPath, matchRoute, navigateTo, type RouteMatch } from "@/app/routes";
 
   // Chunks load from local disk in Capacitor, so lazy routes cost ~nothing on first visit.
   function lazy<T>(load: () => Promise<T>): () => Promise<T> {
@@ -20,6 +22,7 @@
   const loadSession = lazy(() => import("@/routes/session/SessionPage.svelte"));
   const loadSettings = lazy(() => import("@/routes/settings/SettingsPage.svelte"));
   const loadOnboarding = lazy(() => import("@/routes/onboarding/OnboardingPage.svelte"));
+  const loadConnect = lazy(() => import("@/routes/connect/ConnectPage.svelte"));
   const loadWelcome = lazy(() => import("@/routes/welcome/WelcomePage.svelte"));
 
   const NAV_TRANSITION_MS = 280;
@@ -65,10 +68,40 @@
     }
   }
 
+  function pathFromAppUrl(url: string): string | null {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === "pico:" && parsed.hostname === "connect") return `/connect${parsed.search}`;
+      if (parsed.pathname === "/connect") return `/connect${parsed.search}`;
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  function openAppUrl(url: string): void {
+    const path = pathFromAppUrl(url);
+    if (path) navigateTo(path, "push");
+  }
+
   onMount(() => {
+    let appUrlOpenHandle: { remove: () => Promise<void> } | null = null;
+
     window.addEventListener("popstate", syncRoute);
+    if (Capacitor.isNativePlatform()) {
+      void CapacitorApp.getLaunchUrl().then((launch) => {
+        if (launch?.url) openAppUrl(launch.url);
+      });
+      void CapacitorApp.addListener("appUrlOpen", ({ url }) => {
+        openAppUrl(url);
+      }).then((handle) => {
+        appUrlOpenHandle = handle;
+      });
+    }
+
     return () => {
       window.removeEventListener("popstate", syncRoute);
+      void appUrlOpenHandle?.remove();
       if (settleTimer) clearTimeout(settleTimer);
     };
   });
@@ -90,6 +123,10 @@
   {:else if route.id === "onboarding"}
     {#await loadOnboarding() then { default: OnboardingPage }}
       <OnboardingPage />
+    {/await}
+  {:else if route.id === "connect"}
+    {#await loadConnect() then { default: ConnectPage }}
+      <ConnectPage />
     {/await}
   {:else if route.id === "welcome"}
     {#await loadWelcome() then { default: WelcomePage }}

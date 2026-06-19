@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { ArrowDown } from "@lucide/svelte";
   import { chatLogState } from "@/features/chat/model/chat-log.state.svelte";
   import UserMessageView from "@/features/chat/components/UserMessage.svelte";
@@ -14,6 +14,7 @@
   const STICK_THRESHOLD_PX = 64;
 
   let scroller = $state<HTMLDivElement | null>(null);
+  let bottomSentinel = $state<HTMLDivElement | null>(null);
   let stuckToBottom = $state(true);
   let hasNewActivity = $state(false);
   let lastActivityVersion = $state(chatLogState.activityVersion);
@@ -23,11 +24,28 @@
     return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
   }
 
-  function scrollToLatest(behavior: ScrollBehavior = "smooth"): void {
+  function applyScrollToLatest(behavior: ScrollBehavior): void {
     if (!scroller) return;
-    scroller.scrollTo({ top: scroller.scrollHeight, behavior });
+    bottomSentinel?.scrollIntoView({ block: "end", behavior });
+    scroller.scrollTop = scroller.scrollHeight;
     stuckToBottom = true;
     hasNewActivity = false;
+  }
+
+  let settleRaf: number | null = null;
+
+  async function scrollToLatest(behavior: ScrollBehavior = "smooth"): Promise<void> {
+    if (!scroller) return;
+    await tick();
+
+    if (settleRaf !== null) cancelAnimationFrame(settleRaf);
+    let remainingFrames = 5;
+    const step = () => {
+      applyScrollToLatest(remainingFrames === 5 ? behavior : "auto");
+      remainingFrames -= 1;
+      settleRaf = remainingFrames > 0 ? requestAnimationFrame(step) : null;
+    };
+    step();
   }
 
   function onScroll(): void {
@@ -44,15 +62,16 @@
     if (scrollRaf !== null) return;
     scrollRaf = requestAnimationFrame(() => {
       scrollRaf = null;
-      if (stuckToBottom) scrollToLatest("auto");
+      if (stuckToBottom) void scrollToLatest("auto");
       else hasNewActivity = true;
     });
   }
 
   onMount(() => {
-    scrollToLatest("auto");
+    void scrollToLatest("auto");
     return () => {
       if (scrollRaf !== null) cancelAnimationFrame(scrollRaf);
+      if (settleRaf !== null) cancelAnimationFrame(settleRaf);
     };
   });
 
@@ -81,6 +100,7 @@
         {/if}
       </div>
     {/each}
+    <div bind:this={bottomSentinel} aria-hidden="true"></div>
   </div>
 
   {#if !stuckToBottom}
@@ -89,7 +109,7 @@
       variant={hasNewActivity ? "default" : "outline"}
       size="sm"
       onpointerdown={(event) => event.preventDefault()}
-      onclick={() => scrollToLatest()}
+      onclick={() => void scrollToLatest("auto")}
       class={`type-meta absolute right-3 z-30 h-auto rounded-full px-3 py-1.5 shadow-lg backdrop-blur-md ${hasNewActivity ? "active:opacity-85" : "border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)]/95 text-[color:var(--color-fg)] active:bg-[color:var(--color-surface-2)]"}`}
       style="bottom: 0.75rem"
       aria-label={hasNewActivity ? "Scroll to new messages" : "Scroll to latest message"}

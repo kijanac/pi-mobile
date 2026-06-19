@@ -2,8 +2,9 @@
   import { onMount } from "svelte";
   import { navigateTo, routePaths } from "@/app/routes";
   import { settingsState } from "@/features/settings/settings.state.svelte";
-  import BridgeStatusCard from "@/features/settings/components/BridgeStatusCard.svelte";
+  import HostStatusCard from "@/features/settings/components/HostStatusCard.svelte";
   import GuidedOnboardingCard from "@/features/settings/components/GuidedOnboardingCard.svelte";
+  import ManualHostConnectCard from "@/features/settings/components/ManualHostConnectCard.svelte";
   import { Button } from "@/shared/ui/button";
   import EdgeSwipeBack from "@/shared/components/EdgeSwipeBack.svelte";
   import HomePreview from "@/features/sessions/components/HomePreview.svelte";
@@ -35,12 +36,14 @@
     {/if}
 
     {#if settingsState.loaded}
-      {#if settingsState.bridgeUrlConfigured}
-        <BridgeStatusCard />
+      {#if settingsState.hostUrlConfigured}
+        <HostStatusCard />
         <GuidedOnboardingCard />
+        <ManualHostConnectCard />
       {:else}
         <GuidedOnboardingCard />
-        <BridgeStatusCard />
+        <ManualHostConnectCard />
+        <HostStatusCard />
       {/if}
 
       <section class="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-3">

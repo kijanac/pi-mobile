@@ -110,7 +110,7 @@
     <div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
       <div class="type-title font-medium">session no longer available</div>
       <div class="type-copy max-w-[28ch] text-[color:var(--color-fg-muted)]">
-        the bridge can't find this session — its on-disk file may have been removed, or the session was started in ephemeral mode.
+        the Pico host can't find this session — its on-disk file may have been removed, or the session was started in ephemeral mode.
       </div>
       <Button type="button" variant="outline" size="sm" class="mt-2" onclick={() => navigateTo(routePaths.sessions, "pop")}>back to sessions</Button>
     </div>

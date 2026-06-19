@@ -67,6 +67,10 @@ export const activeSessionState = {
     connectionStatus = status;
   },
 
+  setStatus(status: SessionMeta["status"]): void {
+    activeStatus = status;
+  },
+
   setSend(send: ((event: ClientEvent) => void) | null): void {
     activeSend = send;
   },

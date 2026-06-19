@@ -18,7 +18,7 @@
 
   const onboarding = createOnboardingState();
 
-  const backPath = $derived(settingsState.bridgeUrlConfigured ? routePaths.settings : routePaths.welcome);
+  const backPath = $derived(settingsState.hostUrlConfigured ? routePaths.settings : routePaths.welcome);
 
   onMount(() => {
     void onboarding.load();
@@ -48,7 +48,7 @@
   <main class="flex min-h-0 flex-1 flex-col">
     <header class="flex items-center justify-between gap-3 border-b border-[color:var(--color-border)] px-3 py-[calc(env(safe-area-inset-top)+12px)] pb-3">
       <Button type="button" variant="ghost" size="sm" onclick={() => navigateTo(backPath, "pop")}>back</Button>
-      <h1 class="type-title font-medium">set up bridge</h1>
+      <h1 class="type-title font-medium">advanced cloud host</h1>
       <div class="w-12" aria-hidden="true"></div>
     </header>
 
@@ -69,7 +69,7 @@
           <CarouselItem class="min-h-0 overflow-y-auto pl-3">
             <OnboardingPanel eyebrow="step 1" title="before you start">
               <p class="type-copy text-[color:var(--color-fg-muted)]">
-                pico generates cloud-init for a fresh linux box: it installs pi-bridge, joins your tailnet, and serves HTTPS through tailscale.
+                pico generates cloud-init for a fresh linux box: it installs the Pico host, joins your tailnet, and serves HTTPS through tailscale.
               </p>
               <Checklist items={["tailscale is installed and signed in on this phone", "you can create a VPS with cloud-init / user-data", "you can open tailscale admin in a browser"]} />
               <ExternalLinkButton href="https://login.tailscale.com/admin/settings/keys">open Tailscale admin</ExternalLinkButton>
@@ -79,7 +79,7 @@
           <CarouselItem class="min-h-0 overflow-y-auto pl-3">
             <OnboardingPanel eyebrow="step 2" title="tailscale setup">
               <p class="type-copy text-[color:var(--color-fg-muted)]">
-                create a single-use, preauthorized auth key, then copy your tailnet DNS name from the DNS page. the bridge hostname is generated for you.
+                create a single-use, preauthorized auth key, then copy your tailnet DNS name from the DNS page. the host name is generated for you.
               </p>
               <div class="grid grid-cols-2 gap-2">
                 <ExternalLinkButton href="https://login.tailscale.com/admin/settings/keys">keys</ExternalLinkButton>
@@ -93,10 +93,10 @@
                 {onboarding.showAdvanced ? "hide" : "show"} advanced hostname
               </Button>
               {#if onboarding.showAdvanced}
-                <SettingsField id="bridge_hostname" label="bridge hostname" value={onboarding.bridgeHostname} onValue={onboarding.setBridgeHostname} placeholder="pi-bridge-ab12cd" />
+                <SettingsField id="host_name" label="host name" value={onboarding.hostName} onValue={onboarding.setHostName} placeholder="pico-host-ab12cd" />
               {/if}
-              {#if onboarding.bridgeUrl}
-                <InfoRow label="bridge URL will be" value={onboarding.bridgeUrl} />
+              {#if onboarding.hostUrl}
+                <InfoRow label="host URL will be" value={onboarding.hostUrl} />
               {/if}
             </OnboardingPanel>
           </CarouselItem>
@@ -117,11 +117,11 @@
           </CarouselItem>
 
           <CarouselItem class="min-h-0 overflow-y-auto pl-3">
-            <OnboardingPanel eyebrow="step 4" title="wait for bridge">
+            <OnboardingPanel eyebrow="step 4" title="wait for Pico host">
               <p class="type-copy text-[color:var(--color-fg-muted)]">
-                after the VPS boots, pico polls the bridge url. keep the tailscale app connected on this phone.
+                after the VPS boots, pico polls the host URL. keep the tailscale app connected on this phone.
               </p>
-              <InfoRow label="bridge url" value={onboarding.bridgeUrl} />
+              <InfoRow label="host URL" value={onboarding.hostUrl} />
               <div class="type-copy rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-3 text-[color:var(--color-fg-muted)]">
                 <div class="mb-1 flex items-center gap-2 text-[color:var(--color-fg)]">
                   {#if onboarding.connectState === "polling"}<Loader2 class="size-3.5 animate-spin" />{/if}
@@ -130,8 +130,8 @@
                 </div>
                 {onboarding.connectMessage}
               </div>
-              <Button type="button" disabled={!onboarding.bridgeUrl || onboarding.connectState === "polling"} onclick={onboarding.waitForBridge} class="w-full">
-                {onboarding.connectState === "polling" ? "waiting…" : "wait for bridge"}
+              <Button type="button" disabled={!onboarding.hostUrl || onboarding.connectState === "polling"} onclick={onboarding.waitForHost} class="w-full">
+                {onboarding.connectState === "polling" ? "waiting…" : "wait for host"}
               </Button>
             </OnboardingPanel>
           </CarouselItem>
@@ -149,10 +149,10 @@
           </CarouselItem>
 
           <CarouselItem class="min-h-0 overflow-y-auto pl-3">
-            <OnboardingPanel eyebrow="done" title="bridge ready">
+            <OnboardingPanel eyebrow="done" title="Pico host ready">
               <div class="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-4 text-center">
                 <Check class="mx-auto mb-2 size-6 text-[color:var(--color-accent)]" />
-                <p class="type-title font-medium">pico is connected to your bridge.</p>
+                <p class="type-title font-medium">pico is connected to your host.</p>
                 <p class="type-copy mt-1 text-[color:var(--color-fg-muted)]">provider sign-in is also available from a session’s action menu.</p>
               </div>
               <Button type="button" class="w-full" onclick={() => navigateTo(routePaths.sessions, "replace")}>start your first session</Button>

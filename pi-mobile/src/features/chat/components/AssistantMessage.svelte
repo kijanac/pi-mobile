@@ -51,7 +51,7 @@
   {/if}
 
   {#if showBanner && msg.stopReason}
-    <AssistantErrorBanner stopReason={msg.stopReason} errorMessage={msg.errorMessage} />
+    <AssistantErrorBanner stopReason={msg.stopReason} errorMessage={msg.errorMessage} errorCode={msg.errorCode} />
   {/if}
 
   {#if branchError}

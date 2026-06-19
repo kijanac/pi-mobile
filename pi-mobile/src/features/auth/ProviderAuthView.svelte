@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import { Check, KeyRound, Loader2 } from "@lucide/svelte";
   import { authJobShouldPoll, createProviderAuthState } from "@/features/auth/provider-auth.state.svelte";
+  import HostIssuePanel from "@/shared/components/HostIssuePanel.svelte";
+  import { providerAuthMissingIssue } from "@/shared/lib/host-issues";
   import { Button } from "@/shared/ui/button";
   import { Textarea } from "@/shared/ui/textarea";
   import ActionRow from "@/shared/components/ActionRow.svelte";
@@ -18,6 +20,8 @@
 
   // svelte-ignore state_referenced_locally
   const auth = createProviderAuthState({ onError, onConfigured });
+  const missingProviderIssue = providerAuthMissingIssue();
+  const configuredProviderCount = $derived(auth.providers.filter((provider) => provider.configured).length);
 
   onMount(() => {
     void auth.loadProviders();
@@ -37,6 +41,10 @@
     <div class="space-y-2">
       {#if auth.loading}
         <div class="type-copy text-[color:var(--color-fg-muted)]">loading providers…</div>
+      {:else if auth.providers.length === 0}
+        <HostIssuePanel issue={missingProviderIssue} />
+      {:else if configuredProviderCount === 0}
+        <HostIssuePanel issue={missingProviderIssue} compact />
       {/if}
 
       {#each auth.providers as provider (provider.id)}
@@ -49,7 +57,7 @@
           <span class="min-w-0 flex-1">
             <span class="block type-copy font-medium">{provider.name}</span>
             <span class="block type-meta text-[color:var(--color-fg-muted)]">
-              {provider.configured ? `configured${provider.source ? ` via ${provider.source}` : ""}` : provider.authType === "oauth" ? "subscription sign-in" : provider.authType === "api_key" ? "API key" : "bridge setup required"}
+              {provider.configured ? `configured${provider.source ? ` via ${provider.source}` : ""}` : provider.authType === "oauth" ? "subscription sign-in" : provider.authType === "api_key" ? "API key" : "host setup required"}
             </span>
           </span>
           <span class="rounded-full border border-[color:var(--color-border)] px-2 py-0.5 type-label uppercase tracking-[0.08em] text-[color:var(--color-fg-faint)]">

@@ -7,12 +7,24 @@
     "node": ">=26.1.0"
   },
   "scripts": {
-    "dev:bridge": "BRIDGE_DB=data/bridge.db PI_WORKSPACES_DIR=. PI_BRIDGE_INSECURE_NO_AUTH=1 pnpm --filter pi-bridge dev",
-    "dev:bridge:mock": "BRIDGE_DB=data/bridge.db PI_WORKSPACES_DIR=. PI_USE_MOCK=1 PI_BRIDGE_INSECURE_NO_AUTH=1 pnpm --filter pi-bridge dev",
+    "dev:host": "PICO_HOST_DB=data/pico-host.db PICO_WORKSPACES_DIR=. PICO_HOST_INSECURE_NO_AUTH=1 pnpm --filter @pico/host-runtime dev",
+    "dev:host:mock": "PICO_HOST_DB=data/pico-host.db PICO_WORKSPACES_DIR=. PI_USE_MOCK=1 PICO_HOST_INSECURE_NO_AUTH=1 pnpm --filter @pico/host-runtime dev",
     "dev:mobile": "pnpm --filter pico dev",
-    "typecheck": "pnpm --filter @pico/protocol typecheck && pnpm --filter pi-bridge typecheck",
-    "smoke:bridge": "pnpm --filter pi-bridge smoke",
+    "typecheck": "pnpm --filter @pico/protocol typecheck && pnpm --filter @pico/host-runtime typecheck && pnpm --filter @pico/host typecheck && pnpm --filter @pico/cli typecheck",
+    "smoke:host": "pnpm --filter @pico/host-runtime smoke",
     "build:mobile": "pnpm --filter pico build",
+    "build:runtime": "pnpm --filter @pico/protocol build && pnpm --filter @pico/host-runtime build && pnpm --filter @pico/host build",
+    "build:cli": "pnpm run build:runtime && pnpm --filter @pico/cli build",
+    "pair": "pnpm run build:cli && node packages/cli/dist/index.js pair",
+    "pair-code": "pnpm run build:cli && node packages/cli/dist/index.js pair-code",
+    "serve": "pnpm run build:cli && node packages/cli/dist/index.js serve",
+    "status": "pnpm run build:cli && node packages/cli/dist/index.js status",
+    "install:host": "pnpm run build:cli && node packages/cli/dist/index.js install",
+    "uninstall:host": "pnpm run build:cli && node packages/cli/dist/index.js uninstall",
+    "start:host": "pnpm run build:cli && node packages/cli/dist/index.js start",
+    "stop:host": "pnpm run build:cli && node packages/cli/dist/index.js stop",
+    "logs:host": "pnpm run build:cli && node packages/cli/dist/index.js logs",
+    "doctor": "pnpm run build:cli && node packages/cli/dist/index.js doctor",
     "release:bump": "node scripts/bump-version.mjs",
     "check": "pnpm typecheck && pnpm --filter pico build"
   }

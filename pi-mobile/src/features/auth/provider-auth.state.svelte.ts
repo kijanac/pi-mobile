@@ -1,5 +1,7 @@
 import { settingsState } from "@/features/settings/settings.state.svelte";
+import { healthcheckHostUrl, probeHostIdentity } from "@/features/settings/api";
 import { cancelAuthLogin, getAuthLoginJob, listAuthProviders, saveAuthApiKey, startAuthLogin, submitAuthLoginInput } from "@/features/auth/api";
+import { classifyHostRequestFailure, hostIssueSummary } from "@/shared/lib/host-issues";
 import { haptics } from "@/shared/mobile/haptics";
 
 type AuthProviders = Awaited<ReturnType<typeof listAuthProviders>>;
@@ -41,6 +43,11 @@ export function createProviderAuthState(opts: ProviderAuthStateOptions): Provide
   let savingApiKey = $state(false);
   let startingProviderId = $state<string | null>(null);
 
+  async function setHostFailure(error: unknown): Promise<void> {
+    const issue = await classifyHostRequestFailure(error, { url: settingsState.hostUrl, healthcheck: healthcheckHostUrl, identityProbe: probeHostIdentity });
+    opts.onError(`${issue.title}: ${issue.message}`);
+  }
+
   async function loadProviders(): Promise<void> {
     loading = true;
     try {
@@ -48,7 +55,7 @@ export function createProviderAuthState(opts: ProviderAuthStateOptions): Provide
       providers = (await listAuthProviders()).providers;
       opts.onError(null);
     } catch (error) {
-      opts.onError(String(error));
+      await setHostFailure(error);
     } finally {
       loading = false;
     }
@@ -62,7 +69,7 @@ export function createProviderAuthState(opts: ProviderAuthStateOptions): Provide
       return;
     }
     if (provider.authType === "setup") {
-      opts.onError(`${provider.name} must be configured on the bridge.`);
+      opts.onError(hostIssueSummary({ hostErrorCode: "provider_auth_missing" }));
       return;
     }
     if (startingProviderId) return;
@@ -71,7 +78,7 @@ export function createProviderAuthState(opts: ProviderAuthStateOptions): Provide
     try {
       job = await startAuthLogin(provider.id);
     } catch (error) {
-      opts.onError(String(error));
+      await setHostFailure(error);
     } finally {
       startingProviderId = null;
     }
@@ -88,7 +95,7 @@ export function createProviderAuthState(opts: ProviderAuthStateOptions): Provide
       opts.onConfigured?.();
       haptics.success();
     } catch (error) {
-      opts.onError(String(error));
+      await setHostFailure(error);
     } finally {
       savingApiKey = false;
     }
@@ -96,25 +103,39 @@ export function createProviderAuthState(opts: ProviderAuthStateOptions): Provide
 
   async function refreshJob(): Promise<void> {
     if (!job) return;
-    const next = await getAuthLoginJob(job.id);
-    job = next;
-    if (next.status === "success") {
-      haptics.success();
-      await loadProviders();
-      opts.onConfigured?.();
+    try {
+      const next = await getAuthLoginJob(job.id);
+      job = next;
+      if (next.status === "success") {
+        haptics.success();
+        await loadProviders();
+        opts.onConfigured?.();
+      }
+    } catch (error) {
+      await setHostFailure(error);
     }
   }
 
   async function submit(): Promise<void> {
     if (!job) return;
-    job = await submitAuthLoginInput(job.id, input);
-    input = "";
+    try {
+      job = await submitAuthLoginInput(job.id, input);
+      input = "";
+      opts.onError(null);
+    } catch (error) {
+      await setHostFailure(error);
+    }
   }
 
   async function cancel(): Promise<void> {
     if (!job) return;
-    await cancelAuthLogin(job.id);
-    job = null;
+    try {
+      await cancelAuthLogin(job.id);
+      job = null;
+      opts.onError(null);
+    } catch (error) {
+      await setHostFailure(error);
+    }
   }
 
   return {

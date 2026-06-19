@@ -1,4 +1,6 @@
 import type { SessionMeta } from "@pico/protocol";
+import { settingsState } from "@/features/settings/settings.state.svelte";
+import { healthcheckHostUrl, probeHostIdentity } from "@/features/settings/api";
 import {
   createSession as createSessionRequest,
   deleteSession as deleteSessionRequest,
@@ -8,13 +10,14 @@ import {
   type CreateSessionInput,
 } from "@/features/sessions/api";
 import { clearChatDraft } from "@/features/chat/model/chat-draft";
+import { classifyHostRequestFailure, type HostIssue } from "@/shared/lib/host-issues";
 
 let sessions = $state<SessionMeta[]>([]);
 let archivedView = $state(false);
 let refreshing = $state(false);
 let creating = $state(false);
 let mutatingSessionId = $state<string | null>(null);
-let error = $state<string | null>(null);
+let error = $state<HostIssue | null>(null);
 
 const busy = $derived(refreshing || creating || mutatingSessionId !== null);
 const visibleCount = $derived(sessions.length);
@@ -76,7 +79,7 @@ export const sessionListState = {
       sessions = await loadSessionList({ archived: archivedView });
       error = null;
     } catch (caught) {
-      error = String(caught);
+      error = await classifyHostRequestFailure(caught, { url: settingsState.hostUrl, healthcheck: healthcheckHostUrl, identityProbe: probeHostIdentity });
       throw caught;
     } finally {
       refreshing = false;
@@ -100,7 +103,7 @@ export const sessionListState = {
       error = null;
       return session;
     } catch (caught) {
-      error = String(caught);
+      error = await classifyHostRequestFailure(caught, { url: settingsState.hostUrl, healthcheck: healthcheckHostUrl, identityProbe: probeHostIdentity });
       throw caught;
     } finally {
       creating = false;
@@ -141,7 +144,7 @@ async function mutateSession<T>(sessionId: string, operation: () => Promise<T>):
     error = null;
     return result;
   } catch (caught) {
-    error = String(caught);
+    error = await classifyHostRequestFailure(caught, { url: settingsState.hostUrl, healthcheck: healthcheckHostUrl, identityProbe: probeHostIdentity });
     throw caught;
   } finally {
     mutatingSessionId = null;

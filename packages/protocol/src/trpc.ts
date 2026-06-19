@@ -1,9 +1,10 @@
 import { initTRPC } from "@trpc/server";
 import * as v from "valibot";
+import { hostErrorPayloadFromUnknown } from "./errors.ts";
 import type {
   AuthLoginJob,
   AuthProviders,
-  BridgeUpdateStatus,
+  HostUpdateStatus,
   Commands,
   QueueState,
   SessionControls,
@@ -13,12 +14,12 @@ import type {
   SystemInfo,
 } from "./index.ts";
 
-export interface BridgeIdentity {
+export interface HostIdentity {
   readonly user?: string;
   readonly claimed: boolean;
 }
 
-export interface BridgeClaimResult {
+export interface HostClaimResult {
   readonly claimed: true;
   readonly owner: string;
 }
@@ -32,6 +33,7 @@ export interface FsListing {
 
 export type EmptyInput = Record<string, never>;
 export type IdInput = { id: string };
+export type HostClaimInput = { token?: string };
 export type ListSessionsInput = { archived?: boolean };
 export type CreateSessionInput = { cwd: string; title: string };
 export type PatchSessionInput = IdInput & { title?: string; archived?: boolean };
@@ -46,10 +48,10 @@ export type FsLsInput = { path?: string };
 
 export interface SystemTrpcService {
   readonly info: () => Promise<SystemInfo>;
-  readonly updateStatus: () => Promise<BridgeUpdateStatus>;
-  readonly triggerUpdate: () => Promise<BridgeUpdateStatus>;
-  readonly identity: () => Promise<BridgeIdentity>;
-  readonly claim: () => Promise<BridgeClaimResult>;
+  readonly updateStatus: () => Promise<HostUpdateStatus>;
+  readonly triggerUpdate: () => Promise<HostUpdateStatus>;
+  readonly identity: () => Promise<HostIdentity>;
+  readonly claim: (input: HostClaimInput) => Promise<HostClaimResult>;
 }
 
 export interface SessionTrpcService {
@@ -81,7 +83,7 @@ export interface FsTrpcService {
   readonly ls: (input: FsLsInput) => Promise<FsListing>;
 }
 
-export interface BridgeTrpcServices {
+export interface HostTrpcServices {
   readonly system: SystemTrpcService;
   readonly sessions: SessionTrpcService;
   readonly auth: AuthTrpcService;
@@ -89,11 +91,19 @@ export interface BridgeTrpcServices {
   readonly fs: FsTrpcService;
 }
 
-const t = initTRPC.context<BridgeTrpcServices>().create();
+const t = initTRPC.context<HostTrpcServices>().create({
+  errorFormatter({ shape, error }) {
+    const payload = hostErrorPayloadFromUnknown(error.cause);
+    return payload
+      ? { ...shape, data: { ...shape.data, ...payload } }
+      : shape;
+  },
+});
 const procedure = t.procedure;
 
 const Empty = v.optional(v.object({}), {});
 const Id = v.object({ id: v.string() });
+const HostClaim = v.optional(v.object({ token: v.optional(v.string()) }), {});
 const ListSessions = v.optional(v.object({ archived: v.optional(v.boolean()) }), {});
 const CreateSession = v.object({ cwd: v.pipe(v.string(), v.trim(), v.nonEmpty()), title: v.pipe(v.string(), v.trim(), v.nonEmpty()) });
 const PatchSession = v.object({ id: v.string(), title: v.optional(v.pipe(v.string(), v.trim(), v.nonEmpty())), archived: v.optional(v.boolean()) });
@@ -112,7 +122,7 @@ export const appRouter = t.router({
     updateStatus: procedure.input(Empty).query(({ ctx }) => ctx.system.updateStatus()),
     triggerUpdate: procedure.input(Empty).mutation(({ ctx }) => ctx.system.triggerUpdate()),
     identity: procedure.input(Empty).query(({ ctx }) => ctx.system.identity()),
-    claim: procedure.input(Empty).mutation(({ ctx }) => ctx.system.claim()),
+    claim: procedure.input(HostClaim).mutation(({ ctx, input }) => ctx.system.claim(input)),
   }),
   sessions: t.router({
     list: procedure.input(ListSessions).query(({ ctx, input }) => ctx.sessions.list(input)),

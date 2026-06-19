@@ -22,7 +22,7 @@ const activeLog = $derived(activeSessionId ? logs[activeSessionId] : undefined);
 // server's user_message ack carries the send's clientId and replaces the
 // placeholder exactly (text match is the fallback for acks without one).
 // Unacked echoes flip to "failed" after a timeout; retry re-sends the same
-// clientId, which the bridge dedupes, so retrying can't double-send.
+// clientId, which the Pico host dedupes, so retrying can't double-send.
 let localEchoCounter = 0;
 
 const ECHO_ACK_TIMEOUT_MS = 10_000;
@@ -79,12 +79,15 @@ export const chatLogState = {
   },
 
   activate(sessionId: string): void {
-    getLog(sessionId);
     activeSessionId = sessionId;
   },
 
   getCursor(sessionId: string): number {
     return getLog(sessionId).cursor;
+  },
+
+  getConnectCursor(sessionId: string): number {
+    return logs[sessionId]?.cursor ?? -1;
   },
 
   applyWireEvent(sessionId: string, event: WireEvent): void {
@@ -168,6 +171,7 @@ function applyAssistantEnd(message: AssistantMessage, event: AssistantEndEvent):
   message.streaming = false;
   if (event.stopReason) message.stopReason = event.stopReason;
   if (event.errorMessage) message.errorMessage = event.errorMessage;
+  if (event.errorCode) message.errorCode = event.errorCode;
   if (event.usage) message.usage = event.usage;
 }
 
@@ -277,7 +281,7 @@ function applyWireEventForSession(sessionId: string, event: WireEvent): void {
     case "user_message": {
       const entry = event.entry;
       // An ack with a clientId belongs to one specific send; only its own
-      // echo may absorb it. Text matching covers acks from older bridges.
+      // echo may absorb it. Text matching covers acks from older hosts.
       const echoIndex = log.entries.findIndex((e) => {
         if (e.kind !== "user" || !isLocalEcho(e.id)) return false;
         if (entry.clientId) return localEchoes.get(e.id)?.event.clientId === entry.clientId;

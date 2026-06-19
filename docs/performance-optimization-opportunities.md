@@ -2,7 +2,7 @@
 
 This note captures the biggest principled performance opportunities observed in the Pico workspace, with emphasis on scenarios where each optimization is likely to matter most.
 
-## 1. ✅ Make the bridge session log/reconnect path incremental
+## 1. ✅ Make the host session log/reconnect path incremental
 
 **Status:** shipped in `v0.9.2`.
 
@@ -13,7 +13,7 @@ Completed:
 - Removed routine full `log_reset` snapshots from normal `message_end` handling.
 - `SessionManager.subscribe(...)` now uses the requested cursor and replays `store.loadEventsAfter(sessionId, cursor)` for valid cursors.
 - `log_reset` remains available for true reset/fallback cases such as branch navigation or invalid/ahead cursors.
-- Assistant usage shape now matches pi-ai's usage shape directly, avoiding bridge-side translation.
+- Assistant usage shape now matches pi-ai's usage shape directly, avoiding host-side translation.
 - Added a one-shot/idempotent SQLite migration for old message-usage payloads.
 - Added smoke coverage that verifies valid cursor replay uses journaled events instead of `log_reset`.
 
@@ -26,11 +26,11 @@ Remaining follow-up ideas:
 
 **Likely high-impact scenarios:** fast model output, long assistant answers, mobile devices rendering near the bottom of the chat.
 
-Assistant deltas are forwarded live and applied one chunk at a time. Each chunk mutates the active message, bumps chat activity, and can trigger scroll/markdown work. The bridge already coalesces deltas before persistence, but the live UI path still receives delta-frequency updates.
+Assistant deltas are forwarded live and applied one chunk at a time. Each chunk mutates the active message, bumps chat activity, and can trigger scroll/markdown work. The Pico host already coalesces deltas before persistence, but the live UI path still receives delta-frequency updates.
 
 Principled direction:
 
-- Coalesce assistant deltas per message on the bridge or client.
+- Coalesce assistant deltas per message on the Pico host or client.
 - Flush at animation-frame cadence or every ~33–100 ms.
 - Flush immediately on `assistant_end`.
 - Keep sequence/cursor semantics explicit when batching.
@@ -78,11 +78,11 @@ Principled direction:
 - Split protocol runtime validation from type-only exports where practical.
 - Keep highlighter code out of the initial path unless needed.
 
-## 6. Add bridge idle eviction and backpressure
+## 6. Add Pico host idle eviction and backpressure
 
-**Status:** partial. A coarse idle-session eviction pass is implemented locally: when a managed session has no subscribers, no pending sends, is not compacting, and is idle/error for 15 minutes, the bridge closes the `PiSession` and removes it from the in-memory session map. Reopening the session resumes it from disk.
+**Status:** partial. A coarse idle-session eviction pass is implemented locally: when a managed session has no subscribers, no pending sends, is not compacting, and is idle/error for 15 minutes, the host closes the `PiSession` and removes it from the in-memory session map. Reopening the session resumes it from disk.
 
-**Likely high-impact scenarios:** bridge running for days or weeks, many historical sessions, slow or unstable clients, multiple reconnecting mobile devices.
+**Likely high-impact scenarios:** host running for days or weeks, many historical sessions, slow or unstable clients, multiple reconnecting mobile devices.
 
 Managed sessions are cached in memory once created or resumed, and several queues/pubsubs are unbounded. WebSocket sends do not currently account for client-side backpressure.
 
@@ -95,9 +95,9 @@ Remaining direction:
 
 ## Expected priority order
 
-1. ✅ Bridge journal/reconnect protocol — shipped in `v0.9.2`.
+1. ✅ Pico host journal/reconnect protocol — shipped in `v0.9.2`.
 2. Mobile chat virtualization plus large-result collapsing.
 3. Streaming delta batching.
 4. Lazy/off-thread highlighting and diffing.
 5. Cold-start bundle/code splitting/sourcemap cleanup.
-6. Bridge idle eviction/backpressure.
+6. Pico host idle eviction/backpressure.

@@ -1,7 +1,8 @@
-import { renderBridgeCloudInit } from "@pico/protocol";
+import { renderHostCloudInit } from "@pico/protocol";
 import type { CarouselAPI } from "@/shared/ui/carousel/context";
 import { settingsState } from "@/features/settings/settings.state.svelte";
-import { claimReachableBridge, healthcheckBridgeUrl } from "@/features/onboarding/api";
+import { claimReachableHost, healthcheckHostUrl } from "@/features/onboarding/api";
+import { hostIssueSummary } from "@/shared/lib/host-issues";
 import { haptics } from "@/shared/mobile/haptics";
 
 export const onboardingSteps = ["tailscale", "keys", "cloud-init", "connect", "providers", "done"] as const;
@@ -14,7 +15,7 @@ export interface OnboardingState {
   readonly carouselApi: CarouselAPI | undefined;
   readonly tsAuthKey: string;
   readonly tailnet: string;
-  readonly bridgeHostname: string;
+  readonly hostName: string;
   readonly showAdvanced: boolean;
   readonly copied: string | null;
   readonly connectState: ConnectState;
@@ -22,14 +23,14 @@ export interface OnboardingState {
   readonly authError: string | null;
   readonly providerConfigured: boolean;
   readonly tailnetDns: string;
-  readonly bridgeUrl: string;
+  readonly hostUrl: string;
   readonly cloudInit: string;
   readonly hasSetupInputs: boolean;
   readonly maxAllowedIndex: number;
   setCarouselApi(api: CarouselAPI | undefined): void;
   setTsAuthKey(value: string): void;
   setTailnet(value: string): void;
-  setBridgeHostname(value: string): void;
+  setHostName(value: string): void;
   setShowAdvanced(value: boolean): void;
   setAuthError(message: string | null): void;
   markProviderConfigured(): void;
@@ -41,7 +42,7 @@ export interface OnboardingState {
   back(): void;
   next(): void;
   copy(text: string, label: string): Promise<void>;
-  waitForBridge(): Promise<void>;
+  waitForHost(): Promise<void>;
 }
 
 export function createOnboardingState(): OnboardingState {
@@ -50,7 +51,7 @@ export function createOnboardingState(): OnboardingState {
   let carouselApi = $state<CarouselAPI | undefined>();
   let tsAuthKey = $state("");
   let tailnet = $state("");
-  let bridgeHostname = $state(randomBridgeHostname());
+  let hostName = $state(randomHostName());
   let showAdvanced = $state(false);
   let copied = $state<string | null>(null);
   let connectState = $state<ConnectState>("idle");
@@ -59,11 +60,11 @@ export function createOnboardingState(): OnboardingState {
   let providerConfigured = $state(false);
 
   const tailnetDns = $derived(normalizeTailnet(tailnet));
-  const bridgeUrl = $derived.by(() => {
-    const host = bridgeHostname.trim().toLowerCase();
+  const hostUrl = $derived.by(() => {
+    const host = hostName.trim().toLowerCase();
     return host && tailnetDns ? `https://${host}.${tailnetDns}` : "";
   });
-  const cloudInit = $derived(renderBridgeCloudInit({ tsAuthKey, bridgeHostname }));
+  const cloudInit = $derived(renderHostCloudInit({ tsAuthKey, hostName }));
   const hasSetupInputs = $derived(tsAuthKey.trim().startsWith("tskey-auth-") && tailnetDns.endsWith(".ts.net"));
   const maxAllowedIndex = $derived.by(() => {
     if (providerConfigured) return 5;
@@ -76,13 +77,13 @@ export function createOnboardingState(): OnboardingState {
     await settingsState.load();
     // tsAuthKey is intentionally not restored — it is never persisted.
     tailnet = settingsState.onboardingDraft.tailnet ?? "";
-    bridgeHostname = settingsState.onboardingDraft.bridgeHostname ?? bridgeHostname;
+    hostName = settingsState.onboardingDraft.hostName ?? hostName;
     loaded = true;
   }
 
   function persistDraft(): Promise<void> {
     if (!loaded) return Promise.resolve();
-    return settingsState.setOnboardingDraft({ tailnet, bridgeHostname });
+    return settingsState.setOnboardingDraft({ tailnet, hostName });
   }
 
   function syncCarouselToIndex(): void {
@@ -126,36 +127,36 @@ export function createOnboardingState(): OnboardingState {
     }, 1200);
   }
 
-  async function waitForBridge(): Promise<void> {
-    if (!bridgeUrl || connectState === "polling") return;
+  async function waitForHost(): Promise<void> {
+    if (!hostUrl || connectState === "polling") return;
 
     connectState = "polling";
-    connectMessage = "Waiting for the bridge HTTPS endpoint to come online. This can take a few minutes on first boot…";
+    connectMessage = "Waiting for the Pico host HTTPS endpoint to come online. This can take a few minutes on first boot…";
 
     for (let attempt = 1; attempt <= 60; attempt += 1) {
-      if (await healthcheckBridgeUrl(bridgeUrl)) {
+      if (await healthcheckHostUrl(hostUrl)) {
         connectState = "reachable";
-        connectMessage = "Bridge is reachable. Saving URL and claiming it with your Tailscale identity…";
-        await settingsState.setBridgeUrl(bridgeUrl);
+        connectMessage = "Pico host is reachable. Saving URL and claiming it with your Tailscale identity…";
+        await settingsState.setHostUrl(hostUrl);
         try {
-          await claimReachableBridge(bridgeUrl);
+          await claimReachableHost(hostUrl);
           connectState = "claimed";
-          connectMessage = "Bridge connected and claimed. You’re ready to continue.";
+          connectMessage = "Pico host connected and claimed. You’re ready to continue.";
           await settingsState.clearOnboardingDraft();
           haptics.success();
           currentIndex = 4;
         } catch (error) {
           connectState = "failed";
-          connectMessage = setupErrorMessage(error);
+          connectMessage = hostIssueSummary(error, { url: hostUrl });
         }
         return;
       }
-      connectMessage = `Still waiting for ${bridgeUrl}… (${attempt}/60)`;
+      connectMessage = `Still waiting for ${hostUrl}… (${attempt}/60)`;
       await new Promise((resolve) => window.setTimeout(resolve, 5000));
     }
 
     connectState = "failed";
-    connectMessage = "Timed out. Check VPS cloud-init logs and make sure Tailscale is connected on this phone.";
+    connectMessage = hostIssueSummary({ hostErrorCode: "host_unreachable" }, { url: hostUrl });
   }
 
   return {
@@ -164,7 +165,7 @@ export function createOnboardingState(): OnboardingState {
     get carouselApi() { return carouselApi; },
     get tsAuthKey() { return tsAuthKey; },
     get tailnet() { return tailnet; },
-    get bridgeHostname() { return bridgeHostname; },
+    get hostName() { return hostName; },
     get showAdvanced() { return showAdvanced; },
     get copied() { return copied; },
     get connectState() { return connectState; },
@@ -172,14 +173,14 @@ export function createOnboardingState(): OnboardingState {
     get authError() { return authError; },
     get providerConfigured() { return providerConfigured; },
     get tailnetDns() { return tailnetDns; },
-    get bridgeUrl() { return bridgeUrl; },
+    get hostUrl() { return hostUrl; },
     get cloudInit() { return cloudInit; },
     get hasSetupInputs() { return hasSetupInputs; },
     get maxAllowedIndex() { return maxAllowedIndex; },
     setCarouselApi(api: CarouselAPI | undefined) { carouselApi = api; },
     setTsAuthKey(value: string) { tsAuthKey = value; },
     setTailnet(value: string) { tailnet = value; },
-    setBridgeHostname(value: string) { bridgeHostname = value; },
+    setHostName(value: string) { hostName = value; },
     setShowAdvanced(value: boolean) { showAdvanced = value; },
     setAuthError(message: string | null) { authError = message; },
     markProviderConfigured() { providerConfigured = true; },
@@ -191,7 +192,7 @@ export function createOnboardingState(): OnboardingState {
     back,
     next,
     copy,
-    waitForBridge,
+    waitForHost,
   };
 }
 
@@ -199,16 +200,8 @@ function normalizeTailnet(value: string): string {
   return value.trim().replace(/^https?:\/\//, "").replace(/^\.+/, "").replace(/\/+$/, "").toLowerCase();
 }
 
-function setupErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("missing_tailscale_identity")) return "Tailscale identity missing. Connect Tailscale on this phone and try again.";
-  if (message.includes("tailscale_user_not_bridge_owner")) return "This bridge is claimed by another Tailscale user.";
-  if (message.includes("bridge is already claimed")) return "This bridge is already claimed.";
-  return "Bridge is reachable, but claim failed. Check Tailscale and try again.";
-}
-
-function randomBridgeHostname(): string {
+function randomHostName(): string {
   const bytes = new Uint8Array(3);
   crypto.getRandomValues(bytes);
-  return `pi-bridge-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  return `pico-host-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }

@@ -1,0 +1,65 @@
+name: Pico Host Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pico-host-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  pico-host:
+    name: Package Pico host release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 10.5.2
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26.3.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check host and protocol
+        run: pnpm typecheck
+
+      - name: Resolve version
+        run: ./scripts/resolve-version.sh VERSION
+
+      - name: Require release signing key
+        run: |
+          if [[ -z "${{ secrets.PICO_HOST_RELEASE_SIGNING_KEY_PEM }}" ]]; then
+            echo "PICO_HOST_RELEASE_SIGNING_KEY_PEM is required for signed Pico host releases" >&2
+            exit 1
+          fi
+
+      - name: Package Pico host artifact
+        env:
+          PICO_HOST_RELEASE_SIGNING_KEY_PEM: ${{ secrets.PICO_HOST_RELEASE_SIGNING_KEY_PEM }}
+        run: packages/host-runtime/deploy/package-pico-host.sh "$VERSION"
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          files: |
+            dist/pico-host-release/pico-host-${{ env.VERSION }}.tar.gz
+            dist/pico-host-release/pico-host-release.json
+            dist/pico-host-release/pico-host-release.json.sig
+          fail_on_unmatched_files: true

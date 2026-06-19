@@ -44,7 +44,7 @@ export class SessionStreamController {
 
     this.#handle = this.client.connectSessionStream(
       this.sessionId,
-      () => chatLogState.getCursor(this.sessionId),
+      () => chatLogState.getConnectCursor(this.sessionId),
       {
         onOpen: () => this.#setConnectionStatus("connected"),
         onClose: (_code, _reason, terminal) => {
@@ -88,10 +88,13 @@ export class SessionStreamController {
     if (event.t === "hello") {
       this.#replayBoundary = event.cursor;
       sessionListState.upsert(event.session);
+      activeSessionState.setStatus(event.session.status);
       this.#onHello?.(event.session);
     }
 
-    if (event.t === "cost" && event.seq > this.#replayBoundary) {
+    const isReplay = event.seq > 0 && event.seq <= this.#replayBoundary;
+
+    if (event.t === "cost" && !isReplay) {
       sessionListState.patchLocal(this.sessionId, {
         tokens: { in: event.tokensIn, out: event.tokensOut },
         costUsd: event.costUsd,
@@ -100,7 +103,7 @@ export class SessionStreamController {
 
     chatQueueState.applyWireEvent(this.sessionId, event);
     chatLogState.applyWireEvent(this.sessionId, event);
-    activeSessionState.applyWireEvent(this.sessionId, event);
+    if (!isReplay) activeSessionState.applyWireEvent(this.sessionId, event);
     this.#onEvent?.(event);
   }
 

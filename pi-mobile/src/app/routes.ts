@@ -3,16 +3,18 @@ export const routePaths = {
   session: (id: string) => `/s/${encodeURIComponent(id)}`,
   settings: "/settings",
   onboarding: "/onboarding",
+  connect: "/connect",
   welcome: "/welcome",
 } as const;
 
-export type RouteId = "sessions" | "session" | "settings" | "onboarding" | "welcome" | "not-found";
+export type RouteId = "sessions" | "session" | "settings" | "onboarding" | "connect" | "welcome" | "not-found";
 
 export type RouteMatch =
   | { id: "sessions"; params: Record<string, never> }
   | { id: "session"; params: { id: string } }
   | { id: "settings"; params: Record<string, never> }
   | { id: "onboarding"; params: Record<string, never> }
+  | { id: "connect"; params: Record<string, never> }
   | { id: "welcome"; params: Record<string, never> }
   | { id: "not-found"; params: { path: string } };
 
@@ -24,6 +26,7 @@ export function matchRoute(path: string): RouteMatch {
   if (path === "/") return { id: "sessions", params: {} };
   if (path === "/settings") return { id: "settings", params: {} };
   if (path === "/onboarding") return { id: "onboarding", params: {} };
+  if (path === "/connect") return { id: "connect", params: {} };
   if (path === "/welcome") return { id: "welcome", params: {} };
 
   const sessionMatch = /^\/s\/([^/]+)$/.exec(path);

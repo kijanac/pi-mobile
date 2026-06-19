@@ -1,5 +1,9 @@
-import { createBridgeClient } from "@/shared/lib/bridge-client";
+import { createHostClient, createHostTrpc } from "@/shared/lib/host-client";
 
-export function healthcheckBridgeUrl(url: string): Promise<boolean> {
-  return createBridgeClient(url.trim()).healthcheck();
+export function healthcheckHostUrl(url: string): Promise<boolean> {
+  return createHostClient(url.trim()).healthcheck();
+}
+
+export async function probeHostIdentity(url: string): Promise<void> {
+  await createHostTrpc(url.trim()).system.identity.query({});
 }

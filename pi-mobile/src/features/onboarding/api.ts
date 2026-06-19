@@ -1,11 +1,11 @@
-import { createBridgeClient, createBridgeTrpc } from "@/shared/lib/bridge-client";
+import { createHostClient, createHostTrpc } from "@/shared/lib/host-client";
 
-export function healthcheckBridgeUrl(url: string): Promise<boolean> {
-  return createBridgeClient(url).healthcheck();
+export function healthcheckHostUrl(url: string): Promise<boolean> {
+  return createHostClient(url).healthcheck();
 }
 
-export async function claimReachableBridge(url: string): Promise<void> {
-  const trpc = createBridgeTrpc(url);
+export async function claimReachableHost(url: string, token?: string): Promise<void> {
+  const trpc = createHostTrpc(url);
   const identity = await trpc.system.identity.query({});
-  if (!identity.claimed) await trpc.system.claim.mutate({});
+  if (!identity.claimed) await trpc.system.claim.mutate(token ? { token } : {});
 }

@@ -1,14 +1,14 @@
-export interface BridgeCloudInitOptions {
+export interface HostCloudInitOptions {
   readonly tsAuthKey: string;
-  readonly bridgeHostname: string;
+  readonly hostName: string;
 }
 
-export const BRIDGE_REPO_URL = "https://github.com/kijanac/pi-mobile.git";
-export const TAILSCALE_TAG = "tag:pi-bridge";
+export const PICO_REPO_URL = "https://github.com/kijanac/pi-mobile.git";
+export const TAILSCALE_TAG = "tag:pico-host";
 
 const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
 
-export function renderBridgeCloudInit(options: BridgeCloudInitOptions): string {
+export function renderHostCloudInit(options: HostCloudInitOptions): string {
   const lines = [
     "#cloud-config",
     "package_update: true",
@@ -20,14 +20,14 @@ export function renderBridgeCloudInit(options: BridgeCloudInitOptions): string {
     "  - |",
     "    set -euo pipefail",
     `    export TS_AUTHKEY=${shellQuote(options.tsAuthKey.trim())}`,
-    `    export BRIDGE_HOSTNAME=${shellQuote(options.bridgeHostname.trim())}`,
+    `    export PICO_HOSTNAME=${shellQuote(options.hostName.trim())}`,
     `    export TAILSCALE_TAG=${shellQuote(TAILSCALE_TAG)}`,
     "    export TAILSCALE_SERVE=1",
-    "    export PI_BRIDGE_AUTO_DEPLOY=1",
-    "    export PI_BRIDGE_AUTO_UPDATE=1",
+    "    export PICO_HOST_AUTO_DEPLOY=1",
+    "    export PICO_HOST_AUTO_UPDATE=1",
     "    rm -rf /tmp/pico",
-    `    git clone --depth=1 ${shellQuote(BRIDGE_REPO_URL)} /tmp/pico`,
-    "    /tmp/pico/bridge/deploy/install.sh",
+    `    git clone --depth=1 ${shellQuote(PICO_REPO_URL)} /tmp/pico`,
+    "    /tmp/pico/packages/host-runtime/deploy/install.sh",
   ];
 
   return `${lines.join("\n")}\n`;

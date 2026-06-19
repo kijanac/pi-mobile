@@ -1,4 +1,11 @@
 import * as v from "valibot";
+import { HostErrorCodeSchema } from "./errors.ts";
+export {
+  HostErrorCodeSchema,
+  hostErrorPayloadFromUnknown,
+  isHostErrorCode,
+} from "./errors.ts";
+export type { HostErrorCode, HostErrorPayload } from "./errors.ts";
 export {
   PRODUCT_VERSION,
   PROTOCOL_VERSION,
@@ -6,10 +13,10 @@ export {
   RECOMMENDED_MOBILE_VERSION,
 } from "./version.ts";
 export {
-  BRIDGE_REPO_URL,
+  PICO_REPO_URL,
   TAILSCALE_TAG,
-  renderBridgeCloudInit,
-  type BridgeCloudInitOptions,
+  renderHostCloudInit,
+  type HostCloudInitOptions,
 } from "./cloud-init.ts";
 
 export const SessionStatus = v.picklist([
@@ -81,6 +88,7 @@ export const AssistantMessage = v.object({
   streaming: v.optional(v.boolean()),
   stopReason: v.optional(StopReason),
   errorMessage: v.optional(v.string()),
+  errorCode: v.optional(HostErrorCodeSchema),
   usage: v.optional(MessageUsage),
 });
 export type AssistantMessage = v.InferOutput<typeof AssistantMessage>;
@@ -531,7 +539,7 @@ export const SessionTree = v.object({
 export type SessionTree = v.InferOutput<typeof SessionTree>;
 
 export const SystemInfo = v.object({
-  bridgeVersion: v.string(),
+  hostVersion: v.string(),
   protocolVersion: v.number(),
   minMobileVersion: v.string(),
   recommendedMobileVersion: v.string(),
@@ -540,7 +548,7 @@ export const SystemInfo = v.object({
 });
 export type SystemInfo = v.InferOutput<typeof SystemInfo>;
 
-export const BridgeUpdateStatus = v.object({
+export const HostUpdateStatus = v.object({
   currentVersion: v.string(),
   autoUpdate: v.boolean(),
   manualUpdate: v.boolean(),
@@ -553,7 +561,7 @@ export const BridgeUpdateStatus = v.object({
     at: v.number(),
   })),
 });
-export type BridgeUpdateStatus = v.InferOutput<typeof BridgeUpdateStatus>;
+export type HostUpdateStatus = v.InferOutput<typeof HostUpdateStatus>;
 
 
 const Seq = { seq: v.number() } as const;
@@ -579,6 +587,7 @@ export const WireEvent = v.variant("t", [
     id: v.string(),
     stopReason: v.optional(StopReason),
     errorMessage: v.optional(v.string()),
+    errorCode: v.optional(HostErrorCodeSchema),
     usage: v.optional(MessageUsage),
   }),
   v.object({ t: v.literal("tool_call"), ...Seq, entry: ToolCallMessage }),
@@ -651,7 +660,7 @@ export const ClientEvent = v.variant("t", [
     text: v.string(),
     mode: v.optional(SendMode),
     images: v.optional(v.array(ImageAttachment)),
-    // Client-generated idempotency key: the bridge drops repeats and echoes
+    // Client-generated idempotency key: the Pico host drops repeats and echoes
     // it back on the user_message event.
     clientId: v.optional(v.string()),
   }),

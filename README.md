@@ -6,7 +6,9 @@ Pico is an independent, unofficial mobile companion for the Pi coding agent.
 
 | Path | Purpose |
 | --- | --- |
-| [`bridge/`](./bridge) | Node/TypeScript REST + WebSocket bridge between Pico and the Pi coding agent. |
+| [`packages/host-runtime/`](./packages/host-runtime) | Current Node/TypeScript Pico host runtime package (`@pico/host-runtime`). |
+| [`packages/host/`](./packages/host) | Reusable Pico host facade/helpers (`@pico/host`: doctor checks, pairing, service install, local admin client). |
+| [`packages/cli/`](./packages/cli) | Experimental `pico` host CLI (`pair`, `doctor`, `install`, `status`). |
 | [`pi-mobile/`](./pi-mobile) | Pico Svelte + Capacitor mobile client. |
 | [`packages/protocol/`](./packages/protocol) | Shared Valibot schemas and TypeScript types for the REST/WS protocol. |
 
@@ -14,7 +16,8 @@ Pico is an independent, unofficial mobile companion for the Pi coding agent.
 
 - Node.js 26.1+
 - pnpm 10.5.2+
-- pi provider credentials for live bridge mode, or `PI_USE_MOCK=1` for mock mode
+- a working `pi` CLI setup in the project you want to use from mobile
+- pi provider credentials for live host mode, or `PI_USE_MOCK=1` for mock mode
 
 ## Install
 
@@ -27,8 +30,8 @@ This is a pnpm workspace; install from the repository root rather than from each
 ## Development
 
 ```bash
-# Terminal 1: bridge with mocked pi responses
-pnpm dev:bridge:mock
+# Terminal 1: Pico host with mocked pi responses
+pnpm dev:host:mock
 
 # Terminal 2: mobile web app
 pnpm dev:mobile
@@ -39,7 +42,7 @@ Then open the Vite URL printed by `pico`.
 For live pi instead of mock mode:
 
 ```bash
-pnpm dev:bridge
+pnpm dev:host
 ```
 
 ## Checks
@@ -48,14 +51,16 @@ pnpm dev:bridge
 pnpm check
 ```
 
-This typechecks the bridge and builds the mobile app.
+This typechecks the protocol, host runtime/helper packages, CLI, and builds the mobile app.
 
 ## Repository layout
 
 ```text
 .
-├── bridge/              # pi bridge service
-├── packages/protocol/   # shared protocol schemas/types
+├── packages/host-runtime/ # current Pico host runtime package (@pico/host-runtime)
+├── packages/host/         # reusable host facade/helpers (@pico/host)
+├── packages/cli/          # experimental pico host CLI
+├── packages/protocol/     # shared protocol schemas/types
 ├── pi-mobile/           # Pico Svelte + Capacitor client
 ├── package.json         # root workspace scripts
 ├── pnpm-workspace.yaml  # workspace package list
@@ -65,9 +70,10 @@ This typechecks the bridge and builds the mobile app.
 ## Notes
 
 - The original tarballs are import artifacts and are ignored by git.
-- Runtime bridge data (`bridge/data/`, SQLite files) is ignored by git.
+- Runtime Pico host data (`data/`, SQLite files) is ignored by git.
 - Pico is not affiliated with or endorsed by Earendil Inc. or the Pi project.
-- The bridge and mobile app both import protocol types from `@pico/protocol`.
+- The host runtime, CLI, and mobile app all import protocol types from `@pico/protocol`.
+- Pico embeds the Pi SDK package for predictable integration, but it uses the current OS user's normal `~/.pi/agent`, git/SSH config, and project directory.
 
 ## iPhone native shell
 
@@ -86,12 +92,37 @@ pnpm --filter pico exec cap sync ios
 pnpm --filter pico exec cap open ios
 ```
 
-## Remote bridge + iPhone
+## Pico host pairing (experimental)
+
+For a desktop or existing SSH box, run a foreground Pico host as the current
+OS user and pair the phone with a one-time claim token:
+
+```bash
+pi --offline --list-models
+pnpm run doctor
+pnpm pair
+```
+
+This uses your normal Pi environment (`$HOME`, `~/.pi/agent`, git/SSH config)
+and exposes `127.0.0.1:7777` through `tailscale serve`. Open the printed
+`pico://connect?...` link on the phone to save and claim the host.
+
+Useful host commands:
+
+```bash
+pnpm run status       # local admin + Tailscale status
+pnpm run pair-code    # reprint the current pairing QR/link
+pnpm run pair-code -- --rotate # rotate the local pairing token, then print a QR/link
+pnpm run serve        # durable foreground host, used by services
+pnpm run install:host # install a LaunchAgent/systemd --user service
+```
+
+## Remote Pico host + iPhone
 
 The intended production shape is:
 
 ```text
-iPhone app ──Tailscale HTTPS/WSS──> Hetzner VPS: tailscale serve ──localhost──> pi-bridge ──> pi agent
+iPhone app ──Tailscale HTTPS/WSS──> Hetzner VPS: tailscale serve ──localhost──> Pico host (pico-host service) ──> pi agent
 ```
 
-See [`bridge/deploy/README.md`](./bridge/deploy/README.md) for the full server setup. In short: run `bridge/deploy/install.sh` on the VPS, deploy with `PI_BRIDGE_HOST=root@YOURBOX ./bridge/deploy/deploy.sh`, authenticate pi either by running `/login` as the `pi-bridge` server user or by setting API-key env vars in `/etc/pi-bridge/env`, expose `localhost:7777` with `tailscale serve`, then enter that `https://…ts.net` URL in the iPhone app Settings.
+See [`packages/host-runtime/deploy/README.md`](./packages/host-runtime/deploy/README.md) for the current server-appliance setup. In short: run `packages/host-runtime/deploy/install.sh` on the VPS, deploy with `PICO_DEPLOY_HOST=root@YOURBOX ./packages/host-runtime/deploy/deploy.sh`, authenticate pi either by running `/login` as the `pico-host` server user or by setting API-key env vars in `/etc/pico-host/env`, expose `localhost:7777` with `tailscale serve`, then enter that `https://…ts.net` host URL in the iPhone app Settings.

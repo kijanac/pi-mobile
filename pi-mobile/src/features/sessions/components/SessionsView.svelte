@@ -1,10 +1,12 @@
 <script lang="ts">
   import { Archive, ArchiveRestore, Pencil, Plus, Settings as SettingsIcon, Trash2 } from "@lucide/svelte";
   import type { SessionMeta } from "@pico/protocol";
+  import HostIssuePanel from "@/shared/components/HostIssuePanel.svelte";
   import StatusDot from "@/shared/components/StatusDot.svelte";
   import PullToRefresh from "@/shared/components/PullToRefresh.svelte";
   import SwipeActionRow from "@/shared/components/SwipeActionRow.svelte";
   import { formatCost, relativeTime } from "@/shared/lib/format";
+  import type { HostIssue } from "@/shared/lib/host-issues";
   import { cwdDisplayName } from "@/shared/lib/path-display";
   import { Button } from "@/shared/ui/button";
 
@@ -16,12 +18,12 @@
     visibleCount,
     creating = false,
     interactive = true,
-    bridgeConfigured = true,
+    hostConfigured = true,
     openSwipeSessionId = $bindable(null),
     onRefresh = async () => {},
     onToggleArchived = () => {},
     onSettings = () => {},
-    onSetupBridge = () => {},
+    onSetupHost = () => {},
     onNewSession = () => {},
     onOpenSession = () => {},
     onRename = () => {},
@@ -30,17 +32,17 @@
   }: {
     sessions: readonly SessionMeta[];
     refreshing: boolean;
-    error: string | null;
+    error: HostIssue | null;
     archivedView: boolean;
     visibleCount: number;
     creating?: boolean;
     interactive?: boolean;
-    bridgeConfigured?: boolean;
+    hostConfigured?: boolean;
     openSwipeSessionId?: string | null;
     onRefresh?: () => Promise<void>;
     onToggleArchived?: () => void | Promise<void>;
     onSettings?: () => void;
-    onSetupBridge?: () => void;
+    onSetupHost?: () => void;
     onNewSession?: () => void;
     onOpenSession?: (session: SessionMeta) => void;
     onRename?: (session: SessionMeta) => void;
@@ -49,6 +51,7 @@
   } = $props();
 
   const SESSION_ACTION_WIDTH = 58;
+  const hostIssue = $derived(error && hostConfigured ? error : null);
 
   function closeOpenSwipeRow(event: Event): void {
     if (!interactive || !openSwipeSessionId) return;
@@ -81,12 +84,10 @@
     </div>
   </header>
 
-  {#if error && bridgeConfigured}
-    <div
-      class="type-meta mx-3 mt-4 rounded-[var(--radius-sm)] border border-[color:var(--color-danger)]/40 bg-[color:var(--color-danger)]/8 px-3 py-2 text-[color:var(--color-danger)]"
-    >
-      {error}
-      <button type="button" class="ml-2 underline opacity-70" onclick={() => void onRefresh()}>
+  {#if hostIssue && sessions.length > 0}
+    <div class="mx-3 mt-4 space-y-2">
+      <HostIssuePanel issue={hostIssue} compact />
+      <button type="button" class="type-meta underline text-[color:var(--color-fg-muted)]" onclick={() => void onRefresh()}>
         retry
       </button>
     </div>
@@ -95,15 +96,23 @@
   <PullToRefresh onRefresh={onRefresh} class="mt-4 min-h-0 flex-1">
     {#if refreshing && sessions.length === 0}
       <section class="type-copy flex min-h-full items-center justify-center text-[color:var(--color-fg-muted)]">loading sessions…</section>
-    {:else if sessions.length === 0 && !bridgeConfigured && !archivedView}
+    {:else if hostIssue && sessions.length === 0}
+      <section class="flex min-h-full flex-col items-center justify-center gap-4 px-6 text-center">
+        <HostIssuePanel issue={hostIssue} class="max-w-sm" />
+        <div class="flex gap-2">
+          <Button type="button" variant="outline" size="sm" onclick={() => void onRefresh()}>retry</Button>
+          <Button type="button" size="sm" onclick={onSettings}>host settings</Button>
+        </div>
+      </section>
+    {:else if sessions.length === 0 && !hostConfigured && !archivedView}
       <section class="flex min-h-full flex-col items-center justify-center gap-4 px-6 text-center">
         <div>
-          <p class="type-title font-medium">no bridge connected</p>
+          <p class="type-title font-medium">no Pico host connected</p>
           <p class="type-copy mt-2 max-w-[34ch] text-[color:var(--color-fg-muted)]">
-            pico drives a pi coding agent on your server. connect a bridge to start your first session.
+            pico drives pi on your machine. connect a Pico host to start your first session.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onclick={onSetupBridge}>set up bridge</Button>
+        <Button type="button" variant="outline" size="sm" onclick={onSetupHost}>set up Pico host</Button>
       </section>
     {:else if sessions.length === 0}
       <section class="flex min-h-full items-center justify-center px-6 text-center">
@@ -145,7 +154,7 @@
   </PullToRefresh>
 
   <div class="p-2" style="padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem)">
-    {#if bridgeConfigured}
+    {#if hostConfigured}
       <Button
         type="button"
         class="h-10 w-full"
@@ -156,8 +165,8 @@
         new session
       </Button>
     {:else}
-      <Button type="button" class="h-10 w-full" onclick={onSetupBridge}>
-        set up bridge
+      <Button type="button" class="h-10 w-full" onclick={onSetupHost}>
+        set up Pico host
       </Button>
     {/if}
   </div>
