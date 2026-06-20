@@ -36,12 +36,6 @@ export class PicoSetupError extends Data.TaggedError("PicoSetupError")<{
 }> {}
 
 export function setupErrorMessage(error: unknown): string {
-  if (isPicoSetupError(error)) {
-    return `${error.message}${error.fix ? `\n${error.fix}` : ""}`;
-  }
+  if (error instanceof PicoSetupError) return `${error.message}${error.fix ? `\n${error.fix}` : ""}`;
   return error instanceof Error ? error.message : String(error);
-}
-
-function isPicoSetupError(error: unknown): error is PicoSetupError {
-  return error instanceof PicoSetupError || (Boolean(error) && typeof error === "object" && (error as { readonly _tag?: unknown })._tag === "PicoSetupError");
 }
