@@ -15,12 +15,7 @@
 </script>
 
 <section class="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-3">
-  <div class="mb-3">
-    <h2 class="type-title font-medium text-[color:var(--color-fg)]">appearance</h2>
-    {#if themeState.mode === "system"}
-      <p class="type-copy mt-1 text-[color:var(--color-fg-muted)]">Following your device — currently {themeState.resolved}.</p>
-    {/if}
-  </div>
+  <h2 class="type-title mb-3 font-medium text-[color:var(--color-fg)]">appearance</h2>
 
   <div data-slot="button-group" class="grid grid-cols-3 gap-1 rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-1">
     {#each options as option}
