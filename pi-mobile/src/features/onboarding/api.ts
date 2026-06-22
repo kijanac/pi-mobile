@@ -1,10 +1,7 @@
 import { Effect } from "effect";
-import { createHostClient } from "@/shared/lib/host-client";
 import { rpc } from "@/shared/lib/rpc-client";
 
-export function healthcheckHostUrl(url: string): Promise<boolean> {
-  return createHostClient(url).healthcheck();
-}
+export { healthcheckHostUrl } from "@/shared/lib/host-http";
 
 // Run against a specific host via runAt(url, claimReachableHost()).
 export const claimReachableHost = (token?: string) =>

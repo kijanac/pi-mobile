@@ -1,6 +1,7 @@
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import { getHostClient } from "@/shared/lib/host-client";
+import { settingsState } from "@/features/settings/settings.state.svelte";
+import { sessionExportHtmlUrl } from "@/shared/lib/host-http";
 import { rpc } from "@/shared/lib/rpc-client";
 
 export const compactSession = (sessionId: string, instructions?: string) =>
@@ -23,7 +24,7 @@ const safeFilenamePart = (value: string): string =>
   value.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "session";
 
 export async function exportSessionHtml(sessionId: string): Promise<boolean> {
-  const url = getHostClient().sessionExportHtmlUrl(sessionId);
+  const url = sessionExportHtmlUrl(settingsState.hostUrl, sessionId);
   const response = await fetch(url);
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: response.statusText }));

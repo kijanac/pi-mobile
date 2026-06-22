@@ -637,9 +637,5 @@ export const ClientEvent = Schema.Union(
 export type ClientEvent = typeof ClientEvent.Type;
 
 
-export const decodeClientEvent = Schema.decodeUnknownEither(ClientEvent);
-
-export const decodeWireEvent = Schema.decodeUnknownEither(WireEvent);
+// Decode wire events read back from the session journal (store/session pump).
 export const parseWireEvent = Schema.decodeUnknownSync(WireEvent);
-
-export const encodeWireEvent = (e: WireEvent): string => JSON.stringify(e);
