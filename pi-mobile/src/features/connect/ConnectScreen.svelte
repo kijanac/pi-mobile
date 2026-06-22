@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { Check, Loader2, X } from "@lucide/svelte";
   import { navigateTo, routePaths } from "@/app/routes";
-  import { claimReachableHost, healthcheckHostUrl } from "@/features/onboarding/api";
+  import { connectAndClaimHost } from "@/features/onboarding/api";
   import { settingsState } from "@/features/settings/settings.state.svelte";
   import HostIssuePanel from "@/shared/components/HostIssuePanel.svelte";
   import { classifyHostIssue, type HostIssue } from "@/shared/lib/host-issues";
@@ -37,13 +37,8 @@
 
     try {
       if (!settingsState.loaded) await settingsState.load();
-      message = `Checking ${hostUrl}…`;
-      const reachable = await healthcheckHostUrl(hostUrl);
-      if (!reachable) throw { hostErrorCode: "host_unreachable" };
-
-      message = "Pico host is reachable. Saving URL and claiming owner identity…";
-      await settingsState.setHostUrl(hostUrl);
-      await runAt(hostUrl, claimReachableHost(token));
+      message = `Checking ${hostUrl} and claiming owner identity…`;
+      await runAt(hostUrl, connectAndClaimHost(hostUrl, token));
 
       connectState = "claimed";
       message = "Pico host connected. Opening sessions…";

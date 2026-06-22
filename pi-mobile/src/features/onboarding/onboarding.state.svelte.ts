@@ -2,7 +2,7 @@ import { renderHostCloudInit } from "@pico/protocol";
 import { Effect } from "effect";
 import type { CarouselAPI } from "@/shared/ui/carousel/context";
 import { settingsState } from "@/features/settings/settings.state.svelte";
-import { claimReachableHost, healthcheckHostUrl } from "@/features/onboarding/api";
+import { connectAndClaimHost, healthcheckHostUrl } from "@/features/onboarding/api";
 import { classifyHostFailure, hostIssueSummary } from "@/shared/lib/host-issues";
 import { runAt } from "@/shared/lib/rpc-client";
 import { haptics } from "@/shared/mobile/haptics";
@@ -139,10 +139,9 @@ export function createOnboardingState(): OnboardingState {
       if (await healthcheckHostUrl(hostUrl)) {
         connectState = "reachable";
         connectMessage = "Pico host is reachable. Saving URL and claiming it with your Tailscale identity…";
-        await settingsState.setHostUrl(hostUrl);
         await runAt(
           hostUrl,
-          claimReachableHost().pipe(
+          connectAndClaimHost(hostUrl).pipe(
             Effect.tap(() => Effect.sync(() => {
               connectState = "claimed";
               connectMessage = "Pico host connected and claimed. You’re ready to continue.";

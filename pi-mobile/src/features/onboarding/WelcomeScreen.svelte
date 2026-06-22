@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { ArrowRight, Loader2 } from "@lucide/svelte";
   import { navigateTo, routePaths } from "@/app/routes";
-  import { claimReachableHost, healthcheckHostUrl } from "@/features/onboarding/api";
+  import { connectAndClaimHost } from "@/features/onboarding/api";
   import SettingsField from "@/features/settings/components/SettingsField.svelte";
   import { settingsState } from "@/features/settings/settings.state.svelte";
   import HostIssuePanel from "@/shared/components/HostIssuePanel.svelte";
@@ -32,13 +32,7 @@
     connecting = true;
     connectIssue = null;
     try {
-      const reachable = await healthcheckHostUrl(candidate);
-      if (!reachable) {
-        connectIssue = classifyHostIssue({ hostErrorCode: "host_unreachable" }, { url: candidate });
-        return;
-      }
-      await runAt(candidate, claimReachableHost());
-      await settingsState.setHostUrl(candidate);
+      await runAt(candidate, connectAndClaimHost(candidate));
       haptics.success();
       navigateTo(routePaths.sessions, "replace");
     } catch (caught) {

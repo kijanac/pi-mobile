@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Check, Loader2, X } from "@lucide/svelte";
   import { navigateTo, routePaths } from "@/app/routes";
-  import { claimReachableHost, healthcheckHostUrl } from "@/features/onboarding/api";
+  import { connectAndClaimHost } from "@/features/onboarding/api";
   import SettingsField from "@/features/settings/components/SettingsField.svelte";
   import { settingsState } from "@/features/settings/settings.state.svelte";
   import HostIssuePanel from "@/shared/components/HostIssuePanel.svelte";
@@ -31,13 +31,8 @@
 
     try {
       if (!settingsState.loaded) await settingsState.load();
-      if (!(await healthcheckHostUrl(url))) {
-        throw { hostErrorCode: "host_unreachable" };
-      }
-
       message = "Claiming Pico host with your Tailscale identity…";
-      await runAt(url, claimReachableHost(token));
-      await settingsState.setHostUrl(url);
+      await runAt(url, connectAndClaimHost(url, token));
 
       connectState = "connected";
       message = "Pico host connected. Opening sessions…";
