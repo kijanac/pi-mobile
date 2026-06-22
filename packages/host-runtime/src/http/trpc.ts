@@ -1,5 +1,5 @@
 import { Cause, Context, Effect, Option } from "effect";
-import type { Hono } from "hono";
+import { HttpApp } from "@effect/platform";
 import { TRPCError } from "@trpc/server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter, type HostTrpcServices } from "@pico/protocol/trpc";
@@ -11,7 +11,7 @@ import { listFs } from "../fs.ts";
 import { PiError } from "../pi.ts";
 import { ProviderAuth } from "../provider-auth.ts";
 import { SessionManager } from "../session.ts";
-import type { HostRuntime, HostRuntimeServices } from "../runtime.ts";
+import { hostRuntime, type HostRuntimeServices } from "../runtime.ts";
 import { hostSystemInfo, readUpdateStatus, requestHostUpdate } from "./system.ts";
 
 function trpcError(failure: unknown): TRPCError {
@@ -30,17 +30,14 @@ function trpcError(failure: unknown): TRPCError {
   return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Request failed", cause: failure });
 }
 
-async function runEffectForTrpc<A, E>(
-  runtime: HostRuntime,
-  effect: Effect.Effect<A, E, HostRuntimeServices>,
-): Promise<A> {
-  const result = await runtime.runPromiseExit(effect);
+async function runEffectForTrpc<A, E>(effect: Effect.Effect<A, E, HostRuntimeServices>): Promise<A> {
+  const result = await hostRuntime.runPromiseExit(effect);
   if (result._tag === "Success") return result.value;
   const failure = Option.getOrUndefined(Cause.failureOption(result.cause));
   // Defects (e.g. a SQLite throw inside Effect.sync) carry no typed failure;
   // log the full cause server-side so they don't surface as bare 500s only.
   if (failure === undefined && !Cause.isInterruptedOnly(result.cause)) {
-    runtime.runFork(Effect.logError(`[trpc] request died: ${Cause.pretty(result.cause)}`));
+    hostRuntime.runFork(Effect.logError(`[trpc] request died: ${Cause.pretty(result.cause)}`));
   }
   throw trpcError(failure);
 }
@@ -54,17 +51,18 @@ function authError(status: number, code: HostErrorCode): TRPCError {
 }
 
 function makeSystemService(req: Request): HostTrpcServices["system"] {
+  const headers = Object.fromEntries(req.headers);
   return {
     info: async () => hostSystemInfo(),
     updateStatus: async () => readUpdateStatus(),
     triggerUpdate: async () => requestHostUpdate(),
     identity: async () => {
-      const result = authorizeHeaders(req.headers);
+      const result = authorizeHeaders(headers);
       if (!result.ok) throw authError(result.status, result.error);
       return { user: result.user, claimed: result.claimed };
     },
     claim: async ({ token }) => {
-      const result = authorizeHeaders(req.headers);
+      const result = authorizeHeaders(headers);
       if (!result.ok) throw authError(result.status, result.error);
       if (!result.user) {
         throw new TRPCError({
@@ -87,10 +85,10 @@ function makeSystemService(req: Request): HostTrpcServices["system"] {
   };
 }
 
-function makeSessionService(runtime: HostRuntime): HostTrpcServices["sessions"] {
+function makeSessionService(): HostTrpcServices["sessions"] {
   const run = <A, E>(
     f: (manager: Context.Tag.Service<SessionManager>) => Effect.Effect<A, E>,
-  ) => runEffectForTrpc(runtime, Effect.flatMap(SessionManager, f));
+  ) => runEffectForTrpc(Effect.flatMap(SessionManager, f));
 
   return {
     list: ({ archived }) => run((manager) => manager.list({ archived })),
@@ -109,10 +107,10 @@ function makeSessionService(runtime: HostRuntime): HostTrpcServices["sessions"] 
   };
 }
 
-function makeAuthService(runtime: HostRuntime): HostTrpcServices["auth"] {
+function makeAuthService(): HostTrpcServices["auth"] {
   const run = <A, E>(
     f: (auth: Context.Tag.Service<ProviderAuth>) => Effect.Effect<A, E>,
-  ) => runEffectForTrpc(runtime, Effect.flatMap(ProviderAuth, f));
+  ) => runEffectForTrpc(Effect.flatMap(ProviderAuth, f));
 
   return {
     providers: () => run((auth) => auth.listProviders()),
@@ -124,11 +122,11 @@ function makeAuthService(runtime: HostRuntime): HostTrpcServices["auth"] {
   };
 }
 
-function makeContext(runtime: HostRuntime, req: Request): HostTrpcServices {
+function makeContext(req: Request): HostTrpcServices {
   return {
     system: makeSystemService(req),
-    sessions: makeSessionService(runtime),
-    auth: makeAuthService(runtime),
+    sessions: makeSessionService(),
+    auth: makeAuthService(),
     commands: {
       list: async () => loadCommands(),
     },
@@ -138,13 +136,15 @@ function makeContext(runtime: HostRuntime, req: Request): HostTrpcServices {
   };
 }
 
-export function mountTrpcRoutes(app: Hono, runtime: HostRuntime): void {
-  app.all("/trpc/*", (c) =>
-    fetchRequestHandler({
-      endpoint: "/trpc",
-      req: c.req.raw,
-      router: appRouter,
-      createContext: ({ req }) => makeContext(runtime, req),
-    }),
-  );
-}
+// The tRPC fetch adapter speaks web Request/Response; `fromWebHandler` bridges
+// it onto the @effect/platform router (it reads HttpServerRequest, converts to a
+// web Request, and converts the Response back). Effects fired inside resolvers
+// run on the module-level host runtime via the closures above.
+export const trpcRoute = HttpApp.fromWebHandler((request) =>
+  fetchRequestHandler({
+    endpoint: "/trpc",
+    req: request,
+    router: appRouter,
+    createContext: ({ req }) => makeContext(req),
+  }),
+);

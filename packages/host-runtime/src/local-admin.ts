@@ -1,10 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Hono } from "hono";
 import { HOST_DATA_DIR, DB_PATH, WORKSPACES_DIR } from "./config.ts";
-import { currentPairingToken, picoHostOwnerLogins, setPairingToken } from "./auth.ts";
+import { currentPairingToken, headerValue, picoHostOwnerLogins, setPairingToken, type HeaderSource } from "./auth.ts";
 import { hostSystemInfo } from "./http/system.ts";
+import type { LocalAdminPairingData, LocalAdminStatusData } from "./http/api.ts";
 
 const ADMIN_TOKEN_FILE = "admin-token";
 const PAIRING_TOKEN_FILE = "pairing-token";
@@ -41,18 +41,18 @@ function writePairingToken(token: string): string {
   return token.trim();
 }
 
-function readAuthToken(headers: Headers): string | undefined {
-  const bearer = headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-  return bearer || headers.get("x-pico-admin-token")?.trim() || undefined;
+function readAuthToken(headers: HeaderSource): string | undefined {
+  const bearer = headerValue(headers, "authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  return bearer || headerValue(headers, "x-pico-admin-token")?.trim() || undefined;
 }
 
-function authorized(headers: Headers): boolean {
+export function adminTokenAuthorized(headers: HeaderSource): boolean {
   const expected = ensureLocalAdminToken();
   const actual = readAuthToken(headers);
   return Boolean(actual && actual === expected);
 }
 
-function adminStatus() {
+export function adminStatus(): LocalAdminStatusData {
   const owners = picoHostOwnerLogins();
   return {
     ok: true,
@@ -69,24 +69,15 @@ function adminStatus() {
   };
 }
 
-export function mountLocalAdminRoutes(app: Hono): void {
-  app.use("/admin/*", async (c, next) => {
-    if (!authorized(c.req.raw.headers)) {
-      return c.json({ error: "invalid_admin_token" }, 401);
-    }
-    await next();
-  });
-
-  app.get("/admin/status", (c) => c.json(adminStatus()));
-
-  app.get("/admin/pairing", (c) => c.json({
+export function adminPairing(): LocalAdminPairingData {
+  return {
     token: currentPairingToken(),
     tokenConfigured: Boolean(currentPairingToken()),
     ...adminStatus(),
-  }));
+  };
+}
 
-  app.post("/admin/pairing/rotate", (c) => {
-    const token = writePairingToken(randomBytes(24).toString("base64url"));
-    return c.json({ token, tokenConfigured: true, ...adminStatus() });
-  });
+export function rotatePairing(): LocalAdminPairingData {
+  const token = writePairingToken(randomBytes(24).toString("base64url"));
+  return { token, tokenConfigured: true, ...adminStatus() };
 }

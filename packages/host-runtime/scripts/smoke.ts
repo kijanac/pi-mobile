@@ -1,13 +1,15 @@
 import { strict as assert } from "node:assert";
 import { once } from "node:events";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
-import { serve } from "@hono/node-server";
+import type { Server } from "node:http";
 import { WebSocket } from "ws";
 
-const tempRoot = mkdtempSync(join(tmpdir(), "pico-host-smoke-"));
+// realpath so comparisons hold on platforms where tmpdir is a symlink (macOS
+// /var -> /private/var); listFs and session cwd are canonicalized host-side.
+const tempRoot = realpathSync(mkdtempSync(join(tmpdir(), "pico-host-smoke-")));
 const workspaceDir = join(tempRoot, "workspace");
 mkdirSync(workspaceDir, { recursive: true });
 
@@ -137,15 +139,17 @@ async function expectIncrementalWsReplay(wsUrl: string, sessionId: string): Prom
 }
 
 try {
-  const [{ makeHttpApp }, { hostRuntime }, { attachWebSocketUpgrade }] = await Promise.all([
-    import("../src/http/app.ts"),
+  const [{ launchHttpServer }, { hostRuntime }] = await Promise.all([
+    import("../src/host.ts"),
     import("../src/runtime.ts"),
-    import("../src/server.ts"),
   ]);
 
-  const app = makeHttpApp(hostRuntime);
-  const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port: 0 });
-  const wss = attachWebSocketUpgrade(server, hostRuntime);
+  let resolveServer: (server: Server) => void;
+  const serverReady = new Promise<Server>((resolve) => {
+    resolveServer = resolve;
+  });
+  const running = launchHttpServer(0, "127.0.0.1", (server) => resolveServer(server));
+  const server = await serverReady;
 
   try {
     await once(server, "listening");
@@ -225,8 +229,7 @@ try {
 
     console.log("Pico host smoke tests passed");
   } finally {
-    wss.close();
-    server.close();
+    await running.stop();
     await hostRuntime.dispose();
   }
 } finally {

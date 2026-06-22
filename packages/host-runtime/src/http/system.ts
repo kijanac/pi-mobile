@@ -1,5 +1,4 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import type { Hono } from "hono";
 import {
   MIN_MOBILE_VERSION,
   PRODUCT_VERSION,
@@ -50,8 +49,4 @@ export function hostSystemInfo() {
 export function requestHostUpdate(): HostUpdateStatus {
   writeFileSync(UPDATE_REQUEST_PATH, `${Date.now()}\n`);
   return readUpdateStatus();
-}
-
-export function mountSystemRoutes(app: Hono): void {
-  app.get("/healthz", (c) => c.text("ok"));
 }

@@ -1,9 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import type { IncomingHttpHeaders } from "node:http";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import type { HostErrorCode } from "@pico/protocol";
-import type { Context, Next } from "hono";
 import { DB_PATH, HOST_DATA_DIR, HOST_INSECURE_NO_AUTH, INITIAL_PAIRING_TOKEN } from "./config.ts";
 import { HostError } from "./errors.ts";
 
@@ -29,8 +27,16 @@ export type AuthResult =
   | { ok: true; user?: string; claimed: boolean }
   | { ok: false; status: 401 | 403; error: HostErrorCode; user?: string };
 
-const firstHeader = (value: string | string[] | undefined): string | undefined =>
-  Array.isArray(value) ? value[0] : value;
+// A lowercased-key header record. Both the raw ws upgrade (node
+// `IncomingHttpHeaders`) and the HttpApi middleware (`@effect/platform` header
+// record) are already this shape; the tRPC fetch adapter's web `Headers` is
+// converted to it at that call site. `string[]` covers node's multi-valued case.
+export type HeaderSource = Record<string, string | string[] | undefined>;
+
+export function headerValue(headers: HeaderSource, name: string): string | undefined {
+  const value = headers[name.toLowerCase()];
+  return Array.isArray(value) ? value[0] : value;
+}
 
 const UNCLAIMED_ALLOWED_PATHS = new Set([
   "/trpc/system.info",
@@ -38,7 +44,7 @@ const UNCLAIMED_ALLOWED_PATHS = new Set([
   "/trpc/system.claim",
 ]);
 
-const isAllowedBeforeClaim = (path: string): boolean => UNCLAIMED_ALLOWED_PATHS.has(path);
+export const isAllowedBeforeClaim = (path: string): boolean => UNCLAIMED_ALLOWED_PATHS.has(path);
 
 interface OwnerDb {
   readonly db: DatabaseSync;
@@ -128,15 +134,10 @@ export function claimPicoHostOwner(login: string, token?: string): { claimed: tr
 // hold — never bind this process to a non-loopback host, and never front it
 // with a proxy that forwards client `Tailscale-*` headers, or callers can
 // spoof any identity.
-export function authorizeHeaders(headers: IncomingHttpHeaders | Headers): AuthResult {
+export function authorizeHeaders(headers: HeaderSource): AuthResult {
   if (!REQUIRE_TAILSCALE_AUTH) return { ok: true, claimed: true };
 
-  const get = (name: string): string | undefined =>
-    headers instanceof Headers
-      ? headers.get(name) ?? undefined
-      : firstHeader(headers[name.toLowerCase()]);
-
-  const login = get("tailscale-user-login")?.trim().toLowerCase();
+  const login = headerValue(headers, "tailscale-user-login")?.trim().toLowerCase();
   if (!login) {
     return {
       ok: false,
@@ -156,21 +157,4 @@ export function authorizeHeaders(headers: IncomingHttpHeaders | Headers): AuthRe
   }
 
   return { ok: true, user: login, claimed: owners.size > 0 };
-}
-
-export async function requireTailscaleAuth(c: Context, next: Next): Promise<Response | void> {
-  const path = new URL(c.req.url).pathname;
-  if (path === "/healthz" || isAllowedBeforeClaim(path)) {
-    await next();
-    return;
-  }
-
-  const result = authorizeHeaders(c.req.raw.headers);
-  if (!result.ok) {
-    return c.json({ error: result.error, hostErrorCode: result.error }, result.status);
-  }
-  if (!result.claimed) {
-    return c.json({ error: "pico_host_unclaimed", hostErrorCode: "pico_host_unclaimed" }, 403);
-  }
-  await next();
 }

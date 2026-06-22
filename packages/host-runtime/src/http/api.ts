@@ -42,3 +42,6 @@ const AdminGroup = HttpApiGroup.make("admin")
   .add(HttpApiEndpoint.post("pairingRotate", "/admin/pairing/rotate").addSuccess(LocalAdminPairing));
 
 export const PicoHostApi = HttpApi.make("PicoHost").add(SystemGroup).add(AdminGroup);
+
+export type LocalAdminStatusData = typeof LocalAdminStatus.Type;
+export type LocalAdminPairingData = typeof LocalAdminPairing.Type;
