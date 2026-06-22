@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { prepareServing } from "../host/index.ts";
+import { prepareServing } from "../host/setup.ts";
 import { printActionDiagnostics } from "../lib/diagnostics.ts";
 
 export const serveCommand = Effect.gen(function* () {

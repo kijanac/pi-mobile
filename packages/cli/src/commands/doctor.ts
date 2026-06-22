@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { collectDoctorChecks } from "../host/index.ts";
+import { collectDoctorChecks } from "../host/doctor.ts";
 import { printDiagnosticTable } from "../lib/diagnostics.ts";
 
 export const doctorCommand = Effect.gen(function* () {

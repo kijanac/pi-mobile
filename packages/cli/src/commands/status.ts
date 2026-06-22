@@ -1,17 +1,10 @@
 import { Effect } from "effect";
-import {
-  getLocalAdminStatus,
-  healthcheck,
-  inspectTailscale,
-  localAdminTokenPath,
-  pairingTokenPath,
-  picoHostPathsFromEnv,
-  portIsOpen,
-  readLocalAdminToken,
-  readPairingToken,
-  systemPicoHostPathsFromEnv,
-  type ServiceMode,
-} from "../host/index.ts";
+import { getLocalAdminStatus, localAdminTokenPath, readLocalAdminToken } from "../host/admin.ts";
+import { healthcheck, portIsOpen } from "../host/network.ts";
+import { picoHostPathsFromEnv, systemPicoHostPathsFromEnv } from "../host/paths.ts";
+import { pairingTokenPath, readPairingToken } from "../host/pairing.ts";
+import { type ServiceMode } from "../host/service.ts";
+import { inspectTailscale } from "../host/tailscale.ts";
 
 export const statusCommand = (options: { readonly mode?: ServiceMode; readonly systemUser?: string } = {}) =>
   Effect.gen(function* () {

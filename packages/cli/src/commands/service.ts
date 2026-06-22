@@ -1,17 +1,16 @@
 import { resolve } from "node:path";
 import { Effect, Option } from "effect";
+import { picoHostPathsFromEnv, systemPicoHostPathsFromEnv } from "../host/paths.ts";
 import {
   defaultServiceCommand,
   installService,
   logsService,
-  picoHostPathsFromEnv,
   serviceFilePath,
   startService,
   stopService,
   uninstallService,
-  systemPicoHostPathsFromEnv,
   type ServiceMode,
-} from "../host/index.ts";
+} from "../host/service.ts";
 import { printServiceResults } from "../lib/diagnostics.ts";
 
 export interface ServiceCliOptions {

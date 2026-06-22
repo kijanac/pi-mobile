@@ -1,5 +1,6 @@
 import { Effect } from "effect";
-import { makePairingDeepLink, preparePairing, type PairingPlan } from "../host/index.ts";
+import { makePairingDeepLink } from "../host/pairing.ts";
+import { preparePairing, type PairingPlan } from "../host/setup.ts";
 import { printActionDiagnostics } from "../lib/diagnostics.ts";
 import { terminalQr } from "../lib/terminal.ts";
 
