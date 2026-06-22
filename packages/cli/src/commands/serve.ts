@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { prepareServing } from "@pico/host";
+import { prepareServing } from "../host/index.ts";
 import { printActionDiagnostics } from "../lib/diagnostics.ts";
 
 export const serveCommand = Effect.gen(function* () {

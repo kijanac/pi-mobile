@@ -11,7 +11,7 @@ import {
   uninstallService,
   systemPicoHostPathsFromEnv,
   type ServiceMode,
-} from "@pico/host";
+} from "../host/index.ts";
 import { printServiceResults } from "../lib/diagnostics.ts";
 
 export interface ServiceCliOptions {

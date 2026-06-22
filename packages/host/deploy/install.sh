@@ -12,7 +12,7 @@
 #     and configures tailscale serve when PICO_HOST_AUTO_DEPLOY=1
 #
 # For self-service cloud-init installs, clone this repo and run with:
-#   TS_AUTHKEY=... PICO_HOSTNAME=... TAILSCALE_SERVE=1 PICO_HOST_AUTO_DEPLOY=1 ./packages/host-runtime/deploy/install.sh
+#   TS_AUTHKEY=... PICO_HOSTNAME=... TAILSCALE_SERVE=1 PICO_HOST_AUTO_DEPLOY=1 ./packages/host/deploy/install.sh
 
 set -euo pipefail
 
@@ -196,7 +196,7 @@ if [[ "$PICO_HOST_AUTO_DEPLOY" == "1" ]]; then
 
   step "pnpm install (prod)"
   cd "$INSTALL_DIR/current"
-  pnpm --filter @pico/host-runtime... install --prod --frozen-lockfile
+  pnpm --filter @pico/host... install --prod --frozen-lockfile
   chown -R "$USER_NAME:$USER_NAME" "$TARGET"
 
   step "start Pico host"
@@ -231,9 +231,9 @@ else
   cat <<'EOF'
 
 Next steps:
-  1. From your laptop, run packages/host-runtime/deploy/deploy.sh to push the workspace
+  1. From your laptop, run packages/host/deploy/deploy.sh to push the workspace
   2. Authenticate pi on the server:
-       cd /opt/pi-mobile-workspace/current/packages/host-runtime
+       cd /opt/pi-mobile-workspace/current/packages/host
        sudo -u pico-host HOME=/var/lib/pico-host pnpm exec pi
        # inside pi: /login, choose provider, complete browser/device flow, /quit
      Or edit /etc/pico-host/env for API-key mode.

@@ -11,7 +11,7 @@ import {
   readPairingToken,
   systemPicoHostPathsFromEnv,
   type ServiceMode,
-} from "@pico/host";
+} from "../host/index.ts";
 
 export const statusCommand = (options: { readonly mode?: ServiceMode; readonly systemUser?: string } = {}) =>
   Effect.gen(function* () {

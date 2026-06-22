@@ -1,4 +1,4 @@
-# @pico/host-runtime
+# @pico/host
 
 A Node + Effect Pico host runtime between the [Pico](../pi-mobile/) client
 and the [Pi](https://pi.dev) coding agent.

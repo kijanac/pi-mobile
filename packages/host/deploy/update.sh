@@ -43,7 +43,7 @@ health_check() {
 }
 
 admin() {
-  (cd "$CURRENT_LINK" && pnpm --filter @pico/host-runtime exec tsx deploy/admin.ts "$@")
+  (cd "$CURRENT_LINK" && pnpm --filter @pico/host exec tsx deploy/admin.ts "$@")
 }
 
 state_set() {
@@ -101,7 +101,7 @@ rm -rf "$TARGET.tmp" "$TARGET"
 mkdir -p "$TARGET.tmp"
 tar -C "$TARGET.tmp" --strip-components=1 -xzf "$ARCHIVE"
 cd "$TARGET.tmp"
-pnpm --filter @pico/host-runtime... install --prod --frozen-lockfile
+pnpm --filter @pico/host... install --prod --frozen-lockfile
 cd /
 chown -R pico-host:pico-host "$TARGET.tmp"
 mv "$TARGET.tmp" "$TARGET"
@@ -111,7 +111,7 @@ PREVIOUS=""
 ln -sfn "$TARGET" "$CURRENT_LINK"
 
 run_release_migrations() {
-  local usage_migration="$CURRENT_LINK/packages/host-runtime/deploy/migrate-message-usage-shape.mjs"
+  local usage_migration="$CURRENT_LINK/packages/host/deploy/migrate-message-usage-shape.mjs"
   if [[ -f "$usage_migration" ]]; then
     log "running message usage migration"
     PICO_HOST_DB="$DATA_DIR/pico-host.db" node "$usage_migration" "$DATA_DIR/pico-host.db"
@@ -129,14 +129,14 @@ rollback() {
 }
 
 sync_deploy_files() {
-  if [[ -f "$CURRENT_LINK/packages/host-runtime/deploy/update.sh" ]]; then
-    install -o root -g root -m 0755 "$CURRENT_LINK/packages/host-runtime/deploy/update.sh" "$APP_DIR/update.sh"
+  if [[ -f "$CURRENT_LINK/packages/host/deploy/update.sh" ]]; then
+    install -o root -g root -m 0755 "$CURRENT_LINK/packages/host/deploy/update.sh" "$APP_DIR/update.sh"
   fi
 
   if [[ -w /etc/systemd/system ]]; then
     for unit in pico-host.service pico-host-update.service pico-host-update.timer pico-host-update.path; do
-      if [[ -f "$CURRENT_LINK/packages/host-runtime/deploy/$unit" ]]; then
-        install -o root -g root -m 0644 "$CURRENT_LINK/packages/host-runtime/deploy/$unit" "/etc/systemd/system/$unit"
+      if [[ -f "$CURRENT_LINK/packages/host/deploy/$unit" ]]; then
+        install -o root -g root -m 0644 "$CURRENT_LINK/packages/host/deploy/$unit" "/etc/systemd/system/$unit"
       fi
     done
     systemctl daemon-reload

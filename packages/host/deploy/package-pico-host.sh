@@ -2,7 +2,7 @@
 # Build the pico-host release artifact and signed manifest inputs.
 #
 # Usage:
-#   packages/host-runtime/deploy/package-pico-host.sh [version]
+#   packages/host/deploy/package-pico-host.sh [version]
 #
 # Outputs under dist/pico-host-release/:
 #   pico-host-<version>.tar.gz
@@ -30,7 +30,7 @@ find "$STAGE" -name '*.tsbuildinfo' -delete
 tar -C "$OUT_DIR/stage" -czf "$OUT_DIR/$ARTIFACT" "pico-host-$VERSION"
 SHA256="$(sha256sum "$OUT_DIR/$ARTIFACT" | awk '{print $1}')"
 
-(cd "$ROOT" && pnpm --filter @pico/host-runtime exec tsx deploy/admin.ts package-release "$VERSION" "$ARTIFACT" "$SHA256") >"$OUT_DIR/pico-host-release.json"
+(cd "$ROOT" && pnpm --filter @pico/host exec tsx deploy/admin.ts package-release "$VERSION" "$ARTIFACT" "$SHA256") >"$OUT_DIR/pico-host-release.json"
 
 SIGNING_KEY_PEM="${PICO_HOST_RELEASE_SIGNING_KEY_PEM:-${RELEASE_SIGNING_KEY_PEM:-}}"
 if [[ -n "$SIGNING_KEY_PEM" ]]; then

@@ -1,5 +1,5 @@
-export { getBundledPiSdkVersion, startPicoHost } from "@pico/host-runtime/host";
-export type { PicoHostHandle, StartPicoHostOptions } from "@pico/host-runtime/host";
+export { getBundledPiSdkVersion, startPicoHost } from "@pico/host";
+export type { PicoHostHandle, StartPicoHostOptions } from "@pico/host";
 export { getLocalAdminPairing, getLocalAdminStatus, localAdminTokenPath, readLocalAdminToken, rotateLocalAdminPairingToken } from "./admin.ts";
 export type { LocalAdminPairing, LocalAdminStatus } from "./admin.ts";
 export { collectDoctorChecks } from "./doctor.ts";

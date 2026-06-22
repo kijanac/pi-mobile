@@ -4,7 +4,7 @@ import { FetchHttpClient, FileSystem } from "@effect/platform";
 import { RpcClient, RpcSerialization } from "@effect/rpc";
 import { Duration, Effect, Layer } from "effect";
 import { PicoRpc } from "@pico/protocol/rpc";
-import { getBundledPiSdkVersion } from "@pico/host-runtime/host";
+import { getBundledPiSdkVersion } from "@pico/host";
 import { commandExists, run, runOutput } from "./exec.ts";
 import type { Diagnostic } from "./errors.ts";
 import { healthcheck, portIsOpen } from "./network.ts";

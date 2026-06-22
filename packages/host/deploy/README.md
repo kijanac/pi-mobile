@@ -40,7 +40,7 @@ the generated cloud-init into your cloud provider's user-data field.
 On first boot it will:
 
 1. Clone this repo.
-2. Run `packages/host-runtime/deploy/install.sh` with `TS_AUTHKEY`, `PICO_HOSTNAME`,
+2. Run `packages/host/deploy/install.sh` with `TS_AUTHKEY`, `PICO_HOSTNAME`,
    `TAILSCALE_SERVE=1`, and `PICO_HOST_AUTO_DEPLOY=1`.
 3. Join the VPS to your tailnet, install pico-host, install production
    dependencies, start the systemd service, and run `tailscale serve`.
@@ -58,7 +58,7 @@ must come from the claimed owner.
 
 ```sh
 # from the repository root on your laptop
-scp -r packages/host-runtime/deploy/ root@YOURBOX:/tmp/pico-host-deploy/
+scp -r packages/host/deploy/ root@YOURBOX:/tmp/pico-host-deploy/
 ssh root@YOURBOX 'bash /tmp/pico-host-deploy/install.sh'
 ```
 
@@ -79,7 +79,7 @@ then run:
 
 ```sh
 ssh root@YOURBOX
-cd /opt/pi-mobile-workspace/current/packages/host-runtime
+cd /opt/pi-mobile-workspace/current/packages/host
 sudo -u pico-host HOME=/var/lib/pico-host pnpm exec pi
 # inside pi: /login, choose Claude / OpenAI Codex / GitHub Copilot,
 # complete the browser or device-code flow, then /quit
@@ -95,7 +95,7 @@ such as `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`.
 
 ```sh
 # from the repository root
-PICO_DEPLOY_HOST=root@YOURBOX ./packages/host-runtime/deploy/deploy.sh
+PICO_DEPLOY_HOST=root@YOURBOX ./packages/host/deploy/deploy.sh
 ```
 
 If this is your first deploy and you want subscription auth, run the `pi /login`
@@ -106,7 +106,7 @@ ssh root@YOURBOX 'systemctl restart pico-host'
 ```
 
 This rsyncs the workspace pieces the Pico host needs — root pnpm metadata,
-`packages/host-runtime/`, and `packages/` — to `/opt/pi-mobile-workspace`, runs a filtered
+`packages/host/`, and `packages/` — to `/opt/pi-mobile-workspace`, runs a filtered
 production install for `pico-host` and its workspace dependencies, restarts the
 service, and hits `/healthz` to confirm the boot succeeded.
 
@@ -125,7 +125,7 @@ Professional self-service installs use versioned Pico host releases:
 /opt/pi-mobile-workspace/current -> releases/<version>
 ```
 
-`pico-host.service` runs from `current/packages/host-runtime`. The updater downloads the
+`pico-host.service` runs from `current/packages/host`. The updater downloads the
 latest GitHub Release manifest, verifies its signature when configured,
 checks the artifact SHA-256 from that manifest, extracts to a new release
 directory, switches the `current` symlink, restarts the Pico host, health-checks
@@ -134,7 +134,7 @@ directory, switches the `current` symlink, restarts the Pico host, health-checks
 Release assets are produced by:
 
 ```sh
-packages/host-runtime/deploy/package-pico-host.sh 0.2.2
+packages/host/deploy/package-pico-host.sh 0.2.2
 ```
 
 The GitHub workflow `.github/workflows/pico-host-release.yml` runs this for
@@ -148,7 +148,7 @@ pico-host-release.json.sig
 
 Set `PICO_HOST_RELEASE_SIGNING_KEY_PEM` in GitHub Actions secrets to sign the
 manifest. The matching public key is bundled at
-`packages/host-runtime/deploy/update-public-key.pem` and installed to:
+`packages/host/deploy/update-public-key.pem` and installed to:
 
 ```text
 /etc/pico-host/update-public-key.pem
@@ -173,7 +173,7 @@ server command after publishing a release, run:
 ```sh
 systemctl start pico-host-update.service && \
   systemctl stop pico-host && \
-  node /opt/pi-mobile-workspace/current/packages/host-runtime/deploy/migrate-message-usage-shape.mjs /var/lib/pico-host/pico-host.db && \
+  node /opt/pi-mobile-workspace/current/packages/host/deploy/migrate-message-usage-shape.mjs /var/lib/pico-host/pico-host.db && \
   systemctl start pico-host && \
   curl -fsS http://127.0.0.1:7777/healthz
 ```
@@ -308,7 +308,7 @@ userdel pico-host
 `/etc/pico-host/env` for API-key mode. For subscription auth, re-run:
 
 ```sh
-cd /opt/pi-mobile-workspace/current/packages/host-runtime
+cd /opt/pi-mobile-workspace/current/packages/host
 sudo -u pico-host HOME=/var/lib/pico-host pnpm exec pi
 ```
 

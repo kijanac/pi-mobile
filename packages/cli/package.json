@@ -32,7 +32,9 @@
     "@effect/cli": "^0.75.2",
     "@effect/platform": "^0.96.2",
     "@effect/platform-node": "^0.107.0",
+    "@effect/rpc": "^0.75.1",
     "@pico/host": "workspace:*",
+    "@pico/protocol": "workspace:*",
     "effect": "^3.21.4",
     "qrcode": "^1.5.4"
   },

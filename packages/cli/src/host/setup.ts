@@ -1,7 +1,7 @@
 import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
-import type { PicoHostHandle } from "@pico/host-runtime/host";
-import { startPicoHost } from "@pico/host-runtime/host";
+import type { PicoHostHandle } from "@pico/host";
+import { startPicoHost } from "@pico/host";
 import { getLocalAdminPairing, rotateLocalAdminPairingToken, type LocalAdminPairing } from "./admin.ts";
 import { PicoSetupError, type Diagnostic } from "./errors.ts";
 import { healthcheck, portIsOpen } from "./network.ts";

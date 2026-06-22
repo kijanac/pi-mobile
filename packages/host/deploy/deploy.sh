@@ -2,7 +2,7 @@
 # pico-host push deploy from laptop.
 #
 # Usage from the repository root:
-#   PICO_DEPLOY_HOST=root@mybox ./packages/host-runtime/deploy/deploy.sh
+#   PICO_DEPLOY_HOST=root@mybox ./packages/host/deploy/deploy.sh
 #
 # Run from anywhere; the script anchors itself to its own location so
 # rsync sources from the correct tree. Assumes install.sh has already
@@ -13,12 +13,12 @@ set -euo pipefail
 HOST="${PICO_DEPLOY_HOST:-}"
 if [[ -z "$HOST" ]]; then
   echo "PICO_DEPLOY_HOST not set. Example:" >&2
-  echo "  PICO_DEPLOY_HOST=root@1.2.3.4 ./packages/host-runtime/deploy/deploy.sh" >&2
+  echo "  PICO_DEPLOY_HOST=root@1.2.3.4 ./packages/host/deploy/deploy.sh" >&2
   exit 1
 fi
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# deploy.sh lives in packages/host-runtime/deploy; the source root is the workspace root.
+# deploy.sh lives in packages/host/deploy; the source root is the workspace root.
 ROOT="$(cd "$HERE/../../.." && pwd)"
 REMOTE=/opt/pi-mobile-workspace
 VERSION="$(node -p "require('$ROOT/package.json').version")"
@@ -28,7 +28,7 @@ step() { printf '\n\033[1;36m== %s ==\033[0m\n' "$1"; }
 
 step "preflight"
 ssh -o ConnectTimeout=5 "$HOST" "test -d $REMOTE && id pico-host >/dev/null 2>&1" \
-  || { echo "  server isn't set up — run packages/host-runtime/deploy/install.sh on it first" >&2; exit 1; }
+  || { echo "  server isn't set up — run packages/host/deploy/install.sh on it first" >&2; exit 1; }
 echo "  $HOST:$REMOTE ready"
 
 # Remember what `current` points at so a failed deploy can roll back.
@@ -70,16 +70,16 @@ ssh "$HOST" "printf '%s\\n' '$VERSION' > $REMOTE_RELEASE.tmp/VERSION && \
 step "pnpm install (prod)"
 ssh "$HOST" "cd $REMOTE/current && \
   corepack enable && \
-  pnpm --filter @pico/host-runtime... install --prod --frozen-lockfile && \
+  pnpm --filter @pico/host... install --prod --frozen-lockfile && \
   chown -R pico-host:pico-host $REMOTE_RELEASE"
 
 step "systemd units"
-ssh "$HOST" "install -o root -g root -m 0644 $REMOTE/current/packages/host-runtime/deploy/pico-host.service /etc/systemd/system/pico-host.service && \
-  install -o root -g root -m 0644 $REMOTE/current/packages/host-runtime/deploy/pico-host-update.service /etc/systemd/system/pico-host-update.service && \
-  install -o root -g root -m 0644 $REMOTE/current/packages/host-runtime/deploy/pico-host-update.timer /etc/systemd/system/pico-host-update.timer && \
-  install -o root -g root -m 0644 $REMOTE/current/packages/host-runtime/deploy/pico-host-update.path /etc/systemd/system/pico-host-update.path && \
-  install -o root -g root -m 0755 $REMOTE/current/packages/host-runtime/deploy/update.sh $REMOTE/update.sh && \
-  install -o root -g pico-host -m 0640 $REMOTE/current/packages/host-runtime/deploy/update-public-key.pem /etc/pico-host/update-public-key.pem && \
+ssh "$HOST" "install -o root -g root -m 0644 $REMOTE/current/packages/host/deploy/pico-host.service /etc/systemd/system/pico-host.service && \
+  install -o root -g root -m 0644 $REMOTE/current/packages/host/deploy/pico-host-update.service /etc/systemd/system/pico-host-update.service && \
+  install -o root -g root -m 0644 $REMOTE/current/packages/host/deploy/pico-host-update.timer /etc/systemd/system/pico-host-update.timer && \
+  install -o root -g root -m 0644 $REMOTE/current/packages/host/deploy/pico-host-update.path /etc/systemd/system/pico-host-update.path && \
+  install -o root -g root -m 0755 $REMOTE/current/packages/host/deploy/update.sh $REMOTE/update.sh && \
+  install -o root -g pico-host -m 0640 $REMOTE/current/packages/host/deploy/update-public-key.pem /etc/pico-host/update-public-key.pem && \
   systemctl daemon-reload && \
   systemctl enable --now pico-host-update.path >/dev/null"
 

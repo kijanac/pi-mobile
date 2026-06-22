@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { makePairingDeepLink, preparePairing, type PairingPlan } from "@pico/host";
+import { makePairingDeepLink, preparePairing, type PairingPlan } from "../host/index.ts";
 import { printActionDiagnostics } from "../lib/diagnostics.ts";
 import { terminalQr } from "../lib/terminal.ts";
 

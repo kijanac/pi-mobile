@@ -2,7 +2,7 @@
 import { Command, HelpDoc, Options, Span, ValidationError } from "@effect/cli";
 import { NodeContext, NodeRuntime } from "@effect/platform-node";
 import { Effect } from "effect";
-import { setupErrorMessage } from "@pico/host";
+import { setupErrorMessage } from "./host/index.ts";
 import { doctorCommand } from "./commands/doctor.ts";
 import { pairCodeCommand, pairCommand } from "./commands/pair.ts";
 import {

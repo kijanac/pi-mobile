@@ -1,4 +1,4 @@
-import type { Diagnostic, ServiceResult } from "@pico/host";
+import type { Diagnostic, ServiceResult } from "../host/index.ts";
 
 export type Level = Diagnostic["level"];
 

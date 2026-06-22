@@ -24,9 +24,15 @@ importers:
       '@effect/platform-node':
         specifier: ^0.107.0
         version: 0.107.0(@effect/cluster@0.59.0(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/sql@0.51.1(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/workflow@0.18.2(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/sql@0.51.1(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(effect@3.21.4)
+      '@effect/rpc':
+        specifier: ^0.75.1
+        version: 0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4)
       '@pico/host':
         specifier: workspace:*
         version: link:../host
+      '@pico/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       effect:
         specifier: ^3.21.4
         version: 3.21.4
@@ -48,34 +54,6 @@ importers:
         version: 5.9.3
 
   packages/host:
-    dependencies:
-      '@effect/platform':
-        specifier: ^0.96.2
-        version: 0.96.2(effect@3.21.4)
-      '@effect/platform-node':
-        specifier: ^0.107.0
-        version: 0.107.0(@effect/cluster@0.59.0(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/sql@0.51.1(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/workflow@0.18.2(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/sql@0.51.1(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(effect@3.21.4)
-      '@effect/rpc':
-        specifier: ^0.75.1
-        version: 0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4)
-      '@pico/host-runtime':
-        specifier: workspace:*
-        version: link:../host-runtime
-      '@pico/protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      effect:
-        specifier: ^3.21.4
-        version: 3.21.4
-    devDependencies:
-      '@types/node':
-        specifier: ^25.9.1
-        version: 25.9.1(patch_hash=8a8fba69b9c79287eca025d33908156deded3c21f6bfc5de5e63e9bb4716d29c)
-      typescript:
-        specifier: ^5.9.0
-        version: 5.9.3
-
-  packages/host-runtime:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: ^0.75.5
