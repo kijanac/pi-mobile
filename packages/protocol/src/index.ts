@@ -345,10 +345,23 @@ export const SkillCommandEntry = Schema.Struct({
 });
 export type SkillCommandEntry = typeof SkillCommandEntry.Type;
 
+// Commands registered by a loaded pi extension (pi.registerCommand). Distinct
+// from prompts/skills (which are .md-backed); these dispatch through the
+// extension's handler.
+export const ExtensionCommandEntry = Schema.Struct({
+  kind: Schema.Literal("extension"),
+  name: Schema.String,
+  description: Schema.String,
+  takesArgs: Schema.optional(Schema.Boolean),
+  source: Schema.optional(Schema.String),
+});
+export type ExtensionCommandEntry = typeof ExtensionCommandEntry.Type;
+
 export const CommandEntry = Schema.Union(
   BuiltinCommandEntry,
   PromptCommandEntry,
   SkillCommandEntry,
+  ExtensionCommandEntry,
 );
 export type CommandEntry = typeof CommandEntry.Type;
 
@@ -356,6 +369,7 @@ export const Commands = Schema.Struct({
   builtins: Schema.Array(BuiltinCommandEntry),
   prompts: Schema.Array(PromptCommandEntry),
   skills: Schema.Array(SkillCommandEntry),
+  extensions: Schema.Array(ExtensionCommandEntry),
 });
 export type Commands = typeof Commands.Type;
 

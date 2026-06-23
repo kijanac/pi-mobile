@@ -904,6 +904,14 @@ const wirePiSession = (
             takesArgs: true,
             source: s.filePath,
           })),
+          // The runner's live registry — same list pi's TUI shows, including
+          // commands registered dynamically (not just at load).
+          extensions: piSession.extensionRunner.getRegisteredCommands().map((cmd) => ({
+            kind: "extension" as const,
+            name: cmd.invocationName,
+            description: cmd.description ?? "",
+            takesArgs: true,
+          })),
         })),
       getQueue: () =>
         Effect.sync(() => ({

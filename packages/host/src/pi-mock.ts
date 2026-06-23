@@ -189,7 +189,7 @@ const makeMockSession = (opts: {
           filename: "pi-session-mock.html",
         });
       },
-      listCommands: () => Effect.succeed({ builtins: [], prompts: [], skills: [] }),
+      listCommands: () => Effect.succeed({ builtins: [], prompts: [], skills: [], extensions: [] }),
       getQueue: () => Effect.succeed({ steering: [], followUp: [] }),
       clearQueue: () => Effect.succeed({ steering: [], followUp: [] }),
       patchSession: () => Effect.void,
