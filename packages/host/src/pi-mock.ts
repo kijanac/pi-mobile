@@ -1,4 +1,4 @@
-import { randomUUIDv7 } from "node:crypto";
+import { v7 as randomUUIDv7 } from "uuid";
 import { Effect, Fiber, Layer, Queue, Random, Ref, Stream } from "effect";
 import type { SessionControls, SessionMeta } from "@pico/protocol";
 import { SessionNotFound } from "./errors.ts";

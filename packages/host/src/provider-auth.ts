@@ -1,4 +1,4 @@
-import { randomUUIDv7 } from "node:crypto";
+import { v7 as randomUUIDv7 } from "uuid";
 import { Context, Effect, Layer } from "effect";
 import type { AuthLoginJob, AuthProvider, AuthProviders } from "@pico/protocol";
 import { getAgentServices, PiError, reloadAgentAuth } from "./pi.ts";

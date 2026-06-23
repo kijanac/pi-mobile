@@ -20,7 +20,7 @@ import {
   type SessionStats as PiSdkSessionStats,
 } from "@earendil-works/pi-coding-agent";
 import type { Api, AssistantMessage as PiAssistantMessage, Model } from "@earendil-works/pi-ai";
-import { randomUUIDv7 } from "node:crypto";
+import { v7 as randomUUIDv7 } from "uuid";
 import { join, resolve } from "node:path";
 import { FileSystem } from "@effect/platform";
 import {
