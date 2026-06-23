@@ -140,7 +140,7 @@ const scriptedFlow = (q: Queue.Queue<PiEmission>, userText: string) =>
       },
     });
     yield* Queue.offer(q, { t: "status", status: "waiting" });
-  }).pipe(Effect.catchAll((e) => Effect.fail(new PiError(String(e), { cause: e }))));
+  }).pipe(Effect.catchAll((e) => Effect.fail(new PiError({ message: String(e), cause: e }))));
 
 const makeMockSession = (opts: {
   cwd: string;
@@ -247,5 +247,5 @@ const makeMockSession = (opts: {
 export const PiClientMock = Layer.succeed(PiClient, {
   create: (opts) => makeMockSession(opts),
   resume: (storedMeta) =>
-    Effect.fail(new SessionNotFound(storedMeta.id)),
+    Effect.fail(new SessionNotFound({ id: storedMeta.id })),
 });

@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import type { HostErrorCode } from "@pico/protocol";
 import { DB_PATH, HOST_INSECURE_NO_AUTH, INITIAL_PAIRING_TOKEN } from "./config.ts";
-import { HostError } from "./errors.ts";
+import { HostClaimError } from "./errors.ts";
 
 // Disabled only via PICO_HOST_INSECURE_NO_AUTH.
 const REQUIRE_TAILSCALE_AUTH = !HOST_INSECURE_NO_AUTH;
@@ -93,7 +93,7 @@ function pairingTokenMatches(actual: string, expected: string): boolean {
 function assertPairingToken(token: string | undefined, owners: Set<string>): void {
   if (!pairingToken || owners.size > 0) return;
   if (!token || !pairingTokenMatches(token.trim(), pairingToken)) {
-    throw new HostError("invalid_pairing_token");
+    throw new HostClaimError({ hostErrorCode: "invalid_pairing_token" });
   }
 }
 
@@ -108,7 +108,7 @@ export function claimPicoHostOwner(login: string, token?: string): { claimed: tr
   if (result.changes === 1) return { claimed: true, owner };
 
   if (owners.has(owner) || ownerLogins().has(owner)) return { claimed: true, owner };
-  throw new HostError("pico_host_already_claimed");
+  throw new HostClaimError({ hostErrorCode: "pico_host_already_claimed" });
 }
 
 // SECURITY INVARIANT: identity comes solely from the `tailscale-user-login`

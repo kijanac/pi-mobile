@@ -11,7 +11,7 @@ import {
   SessionNotFound,
 } from "@pico/protocol/rpc";
 import { authorizeHeaders, claimPicoHostOwner } from "../auth.ts";
-import { HostError as InternalHostError, SessionNotFound as InternalSessionNotFound } from "../errors.ts";
+import { HostClaimError, SessionNotFound as InternalSessionNotFound } from "../errors.ts";
 import { listFs } from "../fs.ts";
 import { PiError } from "../pi.ts";
 import { ProviderAuth } from "../provider-auth.ts";
@@ -65,7 +65,7 @@ const HandlersLive = PicoRpc.toLayer({
         : Effect.try({
             try: () => claimPicoHostOwner(identity.user!, token),
             catch: (error) =>
-              error instanceof InternalHostError
+              error instanceof HostClaimError
                 ? new HostError({ code: error.hostErrorCode })
                 : toRequestError(error),
           }),

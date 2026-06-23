@@ -74,11 +74,11 @@ export const ProviderAuthLive = Layer.effect(
     const getDefaultServices = () =>
       Effect.tryPromise({
         try: () => getAgentServices(process.cwd()),
-        catch: (e) => new PiError(`createAgentSessionServices failed: ${String(e)}`, { cause: e }),
+        catch: (e) => new PiError({ message: `createAgentSessionServices failed: ${String(e)}`, cause: e }),
       });
     // Effect.sync treats a throw as a defect; Effect.try routes thrown PiErrors
     // into the typed channel the RPC layer maps to RequestError.
-    const asPiError = (e: unknown): PiError => (e instanceof PiError ? e : new PiError(String(e), { cause: e }));
+    const asPiError = (e: unknown): PiError => (e instanceof PiError ? e : new PiError({ message: String(e), cause: e }));
 
     return {
       listProviders: () =>
@@ -90,7 +90,7 @@ export const ProviderAuthLive = Layer.effect(
           Effect.try({
             try: () => {
             const provider = services.modelRegistry.authStorage.getOAuthProviders().find((p) => p.id === providerId);
-            if (!provider) throw new PiError(`auth provider not found: ${providerId}`, { hostErrorCode: "provider_auth_missing" });
+            if (!provider) throw new PiError({ message: `auth provider not found: ${providerId}` });
             const id = randomUUIDv7();
             const abort = new AbortController();
             const state: AuthJobState = {
@@ -142,8 +142,8 @@ export const ProviderAuthLive = Layer.effect(
           Effect.try({
             try: () => {
               const provider = services.modelRegistry.getAll().find((model) => model.provider === providerId);
-              if (!provider) throw new PiError(`auth provider not found: ${providerId}`, { hostErrorCode: "provider_auth_missing" });
-              if (providerId === BEDROCK_PROVIDER_ID) throw new PiError("Amazon Bedrock requires AWS credentials on the Pico host", { hostErrorCode: "provider_auth_missing" });
+              if (!provider) throw new PiError({ message: `auth provider not found: ${providerId}` });
+              if (providerId === BEDROCK_PROVIDER_ID) throw new PiError({ message: "Amazon Bedrock requires AWS credentials on the Pico host" });
               services.modelRegistry.authStorage.set(providerId, { type: "api_key", key: apiKey.trim() });
               services.modelRegistry.refresh();
               reloadAgentAuth();
@@ -156,7 +156,7 @@ export const ProviderAuthLive = Layer.effect(
         Effect.try({
           try: () => {
             const state = authJobs.get(jobId);
-            if (!state) throw new PiError(`auth job not found: ${jobId}`);
+            if (!state) throw new PiError({ message: `auth job not found: ${jobId}` });
             return state.job;
           },
           catch: asPiError,
@@ -165,7 +165,7 @@ export const ProviderAuthLive = Layer.effect(
         Effect.try({
           try: () => {
             const state = authJobs.get(jobId);
-            if (!state) throw new PiError(`auth job not found: ${jobId}`);
+            if (!state) throw new PiError({ message: `auth job not found: ${jobId}` });
             state.resolveInput?.(value);
             state.resolveInput = undefined;
             state.job = { ...state.job, status: "progress", progress: "Submitted authentication input…" };
@@ -177,7 +177,7 @@ export const ProviderAuthLive = Layer.effect(
         Effect.try({
           try: () => {
             const state = authJobs.get(jobId);
-            if (!state) throw new PiError(`auth job not found: ${jobId}`);
+            if (!state) throw new PiError({ message: `auth job not found: ${jobId}` });
             state.abort.abort();
             state.resolveInput?.("");
             state.job = { ...state.job, status: "cancelled" };

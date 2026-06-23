@@ -444,7 +444,7 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       const storedOpt = yield* store.getSession(id);
       if (Option.isNone(storedOpt)) {
-        return yield* Effect.fail(new SessionNotFound(id));
+        return yield* Effect.fail(new SessionNotFound({ id }));
       }
       const storedRecord = storedOpt.value;
       const storedMeta = toSessionMeta(storedRecord);
@@ -556,7 +556,7 @@ const make = Effect.gen(function* () {
       const compacting = (yield* Ref.get(ms.compacting)) || (yield* ms.pi.isCompacting());
       const queued = compacting || currentMeta.status === "thinking" || currentMeta.status === "tool";
       if (queued && (yield* Ref.get(ms.pendingSends)).length >= MAX_PENDING_SENDS) {
-        return yield* Effect.fail(new PiError(`send queue full (${MAX_PENDING_SENDS})`));
+        return yield* Effect.fail(new PiError({ message: `send queue full (${MAX_PENDING_SENDS})` }));
       }
       const queueKind: QueuedMessage["queueKind"] = mode === "follow_up" ? "follow_up" : "steer";
       const userMessageId = randomUUIDv7();
@@ -682,7 +682,7 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       const existing = yield* store.getSession(id);
       if (Option.isNone(existing))
-        return yield* Effect.fail(new SessionNotFound(id));
+        return yield* Effect.fail(new SessionNotFound({ id }));
 
       const nextRecord = {
         ...existing.value,
@@ -708,7 +708,7 @@ const make = Effect.gen(function* () {
     Effect.gen(function* () {
       const existing = yield* store.getSession(id);
       if (Option.isNone(existing))
-        return yield* Effect.fail(new SessionNotFound(id));
+        return yield* Effect.fail(new SessionNotFound({ id }));
 
       const map = yield* Ref.get(sessions);
       const live = HashMap.get(map, id);

@@ -1,5 +1,6 @@
 import {
   Context,
+  Data,
   Effect,
   Layer,
   Option,
@@ -48,7 +49,7 @@ import {
   type WireEvent,
 } from "@pico/protocol";
 import { emptyLog, reconcileOrphanedToolCalls, reduceLog } from "@pico/protocol/log";
-import { hostErrorCodeFromUnknown, SessionNotFound } from "./errors.ts";
+import { SessionNotFound } from "./errors.ts";
 import { HOST_DATA_DIR, PI_EPHEMERAL } from "./config.ts";
 import { createMobileExtensionUiChannel } from "./mobile-extension-ui-channel.ts";
 import { projectToolResult, projectToolResultContent, textFromContent } from "./tool-result-projection.ts";
@@ -111,15 +112,10 @@ export type PiEmission =
     }
   | { t: "extension_ui_request"; request: ExtensionUiRequest };
 
-export class PiError extends Error {
-  readonly _tag = "PiError";
-  readonly hostErrorCode?: HostErrorCode;
-
-  constructor(message: string, options?: ErrorOptions & { hostErrorCode?: HostErrorCode }) {
-    super(message, options);
-    this.hostErrorCode = options?.hostErrorCode ?? hostErrorCodeFromUnknown(options?.cause);
-  }
-}
+export class PiError extends Data.TaggedError("PiError")<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
 
 export type { SendMode } from "@pico/protocol";
 
@@ -301,17 +297,17 @@ const sessionSettings = (piSession: AgentSession): SessionControls => ({
 });
 
 const requireString = (key: string, value: string | boolean): string => {
-  if (typeof value !== "string") throw new PiError(`${key} requires a string value`);
+  if (typeof value !== "string") throw new PiError({ message: `${key} requires a string value` });
   return value;
 };
 
 const requireBoolean = (key: string, value: string | boolean): boolean => {
-  if (typeof value !== "boolean") throw new PiError(`${key} requires a boolean value`);
+  if (typeof value !== "boolean") throw new PiError({ message: `${key} requires a boolean value` });
   return value;
 };
 
 const requireOption = <T extends string>(key: string, value: string, options: readonly T[]): T => {
-  if (!options.includes(value as T)) throw new PiError(`${key} does not support value: ${value}`);
+  if (!options.includes(value as T)) throw new PiError({ message: `${key} does not support value: ${value}` });
   return value as T;
 };
 
@@ -320,7 +316,7 @@ const setSessionSetting = async (piSession: AgentSession, key: string, value: st
     case "model": {
       const selected = requireString(key, value);
       const model = piSession.modelRegistry.getAvailable().find((candidate) => modelControlValue(candidate) === selected);
-      if (!model) throw new PiError(`model not found: ${selected}`);
+      if (!model) throw new PiError({ message: `model not found: ${selected}` });
       await piSession.setModel(model);
       break;
     }
@@ -340,7 +336,7 @@ const setSessionSetting = async (piSession: AgentSession, key: string, value: st
       piSession.setAutoRetryEnabled(requireBoolean(key, value));
       break;
     default:
-      throw new PiError(`unknown setting: ${key}`);
+      throw new PiError({ message: `unknown setting: ${key}` });
   }
   return sessionSettings(piSession);
 };
@@ -777,7 +773,7 @@ const wirePiSession = (
           });
         },
       }),
-      catch: (e) => new PiError(`bindExtensions failed: ${String(e)}`, { cause: e }),
+      catch: (e) => new PiError({ message: `bindExtensions failed: ${String(e)}`, cause: e }),
     }).pipe(Effect.catchAll((e) => Effect.logError("[pi] extension bind failed", e)));
 
     return {
@@ -798,7 +794,7 @@ const wirePiSession = (
                   await piSession.prompt(text, piImages ? { images: piImages } : undefined);
                 },
                 catch: (e) =>
-                  new PiError(`prompt failed: ${String(e)}`, { cause: e }),
+                  new PiError({ message: `prompt failed: ${String(e)}`, cause: e }),
               }).pipe(
                 Effect.tap(() =>
                   Queue.offer(q, { t: "status", status: "idle" }),
@@ -821,10 +817,7 @@ const wirePiSession = (
               }
             },
             catch: (e) =>
-              new PiError(
-                `${useFollowUp ? "followUp" : "steer"} failed: ${String(e)}`,
-                { cause: e },
-              ),
+              new PiError({ message: `${useFollowUp ? "followUp" : "steer"} failed: ${String(e)}`, cause: e }),
           });
         }),
       isCompacting: () => Effect.sync(() => piSession.isCompacting),
@@ -852,13 +845,13 @@ const wirePiSession = (
             for (const message of rest) await queueIntoTurn(message);
             void prompt.catch((error) => console.error("[pi] queued post-compaction prompt failed:", error));
           },
-          catch: (e) => new PiError(`flushAfterCompaction failed: ${String(e)}`, { cause: e }),
+          catch: (e) => new PiError({ message: `flushAfterCompaction failed: ${String(e)}`, cause: e }),
         }),
       interrupt: () =>
         Effect.gen(function* () {
           yield* Effect.tryPromise({
             try: () => piSession.abort(),
-            catch: (e) => new PiError(`abort failed: ${String(e)}`, { cause: e }),
+            catch: (e) => new PiError({ message: `abort failed: ${String(e)}`, cause: e }),
           });
           yield* Queue.offer(q, { t: "status", status: "idle" });
         }),
@@ -874,11 +867,11 @@ const wirePiSession = (
           try: async () => {
             await piSession.compact(instructions?.trim() || undefined);
           },
-          catch: (e) => new PiError(`compact failed: ${String(e)}`, { cause: e }),
+          catch: (e) => new PiError({ message: `compact failed: ${String(e)}`, cause: e }),
         }),
       exportHtml: () =>
         Effect.gen(function* () {
-          const fail = (cause: unknown) => new PiError(`exportHtml failed: ${String(cause)}`, { cause });
+          const fail = (cause: unknown) => new PiError({ message: `exportHtml failed: ${String(cause)}`, cause });
 
           yield* fs.makeDirectory(EXPORT_DIR, { recursive: true }).pipe(Effect.mapError(fail));
           yield* cleanupOldExports(fs);
@@ -936,7 +929,7 @@ const wirePiSession = (
       patchSetting: (key, value) =>
         Effect.tryPromise({
           try: () => setSessionSetting(piSession, key, value),
-          catch: (e) => e instanceof PiError ? e : new PiError(`patchSetting failed: ${String(e)}`, { cause: e }),
+          catch: (e) => e instanceof PiError ? e : new PiError({ message: `patchSetting failed: ${String(e)}`, cause: e }),
         }),
       getStats: () => Effect.sync(() => sessionStatsWithCwd(piSession.getSessionStats(), meta.cwd)),
       getLog: () => Effect.sync(() => logEntriesFromCurrentBranch(piSession)),
@@ -947,7 +940,7 @@ const wirePiSession = (
             await piSession.navigateTree(entryId, { summarize });
             offer({ t: "log_reset", entries: logEntriesFromCurrentBranch(piSession) });
           },
-          catch: (e) => new PiError(`navigateTree failed: ${String(e)}`, { cause: e }),
+          catch: (e) => new PiError({ message: `navigateTree failed: ${String(e)}`, cause: e }),
         }),
       close: () =>
         Effect.sync(() => {
@@ -982,7 +975,7 @@ const makeLiveSession = (
 
         return session;
       },
-      catch: (e) => new PiError(`createAgentSession failed: ${String(e)}`, { cause: e }),
+      catch: (e) => new PiError({ message: `createAgentSession failed: ${String(e)}`, cause: e }),
     });
 
     const meta: SessionMeta = {
@@ -1013,7 +1006,7 @@ const makeResumedSession = (
         const infos = await PiSessionManager.list(storedRecord.cwd);
         const found = infos.find((i) => i.id === storedRecord.id);
         if (!found) {
-          throw new SessionNotFound(storedRecord.id);
+          throw new SessionNotFound({ id: storedRecord.id });
         }
 
         const sessionManager = PiSessionManager.open(found.path);
@@ -1027,7 +1020,7 @@ const makeResumedSession = (
       },
       catch: (e) => {
         if (e instanceof SessionNotFound) return e;
-        return new PiError(`resume failed: ${String(e)}`, { cause: e });
+        return new PiError({ message: `resume failed: ${String(e)}`, cause: e });
       },
     });
 
@@ -1049,7 +1042,7 @@ const makeResumedSession = (
 const loadServices = (cwd: string) =>
   Effect.tryPromise({
     try: () => getAgentServices(cwd),
-    catch: (e) => new PiError(`createAgentSessionServices failed: ${String(e)}`, { cause: e }),
+    catch: (e) => new PiError({ message: `createAgentSessionServices failed: ${String(e)}`, cause: e }),
   });
 
 export const PiClientLive = Layer.effect(
