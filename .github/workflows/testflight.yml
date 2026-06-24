@@ -19,8 +19,9 @@ env:
 jobs:
   ios:
     name: Build and upload iOS
-    # Skip prerelease tags (e.g. v1.3.0-rc.1) — rc's don't go to TestFlight.
-    if: ${{ !contains(github.ref_name, '-') }}
+    # Skip prerelease *tags* (e.g. v1.3.0-rc.1). Still runs on workflow_dispatch
+    # from any branch, where ref_name is the branch (which may contain '-').
+    if: ${{ github.ref_type != 'tag' || !contains(github.ref_name, '-') }}
     runs-on: macos-26
 
     steps:
