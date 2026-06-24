@@ -10,6 +10,8 @@ build/
 .cache/
 coverage/
 *.tsbuildinfo
+# Compiled updater (built from deploy/host-update.mts by `pnpm --filter @pico/host build:updater`)
+packages/host/deploy/host-update.mjs
 
 # Logs
 *.log
