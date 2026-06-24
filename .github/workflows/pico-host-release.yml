@@ -58,6 +58,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref_type == 'tag'
         with:
+          generate_release_notes: true
           files: |
             dist/pico-host-release/pico-host-${{ env.VERSION }}.tar.gz
             dist/pico-host-release/pico-host-release.json
