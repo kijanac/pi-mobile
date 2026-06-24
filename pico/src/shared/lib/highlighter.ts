@@ -79,7 +79,12 @@ const LANG_IMPORTS: Record<string, () => Promise<{ default: LanguageRegistration
   xml: () => import("@shikijs/langs/xml"),
 };
 
-const THEME = "github-dark-default";
+const LIGHT_THEME = "github-light-default";
+const DARK_THEME = "github-dark-default";
+const SHIKI_THEMES = { light: LIGHT_THEME, dark: DARK_THEME } as const;
+// Do not let Shiki emit a fixed inline `color:`; CSS below selects the right
+// token variable for the app's explicit `.dark` / `data-theme` state.
+const DEFAULT_COLOR = false as const;
 
 let highlighterPromise: Promise<HighlighterCore> | null = null;
 const loadingLangs = new Map<string, Promise<void>>();
@@ -88,19 +93,28 @@ const loadedLangs = new Set<string>();
 function getHighlighter(): Promise<HighlighterCore> {
   if (!highlighterPromise) {
     highlighterPromise = (async () => {
-      const [{ createHighlighterCore }, { createJavaScriptRegexEngine }] =
+      const [{ createHighlighterCore }, { createJavaScriptRegexEngine }, themes] =
         await Promise.all([
           import("shiki/core"),
           import("shiki/engine/javascript"),
+          loadThemes(),
         ]);
       return createHighlighterCore({
-        themes: [import("@shikijs/themes/github-dark-default")],
+        themes,
         langs: [],
         engine: createJavaScriptRegexEngine(),
       });
     })();
   }
   return highlighterPromise;
+}
+
+async function loadThemes() {
+  const [lightTheme, darkTheme] = await Promise.all([
+    import("@shikijs/themes/github-light-default"),
+    import("@shikijs/themes/github-dark-default"),
+  ]);
+  return [lightTheme.default, darkTheme.default];
 }
 
 function resolveLang(raw: string | undefined | null): string | null {
@@ -149,7 +163,11 @@ export async function highlightToHtml(
 
   try {
     const hl = await getHighlighter();
-    return hl.codeToHtml(code, { lang, theme: THEME });
+    return hl.codeToHtml(code, {
+      lang,
+      themes: SHIKI_THEMES,
+      defaultColor: DEFAULT_COLOR,
+    });
   } catch (e) {
     console.warn("[highlighter] codeToHtml failed", lang, e);
     return null;
@@ -167,6 +185,18 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => HTML_ESCAPES[c]!);
 }
 
+function shikiTokenStyleAttr(style: Record<string, string | number> | undefined): string {
+  const light = style?.["--shiki-light"];
+  const dark = style?.["--shiki-dark"];
+  if (!light && !dark) return "";
+
+  const declarations = [
+    light ? `--shiki-light:${escapeHtml(String(light))}` : "",
+    dark ? `--shiki-dark:${escapeHtml(String(dark))}` : "",
+  ].filter(Boolean);
+  return ` style="${declarations.join(";")}"`;
+}
+
 export async function highlightLines(
   code: string,
   langHint: string | null | undefined,
@@ -179,15 +209,14 @@ export async function highlightLines(
 
   try {
     const hl = await getHighlighter();
-    const { tokens } = hl.codeToTokens(code, { lang, theme: THEME });
+    const { tokens } = hl.codeToTokens(code, {
+      lang,
+      themes: SHIKI_THEMES,
+      defaultColor: DEFAULT_COLOR,
+    });
     return tokens.map((line) =>
       line
-        .map(
-          (t) =>
-            `<span style="color:${t.color ?? "inherit"}">${escapeHtml(
-              t.content,
-            )}</span>`,
-        )
+        .map((t) => `<span class="code-token"${shikiTokenStyleAttr(t.htmlStyle)}>${escapeHtml(t.content)}</span>`)
         .join(""),
     );
   } catch (e) {

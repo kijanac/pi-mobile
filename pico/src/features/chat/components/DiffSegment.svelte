@@ -140,7 +140,7 @@
   }
 </script>
 
-<div class="type-code overflow-hidden rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] font-mono">
+<div class="type-code overflow-hidden rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-code-bg)] font-mono text-[color:var(--color-code-fg)]">
   {#each segments as segment}
     {#if segment.kind === "hunk"}
       {#each segment.lines ?? [] as line}
@@ -151,7 +151,7 @@
           {#if content}
             <span class="min-w-0 flex-1 whitespace-pre-wrap break-words">{@html content}</span>
           {:else}
-            <span class="min-w-0 flex-1 whitespace-pre-wrap break-words text-[color:var(--color-fg)]">{line.text || " "}</span>
+            <span class="min-w-0 flex-1 whitespace-pre-wrap break-words text-[color:var(--color-code-fg)]">{line.text || " "}</span>
           {/if}
         </div>
       {/each}

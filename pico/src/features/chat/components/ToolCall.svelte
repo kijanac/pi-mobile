@@ -69,7 +69,7 @@
       {#if msg.toolKind === "custom"}
         <!-- A custom tool's args have no known shape, so render them as formatted JSON. -->
         <pre
-          class="mt-1 max-h-60 overflow-y-auto whitespace-pre-wrap break-words rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2 type-code text-[color:var(--color-fg-muted)]">{JSON.stringify(
+          class="mt-1 max-h-60 overflow-y-auto whitespace-pre-wrap break-words rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-code-bg)] px-3 py-2 type-code text-[color:var(--color-code-fg)]">{JSON.stringify(
             msg.args,
             null,
             2,

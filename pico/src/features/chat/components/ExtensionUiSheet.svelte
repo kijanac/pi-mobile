@@ -41,7 +41,7 @@
 -->
 {#snippet detailBlock(text: string)}
   <pre
-    class="max-h-60 overflow-y-auto whitespace-pre-wrap break-words rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-surface-2)] px-3 py-2.5 type-code leading-relaxed text-[color:var(--color-fg)]">{text}</pre>
+    class="max-h-60 overflow-y-auto whitespace-pre-wrap break-words rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-code-bg)] px-3 py-2.5 type-code leading-relaxed text-[color:var(--color-code-fg)]">{text}</pre>
 {/snippet}
 
 <Sheet.Root bind:open={sheetOpen}>

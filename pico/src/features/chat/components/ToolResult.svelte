@@ -4,11 +4,11 @@
   import { highlightToHtml, inferLangFromPath } from "@/shared/lib/highlighter";
 
   const BASH_CLASS =
-    "type-code mt-1 overflow-x-auto rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[#0d1117] p-2 font-mono text-[#e6edf3] whitespace-pre-wrap break-words";
+    "tool-ansi type-code mt-1 overflow-x-auto rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-code-bg)] p-2 font-mono text-[color:var(--color-code-fg)] whitespace-pre-wrap break-words";
   const CODE_BLOCK_CLASS =
-    "type-code code-wrap mt-1 overflow-x-auto rounded-[var(--radius-sm)] border border-[color:var(--color-border)] p-2";
+    "type-code code-wrap mt-1 overflow-x-auto rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-code-bg)] p-2 text-[color:var(--color-code-fg)]";
   const RAW_CLASS =
-    "type-code mt-1 overflow-x-auto rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-2 text-[color:var(--color-fg-muted)] whitespace-pre-wrap break-words";
+    "type-code mt-1 overflow-x-auto rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-code-bg)] p-2 text-[color:var(--color-code-fg)] whitespace-pre-wrap break-words";
 
   let { msg }: { msg: ToolCallMessage } = $props();
 
@@ -40,7 +40,7 @@
       truncated = true;
     }
     const escaped = Anser.escapeForHtml(text);
-    const html = Anser.ansiToHtml(escaped, { use_classes: false });
+    const html = Anser.ansiToHtml(escaped, { use_classes: true });
     return truncated ? `<span style="opacity:.6">… earlier output omitted …</span>\n${html}` : html;
   });
 
@@ -124,8 +124,8 @@
 {/if}
 
 {#if detailsJson}
-  <details class="type-code mt-1 rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-bg)] p-2 text-[color:var(--color-fg-muted)]">
+  <details class="type-code mt-1 rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-code-bg)] p-2 text-[color:var(--color-fg-muted)]">
     <summary class="cursor-pointer select-none">details</summary>
-    <pre class="mt-2 whitespace-pre-wrap break-words">{detailsJson}</pre>
+    <pre class="mt-2 whitespace-pre-wrap break-words text-[color:var(--color-code-fg)]">{detailsJson}</pre>
   </details>
 {/if}
