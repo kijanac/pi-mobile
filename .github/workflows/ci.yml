@@ -40,3 +40,10 @@ jobs:
       # vite build + svelte-check. One command covers every package.
       - name: Typecheck + build
         run: pnpm check
+
+      - name: Unit tests
+        run: pnpm test
+
+      # Boots a host (mock pi, temp DB) and exercises the real RPC end to end.
+      - name: Host smoke test
+        run: pnpm smoke:host

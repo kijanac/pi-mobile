@@ -11,6 +11,8 @@
     "dev:host:mock": "PICO_HOST_DB=data/pico-host.db PICO_WORKSPACES_DIR=. PI_USE_MOCK=1 PICO_HOST_INSECURE_NO_AUTH=1 PICO_HOST_OTEL=1 pnpm --filter @pico/host dev",
     "dev:mobile": "pnpm --filter pico dev",
     "typecheck": "pnpm run build:runtime && pnpm --filter @pico/cli typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "smoke:host": "pnpm --filter @pico/host smoke",
     "build:mobile": "pnpm --filter pico build",
     "build:runtime": "pnpm --filter @pico/protocol build && pnpm --filter @pico/host build",
@@ -27,5 +29,8 @@
     "doctor": "pnpm run build:cli && node packages/cli/dist/index.js doctor",
     "release:bump": "node scripts/bump-version.mjs",
     "check": "pnpm typecheck && pnpm --filter pico build"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9"
   }
 }
