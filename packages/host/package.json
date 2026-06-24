@@ -35,13 +35,13 @@
     "@opentelemetry/sdk-trace-node": "^2.8.0",
     "@pico/protocol": "workspace:*",
     "effect": "^3.21.4",
-    "tsx": "^4.19.0",
     "uuid": "^14.0.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
     "@types/ws": "^8.5.0",
+    "tsx": "^4.19.0",
     "typescript": "^5.9.0"
   }
 }
