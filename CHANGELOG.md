@@ -2,6 +2,18 @@
 
 All notable changes to Pico.
 
+## 1.3.0 — 2026-06-25
+
+### Added
+- Add unified pico-host install + signed auto-updater
+- Add a one-command pnpm release script
+
+### Changed
+- Generate the changelog with git-cliff
+
+### Fixed
+- Fix false "Tailscale not connected" from an impatient health probe
+
 ## 1.2.0 — 2026-06-24
 
 ### Added
