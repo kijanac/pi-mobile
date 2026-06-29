@@ -570,6 +570,7 @@ const wirePiSession = (
 
     let assistantId: string | null = null;
     let compactionId: string | null = null;
+    let turnSerial = 0;
     const toolStarts = new Map<string, { startedAt: number }>();
 
     const emitProviderAuthMissing = (): boolean => {
@@ -717,12 +718,20 @@ const wirePiSession = (
           return;
         }
 
+        case "agent_start":
+          offer({ t: "status", status: "thinking" });
+          return;
+
+        case "agent_end":
+          offer({ t: "status", status: "idle" });
+          return;
+
         case "turn_start":
+          turnSerial += 1;
           offer({ t: "status", status: "thinking" });
           return;
 
         case "turn_end":
-          offer({ t: "status", status: "idle" });
           return;
 
         case "auto_retry_start":
@@ -784,14 +793,13 @@ const wirePiSession = (
             yield* Effect.forkDaemon(
               Effect.tryPromise({
                 try: async () => {
+                  const turnSerialBeforePrompt = turnSerial;
                   await piSession.prompt(text, piImages ? { images: piImages } : undefined);
+                  if (turnSerial === turnSerialBeforePrompt) offer({ t: "status", status: "idle" });
                 },
                 catch: (e) =>
                   new PiError({ message: `prompt failed: ${String(e)}`, cause: e }),
               }).pipe(
-                Effect.tap(() =>
-                  Queue.offer(q, { t: "status", status: "idle" }),
-                ),
                 Effect.tapError((e) =>
                   Effect.logError("[pi] prompt error", e),
                 ),

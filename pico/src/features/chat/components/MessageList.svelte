@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { ArrowDown } from "@lucide/svelte";
+  import type { LogEntry } from "@pico/protocol";
   import { chatLogState } from "@/features/chat/model/chat-log.state.svelte";
   import UserMessageView from "@/features/chat/components/UserMessage.svelte";
   import AssistantMessageView from "@/features/chat/components/AssistantMessage.svelte";
@@ -32,20 +33,63 @@
   let lastThinkingIndicatorVisible = false;
   let firstRenderMarked = false;
 
+  type DisplayRow =
+    | { kind: "entry"; key: string; entry: LogEntry }
+    | { kind: "thinking"; key: string };
+
+  // Key agent rows by the slot after the previous entry so the thinking row
+  // can turn into the first real agent row without a remove/add layout jolt.
+  const agentSlotKey = (previous: LogEntry | undefined): string => `agent-slot:${previous?.id ?? "start"}`;
+
   const totalEntries = $derived(chatLogState.entries.length);
   const hasLocalEarlierEntries = $derived(visibleCount < totalEntries);
   const hasEarlierEntries = $derived(hasLocalEarlierEntries || chatLogState.hasMoreBefore);
-  const visibleEntries = $derived.by(() => chatLogState.entries.slice(Math.max(0, totalEntries - visibleCount)));
+  const visibleStartIndex = $derived(Math.max(0, totalEntries - visibleCount));
+  const visibleEntries = $derived.by(() => chatLogState.entries.slice(visibleStartIndex));
   const latestEntry = $derived.by(() => chatLogState.entries[chatLogState.entries.length - 1]);
-  const showThinkingIndicator = $derived.by(() => {
-    if (activeSessionState.status !== "thinking") return false;
 
-    const latest = latestEntry;
-    if (!latest) return true;
-    if (latest.kind === "assistant") return false;
-    if (latest.kind === "tool_call" && latest.status === "running") return false;
-    if (latest.kind === "compaction" && latest.status === "running") return false;
-    return true;
+  function isDisplayableAssistant(entry: Extract<LogEntry, { kind: "assistant" }>): boolean {
+    return entry.text.trim().length > 0 || entry.stopReason === "error" || entry.stopReason === "aborted" || entry.stopReason === "length" || Boolean(entry.errorMessage || entry.errorCode);
+  }
+
+  function isRenderableEntry(entry: LogEntry): boolean {
+    return entry.kind !== "assistant" || isDisplayableAssistant(entry);
+  }
+
+  function isCurrentAgentOutput(entry: LogEntry | undefined): boolean {
+    if (!entry) return false;
+    if (entry.kind === "assistant") return isDisplayableAssistant(entry);
+    if (entry.kind === "tool_call") return entry.status === "running";
+    if (entry.kind === "compaction") return entry.status === "running";
+    return false;
+  }
+
+  function previousRenderableEntryBefore(index: number): LogEntry | undefined {
+    for (let i = index - 1; i >= 0; i -= 1) {
+      const entry = chatLogState.entries[i];
+      if (isRenderableEntry(entry)) return entry;
+    }
+    return undefined;
+  }
+
+  const latestEntryIsCurrentAgentOutput = $derived.by(() => isCurrentAgentOutput(latestEntry));
+  const showThinkingIndicator = $derived(activeSessionState.status === "thinking" && !latestEntryIsCurrentAgentOutput);
+  const displayRows = $derived.by(() => {
+    const rows: DisplayRow[] = [];
+    let previousRenderedEntry = previousRenderableEntryBefore(visibleStartIndex);
+
+    for (const entry of visibleEntries) {
+      if (!isRenderableEntry(entry)) continue;
+      rows.push({
+        kind: "entry",
+        entry,
+        key: entry.kind === "user" ? entry.id : agentSlotKey(previousRenderedEntry),
+      });
+      previousRenderedEntry = entry;
+    }
+
+    if (showThinkingIndicator) rows.push({ kind: "thinking", key: agentSlotKey(previousRenderedEntry) });
+    return rows;
   });
 
   function distanceFromBottom(): number {
@@ -207,24 +251,21 @@
     {#if hasEarlierEntries}
       <div bind:this={topSentinel} class="h-px" aria-hidden="true"></div>
     {/if}
-    {#each visibleEntries as entry (entry.id)}
+    {#each displayRows as row (row.key)}
       <div class="msg-cv">
-        {#if entry.kind === "user"}
-          <UserMessageView msg={entry} {sessionId} />
-        {:else if entry.kind === "assistant"}
-          <AssistantMessageView msg={entry} {sessionId} />
-        {:else if entry.kind === "tool_call"}
-          <ToolCallView msg={entry} />
-        {:else if entry.kind === "compaction"}
-          <CompactionMessageView msg={entry} />
+        {#if row.kind === "thinking"}
+          <AgentThinkingIndicator />
+        {:else if row.entry.kind === "user"}
+          <UserMessageView msg={row.entry} {sessionId} />
+        {:else if row.entry.kind === "assistant"}
+          <AssistantMessageView msg={row.entry} {sessionId} />
+        {:else if row.entry.kind === "tool_call"}
+          <ToolCallView msg={row.entry} />
+        {:else if row.entry.kind === "compaction"}
+          <CompactionMessageView msg={row.entry} />
         {/if}
       </div>
     {/each}
-    {#if showThinkingIndicator}
-      <div class="msg-cv">
-        <AgentThinkingIndicator />
-      </div>
-    {/if}
     <div bind:this={bottomSentinel} aria-hidden="true"></div>
   </div>
 
