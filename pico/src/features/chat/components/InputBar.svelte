@@ -457,23 +457,22 @@
             <Square class="size-3" fill="currentColor" />
           </Button>
         {/if}
-        {#if hasSendable || !busy}
-          <Button
-            type="button"
-            size="icon-lg"
-            onclick={handleSendClick}
-            onpointerdown={handleSendPointerDown}
-            onpointerup={handleSendPointerUp}
-            onpointerleave={sendPress.end}
-            onpointercancel={sendPress.end}
-            disabled={!hasSendable || !canSend}
-            class={`shrink-0 rounded-[var(--radius-sm)] bg-[color:var(--color-accent)] text-[color:var(--color-bg)] transition-transform duration-100 active:opacity-80 disabled:bg-[color:var(--color-surface-2)] disabled:text-[color:var(--color-fg-faint)] disabled:opacity-100 ${holding ? "scale-95" : ""}`}
-            aria-label={busy ? "Steer (hold to queue a follow-up)" : "Send"}
-            title={hasSendable ? (activeSessionState.compacting ? "Queue until compaction finishes" : busy ? "Tap to steer · hold to queue a follow-up" : "Send · hold to queue a follow-up") : "Draft a message to send"}
-          >
-            <ArrowUp class="size-3.5" strokeWidth={2.5} />
-          </Button>
-        {/if}
+        <!-- Keep mounted after submit clears the draft so the follow-up click can't retarget to Stop. -->
+        <Button
+          type="button"
+          size="icon-lg"
+          onclick={handleSendClick}
+          onpointerdown={handleSendPointerDown}
+          onpointerup={handleSendPointerUp}
+          onpointerleave={sendPress.end}
+          onpointercancel={sendPress.end}
+          disabled={!hasSendable || !canSend}
+          class={`shrink-0 rounded-[var(--radius-sm)] bg-[color:var(--color-accent)] text-[color:var(--color-bg)] transition-transform duration-100 active:opacity-80 disabled:bg-[color:var(--color-surface-2)] disabled:text-[color:var(--color-fg-faint)] disabled:opacity-100 ${holding ? "scale-95" : ""}`}
+          aria-label={busy ? "Steer (hold to queue a follow-up)" : "Send"}
+          title={hasSendable ? (activeSessionState.compacting ? "Queue until compaction finishes" : busy ? "Tap to steer · hold to queue a follow-up" : "Send · hold to queue a follow-up") : "Draft a message to send"}
+        >
+          <ArrowUp class="size-3.5" strokeWidth={2.5} />
+        </Button>
       {/if}
     </div>
   </div>
