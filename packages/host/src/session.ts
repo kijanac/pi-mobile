@@ -16,10 +16,12 @@ import {
 } from "effect";
 import { PiClient, type PiSession, type PiEmission, type ExportedHtml, PiError, type SendImage } from "./pi.ts";
 import { parseWireEvent } from "@pico/protocol";
+import { emptyLog, reconcileOrphanedToolCalls, reduceLog } from "@pico/protocol/log";
 import type {
   Commands,
   ExtensionUiResponseValue,
   LogEntry,
+  LogPage,
   SendMode,
   SessionMeta,
   QueuedMessage,
@@ -162,6 +164,7 @@ export class SessionManager extends Context.Tag("SessionManager")<
       value: string | boolean,
     ) => Effect.Effect<SessionControls, PiError | SessionNotFound>;
     readonly getStats: (id: string) => Effect.Effect<SessionStats, PiError | SessionNotFound>;
+    readonly getLogBefore: (id: string, beforeId: string, limit?: number) => Effect.Effect<LogPage, PiError | SessionNotFound>;
     readonly getTree: (id: string) => Effect.Effect<SessionTree, PiError | SessionNotFound>;
     readonly navigateTree: (
       id: string,
@@ -191,6 +194,9 @@ const MAX_PENDING_SENDS = 200;
 
 // Retries only race acks over seconds, so a small dedupe window is plenty.
 const MAX_SEEN_CLIENT_IDS = 64;
+const INITIAL_LOG_TAIL_ENTRIES = 120;
+const LOG_PAGE_LIMIT = 120;
+const MAX_LOG_PAGE_LIMIT = 240;
 
 const make = Effect.gen(function* () {
   const pi = yield* PiClient;
@@ -211,6 +217,54 @@ const make = Effect.gen(function* () {
 
   const userMessageRemovedEvent = (seq: number, id: string): WireEvent =>
     parseWireEvent({ t: "user_message_removed", seq, id });
+
+  const reduceEventsToEntries = (events: readonly WireEvent[], status: SessionMeta["status"]): LogEntry[] => {
+    const log = emptyLog();
+    for (const event of events) reduceLog(log, event, Date.now());
+    if (status === "idle" || status === "error") reconcileOrphanedToolCalls(log);
+    return log.entries as LogEntry[];
+  };
+
+  const retainedLogEntries = (
+    id: string,
+    pending: readonly PendingSend[],
+    status: SessionMeta["status"],
+  ): Effect.Effect<{ entries: LogEntry[]; prunedThrough: number }> =>
+    Effect.gen(function* () {
+      const prunedThrough = yield* store.prunedThrough(id);
+      const entries = withPendingUserEntries(
+        reduceEventsToEntries(yield* store.loadEventsAfter(id, prunedThrough), status),
+        pending,
+      );
+      return { entries, prunedThrough };
+    });
+
+  const retainedLogTail = (
+    id: string,
+    pending: readonly PendingSend[],
+    status: SessionMeta["status"],
+  ): Effect.Effect<LogPage> =>
+    retainedLogEntries(id, pending, status).pipe(
+      Effect.map(({ entries, prunedThrough }) => {
+        const start = Math.max(0, entries.length - INITIAL_LOG_TAIL_ENTRIES);
+        return {
+          entries: entries.slice(start),
+          hasMoreBefore: start > 0 || prunedThrough > 0,
+        };
+      }),
+    );
+
+  const pageBefore = (entries: readonly LogEntry[], beforeId: string, limit?: number): LogPage => {
+    const end = entries.findIndex((entry) => entry.id === beforeId);
+    if (end <= 0) return { entries: [], hasMoreBefore: false };
+
+    const size = Math.min(Math.max(Math.floor(limit ?? LOG_PAGE_LIMIT), 1), MAX_LOG_PAGE_LIMIT);
+    const start = Math.max(0, end - size);
+    return {
+      entries: entries.slice(start, end),
+      hasMoreBefore: start > 0,
+    };
+  };
 
   const publishQueueSnapshot = (
     ms: ManagedSessionState,
@@ -545,10 +599,12 @@ const make = Effect.gen(function* () {
         let replayEvents: WireEvent[];
         const prunedThrough = yield* store.prunedThrough(id);
         if (fromCursor < 0 || fromCursor > cursorAtSubscribe || fromCursor < prunedThrough) {
+          const page = yield* retainedLogTail(id, pending, currentMeta.status);
           replayEvents = [{
             t: "log_reset",
             seq: cursorAtSubscribe,
-            entries: withPendingUserEntries(yield* ms.pi.getLog(), pending),
+            entries: page.entries,
+            hasMoreBefore: page.hasMoreBefore,
           }];
         } else {
           const storedEvents = yield* store.loadEventsAfter(id, fromCursor);
@@ -725,6 +781,24 @@ const make = Effect.gen(function* () {
   const getStats = (id: string) =>
     Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.getStats());
 
+  const getLogBefore = (id: string, beforeId: string, limit?: number) =>
+    Effect.gen(function* () {
+      const ms = yield* lookupOrReattach(id);
+      const [pending, meta] = yield* Effect.all([Ref.get(ms.pendingSends), Ref.get(ms.meta)]);
+      const retained = yield* retainedLogEntries(id, pending, meta.status);
+      const retainedIndex = retained.entries.findIndex((entry) => entry.id === beforeId);
+
+      if (retainedIndex > 0) {
+        const page = pageBefore(retained.entries, beforeId, limit);
+        return { ...page, hasMoreBefore: page.hasMoreBefore || retained.prunedThrough > 0 };
+      }
+
+      if (retained.prunedThrough <= 0) return { entries: [], hasMoreBefore: false };
+
+      const entries = withPendingUserEntries(yield* ms.pi.getLog(), pending);
+      return pageBefore(entries, beforeId, limit);
+    });
+
   const getTree = (id: string) =>
     Effect.flatMap(lookupOrReattach(id), (ms) => ms.pi.getTree());
 
@@ -807,6 +881,7 @@ const make = Effect.gen(function* () {
     getSettings,
     patchSetting,
     getStats,
+    getLogBefore,
     getTree,
     navigateTree,
     patch,

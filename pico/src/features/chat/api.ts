@@ -23,6 +23,9 @@ export const patchSessionSetting = (sessionId: string, key: string, value: strin
 
 export const getSessionStats = (sessionId: string) => rpc((c) => c.sessions.stats({ id: sessionId }));
 
+export const getSessionLogBefore = (sessionId: string, beforeId: string, limit?: number) =>
+  rpc((c) => c.sessions.logBefore({ id: sessionId, beforeId, limit }));
+
 const safeFilenamePart = (value: string): string =>
   value.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "session";
 

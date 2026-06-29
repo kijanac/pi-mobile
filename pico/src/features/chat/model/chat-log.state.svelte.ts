@@ -1,4 +1,4 @@
-import type { ClientEvent, LogEntry, WireEvent } from "@pico/protocol";
+import type { ClientEvent, LogEntry, LogPage, WireEvent } from "@pico/protocol";
 import { appendLogEntry, type Mutable, reconcileOrphanedToolCalls, reduceLog, removeLogEntry } from "@pico/protocol/log";
 import { activeSessionState } from "@/features/chat/model/active-session.state.svelte";
 
@@ -8,6 +8,7 @@ interface SessionLog {
   entries: Mutable<LogEntry>[];
   cursor: number;
   activityVersion: number;
+  hasMoreBefore: boolean;
   indexById: Map<string, number>;
 }
 
@@ -71,6 +72,10 @@ export const chatLogState = {
     return activeLog?.activityVersion ?? 0;
   },
 
+  get hasMoreBefore() {
+    return activeLog?.hasMoreBefore ?? false;
+  },
+
   activate(sessionId: string): void {
     activeSessionId = sessionId;
   },
@@ -81,6 +86,17 @@ export const chatLogState = {
 
   applyWireEvent(sessionId: string, event: WireEvent): void {
     applyWireEventForSession(sessionId, event);
+  },
+
+  prependEarlierEntries(sessionId: string, page: LogPage): void {
+    const log = getLog(sessionId);
+    const ids = new Set(log.entries.map((entry) => entry.id));
+    const entries = page.entries.filter((entry) => !ids.has(entry.id));
+    if (entries.length > 0) {
+      log.entries = [...entries, ...log.entries] as Mutable<LogEntry>[];
+      log.indexById = new Map(log.entries.map((entry, index) => [entry.id, index]));
+    }
+    log.hasMoreBefore = page.hasMoreBefore;
   },
 
   appendLocalEcho(sessionId: string, event: SendEvent): void {
@@ -118,6 +134,7 @@ function getLog(sessionId: string): SessionLog {
     entries: [],
     cursor: 0,
     activityVersion: 0,
+    hasMoreBefore: false,
     indexById: new Map(),
   };
   return logs[sessionId];
@@ -146,6 +163,7 @@ function applyWireEventForSession(sessionId: string, event: WireEvent): void {
 
   if (event.t === "log_reset") {
     log.cursor = event.seq;
+    log.hasMoreBefore = event.hasMoreBefore ?? false;
     clearEchoesForSession(sessionId);
     reduceLog(log, event, Date.now());
     bumpActivity(log);

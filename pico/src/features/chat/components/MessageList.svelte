@@ -7,8 +7,10 @@
   import ToolCallView from "@/features/chat/components/ToolCall.svelte";
   import CompactionMessageView from "@/features/chat/components/CompactionMessage.svelte";
   import AgentThinkingIndicator from "@/features/chat/components/AgentThinkingIndicator.svelte";
+  import { getSessionLogBefore } from "@/features/chat/api";
   import { activeSessionState } from "@/features/chat/model/active-session.state.svelte";
   import { markSessionOpen } from "@/shared/lib/session-open-timing";
+  import { runHost } from "@/shared/lib/rpc-client";
   import { Button } from "@/shared/ui/button";
 
   let { sessionId }: { sessionId: string } = $props();
@@ -31,7 +33,8 @@
   let firstRenderMarked = false;
 
   const totalEntries = $derived(chatLogState.entries.length);
-  const hasEarlierEntries = $derived(visibleCount < totalEntries);
+  const hasLocalEarlierEntries = $derived(visibleCount < totalEntries);
+  const hasEarlierEntries = $derived(hasLocalEarlierEntries || chatLogState.hasMoreBefore);
   const visibleEntries = $derived.by(() => chatLogState.entries.slice(Math.max(0, totalEntries - visibleCount)));
   const latestEntry = $derived.by(() => chatLogState.entries[chatLogState.entries.length - 1]);
   const showThinkingIndicator = $derived.by(() => {
@@ -80,15 +83,28 @@
   }
 
   async function revealEarlierEntries(): Promise<void> {
-    if (!scroller || loadingEarlier || visibleCount >= totalEntries) return;
+    if (!scroller || loadingEarlier || !hasEarlierEntries) return;
 
     loadingEarlier = true;
     const beforeHeight = scroller.scrollHeight;
     const beforeTop = scroller.scrollTop;
-    visibleCount = Math.min(totalEntries, visibleCount + REVEAL_ENTRIES);
-    await tick();
-    scroller.scrollTop = beforeTop + (scroller.scrollHeight - beforeHeight);
-    loadingEarlier = false;
+
+    try {
+      if (hasLocalEarlierEntries) {
+        visibleCount = Math.min(totalEntries, visibleCount + REVEAL_ENTRIES);
+      } else {
+        const beforeId = visibleEntries[0]?.id;
+        if (!beforeId) return;
+        const page = await runHost(getSessionLogBefore(sessionId, beforeId, REVEAL_ENTRIES));
+        chatLogState.prependEarlierEntries(sessionId, page);
+        visibleCount += page.entries.length;
+      }
+
+      await tick();
+      scroller.scrollTop = beforeTop + (scroller.scrollHeight - beforeHeight);
+    } finally {
+      loadingEarlier = false;
+    }
   }
 
   function onScroll(): void {

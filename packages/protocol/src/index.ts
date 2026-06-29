@@ -208,6 +208,12 @@ export const LogEntry = Schema.Union(
 );
 export type LogEntry = typeof LogEntry.Type;
 
+export const LogPage = Schema.Struct({
+  entries: Schema.Array(LogEntry),
+  hasMoreBefore: Schema.Boolean,
+});
+export type LogPage = typeof LogPage.Type;
+
 
 export const SessionMeta = Schema.Struct({
   id: Schema.String,
@@ -484,7 +490,12 @@ export const WireEvent = Schema.Union(
   }),
   Schema.Struct({ t: Schema.Literal("user_message"), ...Seq, entry: UserMessage }),
   Schema.Struct({ t: Schema.Literal("user_message_removed"), ...Seq, id: Schema.String }),
-  Schema.Struct({ t: Schema.Literal("log_reset"), ...Seq, entries: Schema.Array(LogEntry) }),
+  Schema.Struct({
+    t: Schema.Literal("log_reset"),
+    ...Seq,
+    entries: Schema.Array(LogEntry),
+    hasMoreBefore: Schema.optional(Schema.Boolean),
+  }),
   Schema.Struct({
     t: Schema.Literal("assistant_delta"),
     ...Seq,
