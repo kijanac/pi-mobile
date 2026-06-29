@@ -1,14 +1,17 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { Plus } from "@lucide/svelte";
   import { navigateTo, routePaths } from "@/app/routes";
   import { hostRegistryState } from "@/features/hosts/host-registry.state.svelte";
   import { settingsState } from "@/features/settings/settings.state.svelte";
   import AppearanceCard from "@/features/settings/components/AppearanceCard.svelte";
+  import AddHostSheet from "@/features/settings/components/AddHostSheet.svelte";
   import HostStatusCard from "@/features/settings/components/HostStatusCard.svelte";
-  import ManualHostConnectCard from "@/features/settings/components/ManualHostConnectCard.svelte";
   import { Button } from "@/shared/ui/button";
   import EdgeSwipeBack from "@/shared/components/EdgeSwipeBack.svelte";
   import HomePreview from "@/features/sessions/components/HomePreview.svelte";
+
+  let addHostOpen = $state(false);
 
   onMount(() => {
     void settingsState.load();
@@ -40,9 +43,14 @@
       <AppearanceCard />
 
       <section class="space-y-3">
-        <div>
-          <h2 class="type-title font-medium text-[color:var(--color-fg)]">hosts</h2>
-          <p class="type-copy mt-1 text-[color:var(--color-fg-muted)]">Add every machine you want Pico to control.</p>
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="type-title font-medium text-[color:var(--color-fg)]">hosts</h2>
+            <p class="type-copy mt-1 text-[color:var(--color-fg-muted)]">Add every machine you want Pico to control.</p>
+          </div>
+          <Button type="button" variant="outline" size="sm" class="shrink-0" onclick={() => (addHostOpen = true)}>
+            <Plus class="size-3.5" /> add host
+          </Button>
         </div>
 
         {#each hostRegistryState.hosts as host (host.id)}
@@ -54,7 +62,7 @@
         {/each}
       </section>
 
-      <ManualHostConnectCard />
+      <AddHostSheet bind:open={addHostOpen} />
 
       <section class="rounded-[var(--radius-lg)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-3">
         <div class="mb-2">
