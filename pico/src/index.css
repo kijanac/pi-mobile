@@ -659,12 +659,14 @@
     font-size: 1em;
   }
 
-  .streaming-md ul,
-  .streaming-md ol {
-    padding-left: 1.4em;
+  .streaming-md ul {
+    list-style: disc;
+    padding-inline-start: 1.4em;
   }
-  .streaming-md ul { list-style: disc; }
-  .streaming-md ol { list-style: decimal; }
+  .streaming-md ol {
+    list-style: decimal;
+    padding-inline-start: 2.1em;
+  }
   .streaming-md li::marker { color: var(--color-fg-muted); }
   .streaming-md li + li { margin-top: 0.25em; }
 
