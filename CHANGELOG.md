@@ -2,6 +2,21 @@
 
 All notable changes to Pico.
 
+## 1.3.1 — 2026-06-29
+
+### Changed
+- Gate timing and remove legacy migrations
+- Simplify tool details presence check
+- Polish tool result details rendering
+- Page session history on demand
+- Tail-render chat history
+- Instrument session open timing
+- Improve chat queue and context feedback
+- Improve chat mobile progress feedback
+
+### Fixed
+- Fix ordered list indent in chat markdown
+
 ## 1.3.0 — 2026-06-25
 
 ### Added
