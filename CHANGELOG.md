@@ -2,6 +2,21 @@
 
 All notable changes to Pico.
 
+## 1.4.0 — 2026-06-29
+
+### Added
+- Add multi-host mobile support
+
+### Changed
+- Replace ad hoc route matching
+- Tighten host default selection
+- Simplify multi-host defaults
+- Keep send target stable while busy
+- Make agent thinking handoff state-driven
+
+### Removed
+- Remove legacy session route
+
 ## 1.3.1 — 2026-06-29
 
 ### Changed
