@@ -2,6 +2,11 @@
 
 All notable changes to Pico.
 
+## 1.4.3 — 2026-06-30
+
+### Fixed
+- Fix mobile attachments and chat UI polish
+
 ## 1.4.2 — 2026-06-30
 
 ### Added
