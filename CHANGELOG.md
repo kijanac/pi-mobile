@@ -2,6 +2,14 @@
 
 All notable changes to Pico.
 
+## 1.4.1 — 2026-06-30
+
+### Added
+- Add host management affordance
+
+### Changed
+- Smooth older chat scrollback
+
 ## 1.4.0 — 2026-06-29
 
 ### Added
