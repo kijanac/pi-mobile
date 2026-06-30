@@ -14,7 +14,7 @@
   import { runOnHost } from "@/shared/lib/rpc-client";
   import { Button } from "@/shared/ui/button";
 
-  let { hostId, sessionId }: { hostId: string; sessionId: string } = $props();
+  let { hostId, sessionId, bottomInset = 0 }: { hostId: string; sessionId: string; bottomInset?: number } = $props();
   const timingId = $derived(`${hostId}:${sessionId}`);
 
   const STICK_THRESHOLD_PX = 64;
@@ -35,6 +35,7 @@
   let lastActivityVersion = $state(chatLogState.activityVersion);
   let lastThinkingIndicatorVisible = false;
   let firstRenderMarked = false;
+  let lastBottomInset = $state(0);
 
   type DisplayRow =
     | { kind: "entry"; key: string; entry: LogEntry }
@@ -267,6 +268,12 @@
   });
 
   $effect(() => {
+    const nextBottomInset = bottomInset;
+    if (nextBottomInset !== lastBottomInset && stuckToBottom) void scrollToLatest("auto");
+    lastBottomInset = nextBottomInset;
+  });
+
+  $effect(() => {
     if (chatLogState.entries.length > 0 && !firstRenderMarked) {
       firstRenderMarked = true;
       void tick().then(() => requestAnimationFrame(() => markSessionOpen(timingId, "first-render")));
@@ -286,8 +293,8 @@
   });
 </script>
 
-<div class="relative min-h-0 flex-1 overflow-hidden">
-  <div bind:this={scroller} onscroll={onScroll} class="scroll-momentum h-full overflow-y-auto py-2" style="padding-bottom: 0.5rem">
+<div class="relative h-full min-h-0 flex-1 overflow-hidden">
+  <div bind:this={scroller} onscroll={onScroll} class="scroll-momentum h-full overflow-y-auto py-2" style={`padding-bottom: calc(${bottomInset}px + 0.5rem)`}>
     {#if hasEarlierEntries}
       <div bind:this={topSentinel} class="h-px" aria-hidden="true"></div>
     {/if}
@@ -317,7 +324,7 @@
       onpointerdown={(event) => event.preventDefault()}
       onclick={() => void scrollToLatest("auto")}
       class={`type-meta absolute right-3 z-30 h-auto rounded-full px-3 py-1.5 shadow-lg backdrop-blur-md ${hasNewActivity ? "active:opacity-85" : "border-[color:var(--color-border-strong)] bg-[color:var(--color-surface)]/95 text-[color:var(--color-fg)] active:bg-[color:var(--color-surface-2)]"}`}
-      style="bottom: 0.75rem"
+      style={`bottom: calc(${bottomInset}px + 0.75rem)`}
       aria-label={hasNewActivity ? "Scroll to new messages" : "Scroll to latest message"}
     >
       <ArrowDown class="size-3.5" />

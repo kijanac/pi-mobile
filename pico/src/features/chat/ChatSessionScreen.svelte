@@ -28,6 +28,7 @@
   const timingId = $derived(`${hostId}:${sessionId}`);
 
   let stats = $state<SessionStats>();
+  let composerHeight = $state(0);
   let forceUnknownContext = $state(false);
   let invalidatedAtUsageVersion = 0;
   let statsRequestId = 0;
@@ -130,9 +131,13 @@
       <Button type="button" variant="outline" size="sm" class="mt-2" onclick={() => navigateTo(routePaths.sessions, "pop")}>back to sessions</Button>
     </div>
   {:else}
-    <MessageList {hostId} {sessionId} />
-    <ExtensionNotifications />
-    <InputBar {hostId} {sessionId} {contextStats} />
+    <div class="relative min-h-0 flex-1 overflow-hidden">
+      <MessageList {hostId} {sessionId} bottomInset={composerHeight} />
+      <div bind:clientHeight={composerHeight} class="pointer-events-none absolute inset-x-0 bottom-0 z-30">
+        <ExtensionNotifications />
+        <InputBar {hostId} {sessionId} {contextStats} />
+      </div>
+    </div>
   {/if}
   <ExtensionUiSheet />
 </main>
