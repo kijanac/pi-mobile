@@ -19,7 +19,7 @@ import {
   type SessionEntry,
   type SessionStats as PiSdkSessionStats,
 } from "@earendil-works/pi-coding-agent";
-import type { Api, AssistantMessage as PiAssistantMessage, Model } from "@earendil-works/pi-ai";
+import type { Api, AssistantMessage as PiAssistantMessage, ImageContent as PiImageContent, Model, TextContent } from "@earendil-works/pi-ai";
 import { v7 as randomUUIDv7 } from "uuid";
 import { join, resolve } from "node:path";
 import { FileSystem } from "@effect/platform";
@@ -28,6 +28,7 @@ import {
   CustomToolArgs,
   type Commands,
   type CompactionEntry as ProtocolCompactionEntry,
+  type ImageContent,
   EditToolArgs,
   type LogEntry,
   ReadToolArgs,
@@ -116,11 +117,6 @@ export class PiError extends Data.TaggedError("PiError")<{
 
 export type { SendMode } from "@pico/protocol";
 
-export interface SendImage {
-  data: string;
-  mimeType: string;
-}
-
 export interface ExportedHtml {
   readonly stream: Stream.Stream<Uint8Array>;
   readonly size?: number;
@@ -130,7 +126,7 @@ export interface ExportedHtml {
 export interface QueuedSend {
   readonly text: string;
   readonly mode: SendMode;
-  readonly images?: SendImage[];
+  readonly images?: ImageContent[];
 }
 
 export interface PiSession {
@@ -139,7 +135,7 @@ export interface PiSession {
   readonly send: (
     text: string,
     mode?: SendMode,
-    images?: SendImage[],
+    images?: ImageContent[],
   ) => Effect.Effect<void, PiError>;
   readonly isCompacting: () => Effect.Effect<boolean, PiError>;
   readonly flushAfterCompaction: (
@@ -224,7 +220,7 @@ const queueModeOptions = [
   { value: "all", label: "all" },
 ];
 
-const toPiImages = (images?: readonly SendImage[]) =>
+const toPiImages = (images?: readonly ImageContent[]) =>
   images && images.length > 0
     ? images.map((i) => ({ type: "image" as const, data: i.data, mimeType: i.mimeType }))
     : undefined;
@@ -431,6 +427,24 @@ const assistantText = (content: PiAssistantMessage["content"]): string =>
     .map((part) => part.text)
     .join("");
 
+type PiUserContent = string | readonly (TextContent | PiImageContent)[];
+
+const userText = (content: PiUserContent): string =>
+  typeof content === "string"
+    ? content
+    : content
+        .filter((part) => part.type === "text")
+        .map((part) => part.text)
+        .join("");
+
+const userImages = (content: PiUserContent): ImageContent[] | undefined => {
+  if (typeof content === "string") return undefined;
+  const images = content
+    .filter((part): part is PiImageContent => part.type === "image")
+    .map((part) => ({ type: "image" as const, data: part.data, mimeType: part.mimeType }));
+  return images.length > 0 ? images : undefined;
+};
+
 const sessionStatsWithCwd = (stats: PiSdkSessionStats, cwd: string): SessionStats => ({
   ...(stats.sessionFile ? { sessionFile: stats.sessionFile } : {}),
   sessionId: stats.sessionId,
@@ -468,7 +482,17 @@ const branchToWireEvents = (piSession: AgentSession): WireEvent[] => {
     const message = entry.message;
 
     if (message.role === "user") {
-      events.push({ t: "user_message", seq: 0, entry: { kind: "user", id: entry.id, at, text: textFromContent(message.content) } });
+      events.push({
+        t: "user_message",
+        seq: 0,
+        entry: {
+          kind: "user",
+          id: entry.id,
+          at,
+          text: userText(message.content),
+          images: userImages(message.content),
+        },
+      });
       continue;
     }
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Trash2 } from "@lucide/svelte";
   import type { QueuedMessage, QueueState } from "@pico/protocol";
+  import ImageGrid from "@/features/chat/components/ImageGrid.svelte";
   import { Button } from "@/shared/ui/button";
   import SheetHeader from "@/shared/components/SheetHeader.svelte";
   import * as Sheet from "@/shared/ui/sheet";
@@ -23,13 +24,14 @@
     onClear: () => void | Promise<void>;
   } = $props();
 
-  const steering = $derived(queue?.queued.filter((message) => message.queueKind === "steer") ?? []);
-  const followUp = $derived(queue?.queued.filter((message) => message.queueKind === "follow_up") ?? []);
+  const steering = $derived(queue?.queued.filter((message) => message.mode === "steer") ?? []);
+  const followUp = $derived(queue?.queued.filter((message) => message.mode === "follow_up") ?? []);
   const queueCount = $derived(queue?.queued.length ?? 0);
 
   $effect(() => {
     if (open) void onLoad();
   });
+
 </script>
 
 <Sheet.Root bind:open>
@@ -61,7 +63,12 @@
       <div class="label mb-1.5">{label}</div>
       <div class="space-y-1.5">
         {#each items as item (item.id)}
-          <div class="type-copy rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-[color:var(--color-fg)]">{item.text}</div>
+          <div class="type-copy rounded-[var(--radius-md)] border border-[color:var(--color-border)] bg-[color:var(--color-surface)] px-3 py-2 text-[color:var(--color-fg)]">
+            {#if item.text.trim().length > 0}<div>{item.text}</div>{/if}
+            {#if item.images && item.images.length > 0}
+              <ImageGrid images={item.images} altPrefix="queued image" class="mt-2" imageClass="max-h-32 min-h-16" />
+            {/if}
+          </div>
         {/each}
       </div>
     </div>

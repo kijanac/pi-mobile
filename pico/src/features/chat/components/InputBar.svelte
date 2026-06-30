@@ -1,13 +1,14 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from "svelte";
   import { ArrowUp, ImagePlus, ListTodo, Mic, MicOff, Plus, Square } from "@lucide/svelte";
-  import type { ImageAttachment, SessionControls, SessionStats } from "@pico/protocol";
+  import type { ImageContent, SessionControls, SessionStats } from "@pico/protocol";
   import { activeSessionState } from "@/features/chat/model/active-session.state.svelte";
   import { chatLogState } from "@/features/chat/model/chat-log.state.svelte";
   import { chatQueueState } from "@/features/chat/model/chat-queue.state.svelte";
   import { queuedMessageActionsState } from "@/features/chat/model/queued-message-actions.state.svelte";
   import { createSpeechRecognitionState } from "@/shared/mobile/speech.svelte";
   import { pickImages } from "@/shared/mobile/image-picker";
+  import { cloneImageContent, filesToImageContent } from "@/shared/mobile/image-content";
   import { haptics } from "@/shared/mobile/haptics";
   import { createLongPress } from "@/shared/gestures/long-press";
   import { clearSessionQueue, getSessionQueue, getSessionSettings } from "@/features/chat/api";
@@ -52,7 +53,7 @@
   let actionsOpen = $state(false);
   let compactOpen = $state(false);
   let queueOpen = $state(false);
-  let images = $state<ImageAttachment[]>([]);
+  let images = $state<ImageContent[]>([]);
   let queueLoading = $state(false);
   let queueError = $state<string | null>(null);
   let clearing = $state(false);
@@ -136,7 +137,7 @@
     draftEditVersion += 1;
     value = request.text;
     cursor = request.text.length;
-    images = [];
+    images = cloneImageContent(request.images) ?? [];
     textBeforeRecording = "";
     requestAnimationFrame(() => {
       textarea?.focus();
@@ -204,16 +205,17 @@
   function submit(mode: "steer" | "follow_up"): void {
     const text = value.trim();
     const send = activeSessionState.send;
-    if ((!text && images.length === 0) || !send) return;
+    const sentImages = cloneImageContent(images);
+    if ((!text && !sentImages) || !send) return;
     const event = {
       t: "send" as const,
       text,
       mode,
-      ...(images.length > 0 ? { images } : {}),
+      ...(sentImages ? { images: sentImages } : {}),
       clientId: crypto.randomUUID(),
     };
     send(event);
-    if (text) chatLogState.appendLocalEcho(hostId, sessionId, event);
+    chatLogState.appendLocalEcho(hostId, sessionId, event);
     value = "";
     cursor = 0;
     images = [];
@@ -328,19 +330,39 @@
     await action();
   }
 
+  function addImages(next: readonly ImageContent[]): void {
+    const cloned = cloneImageContent(next);
+    if (!cloned) return;
+    images = [...images, ...cloned].slice(0, MAX_IMAGES);
+    draftEditVersion += 1;
+  }
+
   async function attachImages(): Promise<void> {
     try {
       const remaining = MAX_IMAGES - images.length;
       if (remaining <= 0) return;
-      const picked = await pickImages({ limit: remaining });
-      if (picked.length > 0) images = [...images, ...picked].slice(0, MAX_IMAGES);
+      addImages(await pickImages({ limit: remaining }));
     } catch (error) {
       console.warn("[input-bar] image pick failed:", error);
     }
   }
 
+  async function handlePaste(event: ClipboardEvent): Promise<void> {
+    const files = Array.from(event.clipboardData?.files ?? []).filter((file) => file.type.startsWith("image/"));
+    const remaining = MAX_IMAGES - images.length;
+    if (files.length === 0 || remaining <= 0) return;
+    event.preventDefault();
+
+    try {
+      addImages(await filesToImageContent(files, remaining));
+    } catch (error) {
+      console.warn("[input-bar] image paste failed:", error);
+    }
+  }
+
   function removeImage(index: number): void {
     images = images.filter((_, candidate) => candidate !== index);
+    draftEditVersion += 1;
   }
 
   async function syncQueue(options: { showLoading?: boolean } = {}): Promise<void> {
@@ -406,6 +428,7 @@
         draftEditVersion += 1;
         updateCursor(event.currentTarget);
       }}
+      onpaste={(event) => void handlePaste(event)}
       onclick={(event) => updateCursor(event.currentTarget)}
       onkeyup={(event) => updateCursor(event.currentTarget)}
       onselect={(event) => updateCursor(event.currentTarget)}

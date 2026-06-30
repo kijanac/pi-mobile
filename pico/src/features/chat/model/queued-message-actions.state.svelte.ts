@@ -1,10 +1,12 @@
-import type { SendMode } from "@pico/protocol";
+import type { ImageContent, SendMode } from "@pico/protocol";
+import { cloneImageContent } from "@/shared/mobile/image-content";
 
 interface RecallRequest {
   id: number;
   hostId: string;
   sessionId: string;
   text: string;
+  images?: ImageContent[];
   mode: SendMode;
 }
 
@@ -16,7 +18,14 @@ export const queuedMessageActionsState = {
     return recallRequest;
   },
 
-  recall(hostId: string, sessionId: string, text: string, mode: SendMode): void {
-    recallRequest = { id: ++recallCounter, hostId, sessionId, text, mode };
+  recall(hostId: string, sessionId: string, text: string, mode: SendMode, images?: readonly ImageContent[]): void {
+    recallRequest = {
+      id: ++recallCounter,
+      hostId,
+      sessionId,
+      text,
+      images: cloneImageContent(images),
+      mode,
+    };
   },
 };

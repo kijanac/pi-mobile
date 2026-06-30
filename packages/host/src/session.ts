@@ -14,18 +14,20 @@ import {
   Option,
   pipe,
 } from "effect";
-import { PiClient, type PiSession, type PiEmission, type ExportedHtml, PiError, type SendImage } from "./pi.ts";
+import { PiClient, type PiSession, type PiEmission, type ExportedHtml, PiError } from "./pi.ts";
 import { parseWireEvent } from "@pico/protocol";
 import { emptyLog, reconcileOrphanedToolCalls, reduceLog } from "@pico/protocol/log";
 import type {
   Commands,
   ExtensionUiResponseValue,
+  ImageContent,
   LogEntry,
   LogPage,
   SendMode,
   SessionMeta,
   QueuedMessage,
   QueueState,
+  UserMessage,
   SessionControls,
   SessionStats,
   SessionTree,
@@ -38,7 +40,7 @@ import { SessionNotFound } from "./errors.ts";
 interface PendingSend extends QueuedMessage {
   readonly at: number;
   readonly phase: "held_for_compaction" | "sdk_queue";
-  readonly images?: SendImage[];
+  readonly images?: ImageContent[];
 }
 
 interface ManagedSessionState {
@@ -92,7 +94,7 @@ function reconcileSdkQueue(
       continue;
     }
 
-    const counts = message.queueKind === "follow_up" ? followUp : steering;
+    const counts = message.mode === "follow_up" ? followUp : steering;
     if (consumeQueued(counts, message.text)) next.push(message);
   }
 
@@ -101,7 +103,7 @@ function reconcileSdkQueue(
 
 function projectQueue(pending: readonly PendingSend[]): QueueState {
   return {
-    queued: pending.map(({ id, text, queueKind }) => ({ id, text, queueKind })),
+    queued: pending.map(({ id, text, images, mode }) => ({ id, text, images, mode })),
   };
 }
 
@@ -109,13 +111,14 @@ function withPendingUserEntries(entries: readonly LogEntry[], pending: readonly 
   const ids = new Set(entries.map((entry) => entry.id));
   const pendingEntries: LogEntry[] = pending
     .filter((message) => !ids.has(message.id))
-    .map(({ id, at, text, queueKind }) => ({
+    .map(({ id, at, text, images, mode }) => ({
       kind: "user",
       id,
       at,
       text,
+      images,
       queued: true,
-      queueKind,
+      mode,
     }));
   return [...entries, ...pendingEntries];
 }
@@ -137,7 +140,7 @@ export class SessionManager extends Context.Tag("SessionManager")<
       id: string,
       text: string,
       mode?: SendMode,
-      images?: SendImage[],
+      images?: ImageContent[],
       clientId?: string,
     ) => Effect.Effect<void, PiError | SessionNotFound>;
     readonly interrupt: (
@@ -302,7 +305,7 @@ const make = Effect.gen(function* () {
       if (meta.status !== "thinking" && meta.status !== "tool") return;
 
       for (const message of sdkQueued) {
-        yield* ms.pi.send(message.text, message.queueKind, message.images);
+        yield* ms.pi.send(message.text, message.mode, message.images);
       }
     });
 
@@ -321,11 +324,7 @@ const make = Effect.gen(function* () {
         (message): PendingSend => ({ ...message, phase: "sdk_queue" }),
       );
       const afterFlush = [...unheld, ...sdkQueued];
-      const messagesForSdk = held.map(({ text, queueKind, images }) => ({
-        text,
-        mode: queueKind,
-        ...(images && images.length > 0 ? { images } : {}),
-      }));
+      const messagesForSdk = held.map(({ text, mode, images }) => ({ text, mode, images }));
 
       yield* ms.pi.flushAfterCompaction(messagesForSdk, opts).pipe(
         Effect.tap(() =>
@@ -635,7 +634,7 @@ const make = Effect.gen(function* () {
     id: string,
     text: string,
     mode?: SendMode,
-    images?: SendImage[],
+    images?: ImageContent[],
     clientId?: string,
   ) =>
     Effect.gen(function* () {
@@ -648,22 +647,20 @@ const make = Effect.gen(function* () {
       if (queued && (yield* Ref.get(ms.pendingSends)).length >= MAX_PENDING_SENDS) {
         return yield* Effect.fail(new PiError({ message: `send queue full (${MAX_PENDING_SENDS})` }));
       }
-      const queueKind: QueuedMessage["queueKind"] = mode === "follow_up" ? "follow_up" : "steer";
+      const sendMode: QueuedMessage["mode"] = mode === "follow_up" ? "follow_up" : "steer";
       const userMessageId = randomUUIDv7();
       const at = Date.now();
       const seq = yield* Ref.updateAndGet(ms.seq, (n) => n + 1);
-      const userEvent: WireEvent = {
-        t: "user_message",
-        seq,
-        entry: {
-          kind: "user",
-          id: userMessageId,
-          at,
-          text,
-          ...(queued ? { queued: true, queueKind } : {}),
-          ...(clientId ? { clientId } : {}),
-        },
+      const baseEntry = {
+        kind: "user" as const,
+        id: userMessageId,
+        at,
+        text,
+        images,
+        clientId,
       };
+      const entry: UserMessage = queued ? { ...baseEntry, queued: true, mode: sendMode } : baseEntry;
+      const userEvent: WireEvent = { t: "user_message", seq, entry };
       yield* store.appendEvent(id, userEvent);
       if (clientId) {
         yield* Ref.update(ms.seenClientIds, (seen) => [...seen, clientId].slice(-MAX_SEEN_CLIENT_IDS));
@@ -675,9 +672,9 @@ const make = Effect.gen(function* () {
           id: userMessageId,
           at,
           text,
-          queueKind,
+          images,
+          mode: sendMode,
           phase: "held_for_compaction",
-          ...(images && images.length > 0 ? { images } : {}),
         };
         yield* Ref.update(ms.pendingSends, (pending) => [...pending, pendingSend]);
         yield* publishQueueSnapshot(ms, id);
@@ -689,9 +686,9 @@ const make = Effect.gen(function* () {
           id: userMessageId,
           at,
           text,
-          queueKind,
+          images,
+          mode: sendMode,
           phase: "sdk_queue",
-          ...(images && images.length > 0 ? { images } : {}),
         };
         yield* Ref.update(ms.pendingSends, (pending) => [...pending, pendingSend]);
         yield* publishQueueSnapshot(ms, id);

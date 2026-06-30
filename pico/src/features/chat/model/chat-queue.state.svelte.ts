@@ -1,4 +1,5 @@
 import type { QueuedMessage, QueueState, WireEvent } from "@pico/protocol";
+import { cloneImageContent } from "@/shared/mobile/image-content";
 
 type QueueBySession = Record<string, QueueState | undefined>;
 
@@ -8,7 +9,12 @@ const emptyQueue: QueueState = { queued: [] };
 
 function queueSnapshot(queue: QueueState = emptyQueue): QueueState {
   return {
-    queued: queue.queued.map(({ id, text, queueKind }) => ({ id, text, queueKind })),
+    queued: queue.queued.map(({ id, text, images, mode }) => ({
+      id,
+      text,
+      images: cloneImageContent(images),
+      mode,
+    })),
   };
 }
 

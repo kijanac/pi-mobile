@@ -19,21 +19,41 @@ export type SessionStatus = typeof SessionStatus.Type;
 export const SendMode = Schema.Literal("steer", "follow_up");
 export type SendMode = typeof SendMode.Type;
 
+export const ImageContent = Schema.Struct({
+  type: Schema.Literal("image"),
+  data: Schema.String,
+  mimeType: Schema.String,
+});
+export type ImageContent = typeof ImageContent.Type;
 
 const Base = {
   id: Schema.String,
   at: Schema.Number,
 };
 
-export const UserMessage = Schema.Struct({
+const UserMessageBase = {
   kind: Schema.Literal("user"),
   ...Base,
   text: Schema.String,
-  queued: Schema.optional(Schema.Boolean),
-  queueKind: Schema.optional(SendMode),
+  images: Schema.optional(Schema.Array(ImageContent)),
   // Echoed from the send event so the sender reconciles its optimistic echo and retries stay idempotent.
   clientId: Schema.optional(Schema.String),
+};
+
+export const SentUserMessage = Schema.Struct({
+  ...UserMessageBase,
+  queued: Schema.optional(Schema.Literal(false)),
 });
+export type SentUserMessage = typeof SentUserMessage.Type;
+
+export const QueuedUserMessage = Schema.Struct({
+  ...UserMessageBase,
+  queued: Schema.Literal(true),
+  mode: SendMode,
+});
+export type QueuedUserMessage = typeof QueuedUserMessage.Type;
+
+export const UserMessage = Schema.Union(SentUserMessage, QueuedUserMessage);
 export type UserMessage = typeof UserMessage.Type;
 
 export const StopReason = Schema.Literal("stop", "length", "toolUse", "error", "aborted");
@@ -112,12 +132,8 @@ export const ToolTextContent = Schema.Struct({
 });
 export type ToolTextContent = typeof ToolTextContent.Type;
 
-export const ToolImageContent = Schema.Struct({
-  type: Schema.Literal("image"),
-  data: Schema.String,
-  mimeType: Schema.String,
-});
-export type ToolImageContent = typeof ToolImageContent.Type;
+export const ToolImageContent = ImageContent;
+export type ToolImageContent = ImageContent;
 
 export const ToolResultContent = Schema.Union(ToolTextContent, ToolImageContent);
 export type ToolResultContent = typeof ToolResultContent.Type;
@@ -381,7 +397,8 @@ export type Commands = typeof Commands.Type;
 export const QueuedMessage = Schema.Struct({
   id: Schema.String,
   text: Schema.String,
-  queueKind: SendMode,
+  images: Schema.optional(Schema.Array(ImageContent)),
+  mode: SendMode,
 });
 export type QueuedMessage = typeof QueuedMessage.Type;
 
@@ -578,18 +595,12 @@ export const WireEvent = Schema.Union(
 export type WireEvent = typeof WireEvent.Type;
 
 
-export const ImageAttachment = Schema.Struct({
-  data: Schema.String,
-  mimeType: Schema.String,
-});
-export type ImageAttachment = typeof ImageAttachment.Type;
-
 export const ClientEvent = Schema.Union(
   Schema.Struct({
     t: Schema.Literal("send"),
     text: Schema.String,
     mode: Schema.optional(SendMode),
-    images: Schema.optional(Schema.Array(ImageAttachment)),
+    images: Schema.optional(Schema.Array(ImageContent)),
     // Idempotency key: the host drops repeats and echoes it back on user_message.
     clientId: Schema.optional(Schema.String),
   }),

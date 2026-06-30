@@ -1,11 +1,12 @@
 import { Camera, MediaTypeSelection, type MediaResult } from "@capacitor/camera";
-import type { ImageAttachment } from "@pico/protocol";
+import type { ImageContent } from "@pico/protocol";
+import { blobToImageContent } from "@/shared/mobile/image-content";
 
 export interface PickImagesOptions {
   limit?: number;
 }
 
-export async function pickImages(opts?: PickImagesOptions): Promise<ImageAttachment[]> {
+export async function pickImages(opts?: PickImagesOptions): Promise<ImageContent[]> {
   const limit = opts?.limit ?? 4;
 
   try {
@@ -15,7 +16,7 @@ export async function pickImages(opts?: PickImagesOptions): Promise<ImageAttachm
       ...(limit > 1 ? { limit } : {}),
     });
 
-    const attachments: ImageAttachment[] = [];
+    const attachments: ImageContent[] = [];
     for (const result of results) {
       const attachment = await mediaResultToAttachment(result);
       if (attachment) attachments.push(attachment);
@@ -28,7 +29,7 @@ export async function pickImages(opts?: PickImagesOptions): Promise<ImageAttachm
   }
 }
 
-async function mediaResultToAttachment(result: MediaResult): Promise<ImageAttachment | null> {
+async function mediaResultToAttachment(result: MediaResult): Promise<ImageContent | null> {
   const url = result.webPath ?? result.uri;
   if (!url) {
     console.warn("[image-picker] result had no webPath or uri");
@@ -36,30 +37,7 @@ async function mediaResultToAttachment(result: MediaResult): Promise<ImageAttach
   }
 
   const response = await fetch(url);
-  const blob = await response.blob();
-  const data = await blobToBase64(blob);
-
-  return {
-    data,
-    mimeType: blob.type || "image/jpeg",
-  };
-}
-
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        reject(new Error("FileReader produced non-string result"));
-        return;
-      }
-      const comma = result.indexOf(",");
-      resolve(comma === -1 ? result : result.slice(comma + 1));
-    };
-    reader.readAsDataURL(blob);
-  });
+  return blobToImageContent(await response.blob());
 }
 
 function isUserCancelled(error: unknown): boolean {

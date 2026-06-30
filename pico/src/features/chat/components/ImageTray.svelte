@@ -1,15 +1,16 @@
 <script lang="ts">
   import { X } from "@lucide/svelte";
-  import type { ImageAttachment } from "@pico/protocol";
+  import type { ImageContent } from "@pico/protocol";
+  import { imageDataUrl } from "@/shared/mobile/image-content";
 
-  let { images, onRemove }: { images: ImageAttachment[]; onRemove: (index: number) => void } = $props();
+  let { images, onRemove }: { images: ImageContent[]; onRemove: (index: number) => void } = $props();
 </script>
 
 {#if images.length > 0}
   <div class="hairline-b flex gap-1.5 overflow-x-auto px-2 py-1.5">
     {#each images as image, index}
       <div class="relative h-14 w-14 shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-[color:var(--color-border)]">
-        <img src={`data:${image.mimeType};base64,${image.data}`} alt="" class="h-full w-full object-cover" />
+        <img src={imageDataUrl(image)} alt="" class="h-full w-full object-cover" />
         <button
           type="button"
           onclick={() => onRemove(index)}

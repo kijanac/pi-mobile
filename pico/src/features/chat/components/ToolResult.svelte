@@ -2,6 +2,7 @@
   import Anser from "anser";
   import { hasToolDetails, type ToolCallMessage } from "@pico/protocol";
   import { highlightToHtml, inferLangFromPath } from "@/shared/lib/highlighter";
+  import { imageDataUrl } from "@/shared/mobile/image-content";
 
   const BASH_CLASS =
     "tool-ansi type-code mt-1 overflow-x-auto rounded-[var(--radius-sm)] border border-[color:var(--color-border)] bg-[color:var(--color-code-bg)] p-2 font-mono text-[color:var(--color-code-fg)] whitespace-pre-wrap break-words";
@@ -118,7 +119,7 @@
 {#if images.length > 0}
   <div class="mt-1 grid gap-2">
     {#each images as image}
-      <img class="max-h-72 rounded-[var(--radius-sm)] border border-[color:var(--color-border)] object-contain" src={`data:${image.mimeType};base64,${image.data}`} alt="tool result" />
+      <img class="max-h-72 rounded-[var(--radius-sm)] border border-[color:var(--color-border)] object-contain" src={imageDataUrl(image)} alt="tool result" />
     {/each}
   </div>
 {/if}

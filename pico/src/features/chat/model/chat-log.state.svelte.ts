@@ -1,6 +1,7 @@
-import type { ClientEvent, LogEntry, LogPage, WireEvent } from "@pico/protocol";
+import type { ClientEvent, LogEntry, LogPage, UserMessage, WireEvent } from "@pico/protocol";
 import { appendLogEntry, type Mutable, reconcileOrphanedToolCalls, reduceLog, removeLogEntry } from "@pico/protocol/log";
 import { activeSessionState } from "@/features/chat/model/active-session.state.svelte";
+import { cloneImageContent } from "@/shared/mobile/image-content";
 
 type SendEvent = Extract<ClientEvent, { t: "send" }>;
 
@@ -115,6 +116,7 @@ export const chatLogState = {
       id: entryId,
       at: Date.now(),
       text: event.text,
+      images: cloneImageContent(event.images),
     });
     const echo: LocalEcho = { hostId, sessionId, event, timer: null };
     localEchoes.set(entryId, echo);
@@ -157,14 +159,28 @@ function bumpActivity(log: SessionLog): void {
   log.activityVersion += 1;
 }
 
+function mutableUserMessage(entry: UserMessage): Mutable<UserMessage> {
+  return {
+    ...entry,
+    images: cloneImageContent(entry.images),
+  } as Mutable<UserMessage>;
+}
+
 function reconcileQueuedMessages(log: SessionLog, event: Extract<WireEvent, { t: "queue" }>): void {
   const queuedIds = new Set(event.queued.map((message) => message.id));
   let changed = false;
 
-  for (const entry of log.entries) {
-    if (entry.kind !== "user" || !entry.queued || queuedIds.has(entry.id)) continue;
-    entry.queued = false;
-    delete entry.queueKind;
+  for (let index = 0; index < log.entries.length; index += 1) {
+    const entry = log.entries[index];
+    if (entry.kind !== "user" || entry.queued !== true || queuedIds.has(entry.id)) continue;
+    log.entries[index] = mutableUserMessage({
+      kind: "user",
+      id: entry.id,
+      at: entry.at,
+      text: entry.text,
+      images: cloneImageContent(entry.images),
+      ...(entry.clientId ? { clientId: entry.clientId } : {}),
+    });
     changed = true;
   }
 
@@ -226,7 +242,7 @@ function applyWireEventForSession(hostId: string, sessionId: string, event: Wire
       const echoId = log.entries[echoIndex].id;
       clearEcho(echoId);
       log.indexById.delete(echoId);
-      log.entries[echoIndex] = entry;
+      log.entries[echoIndex] = mutableUserMessage(entry);
       log.indexById.set(entry.id, echoIndex);
       bumpActivity(log);
       return;

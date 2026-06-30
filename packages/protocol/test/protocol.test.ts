@@ -3,17 +3,21 @@ import { describe, expect, it } from "vitest";
 import {
   AssistantMessage,
   CompactionEntry,
+  ImageContent,
   MessageUsage,
   MIN_MOBILE_VERSION,
   PRODUCT_VERSION,
   PROTOCOL_VERSION,
+  QueueState,
   RECOMMENDED_MOBILE_VERSION,
   SendMode,
   SessionMeta,
   SessionStatus,
   ToolCallMessage,
   UserMessage,
+  WireEvent,
 } from "../src/index.ts";
+import { emptyLog, reduceLog } from "../src/log.ts";
 
 // Representative messages spanning literals, structs, and unions.
 const WIRE_SCHEMAS: ReadonlyArray<readonly [string, Schema.Schema<any>]> = [
@@ -47,6 +51,42 @@ describe("decoding rejects malformed input", () => {
   it("refuses values that don't match the schema", () => {
     expect(() => Schema.decodeUnknownSync(UserMessage)({ not: "a user message" })).toThrow();
     expect(() => Schema.decodeUnknownSync(SendMode)("sideways")).toThrow();
+  });
+
+  it("requires Pi-shaped image content", () => {
+    const image = { type: "image", data: "abc", mimeType: "image/png" } as const;
+    expect(Schema.decodeUnknownSync(ImageContent)(image)).toStrictEqual(image);
+    expect(() => Schema.decodeUnknownSync(ImageContent)({ data: "abc", mimeType: "image/png" })).toThrow();
+  });
+
+  it("requires queued user messages to carry a mode", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(UserMessage)({ kind: "user", id: "u1", at: 1, text: "queued", queued: true }),
+    ).toThrow();
+
+    expect(
+      Schema.decodeUnknownSync(UserMessage)({ kind: "user", id: "u1", at: 1, text: "queued", queued: true, mode: "follow_up" }),
+    ).toMatchObject({ queued: true, mode: "follow_up" });
+  });
+
+  it("preserves images on user_message wire events", () => {
+    const event = {
+      t: "user_message",
+      seq: 1,
+      entry: { kind: "user", id: "u1", at: 1, text: "look", images: [{ type: "image", data: "abc", mimeType: "image/png" }] },
+    } as const;
+    expect(Schema.decodeUnknownSync(WireEvent)(event)).toStrictEqual(event);
+
+    const log = emptyLog();
+    reduceLog(log, event, 1);
+    expect(log.entries[0]).toMatchObject({ kind: "user", text: "look", images: event.entry.images });
+  });
+
+  it("preserves images on queue snapshots", () => {
+    const queue = {
+      queued: [{ id: "q1", text: "later", mode: "steer", images: [{ type: "image", data: "abc", mimeType: "image/png" }] }],
+    } as const;
+    expect(Schema.decodeUnknownSync(QueueState)(queue)).toStrictEqual(queue);
   });
 });
 
