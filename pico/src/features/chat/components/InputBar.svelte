@@ -48,6 +48,7 @@
   let composing = $state(false);
   let holding = $state(false);
   let ignoreNextSendClick = false;
+  let sendPointerId: number | null = null;
   let actionsOpen = $state(false);
   let compactOpen = $state(false);
   let queueOpen = $state(false);
@@ -75,6 +76,7 @@
   });
 
   onDestroy(() => {
+    clearSendPointerListeners();
     stt.destroy();
   });
 
@@ -246,20 +248,45 @@
     },
   });
 
+  function clearSendPointerListeners(): void {
+    window.removeEventListener("pointerup", handleWindowSendPointerUp, { capture: true });
+    window.removeEventListener("pointercancel", handleWindowSendPointerCancel, { capture: true });
+  }
+
   function handleSendPointerDown(event: PointerEvent): void {
+    if (!hasSendable || !canSend) return;
+
     // Keep the textarea focused so the native keyboard/WebView layout doesn't
     // move under the finger before the tap completes.
     event.preventDefault();
+    clearSendPointerListeners();
     ignoreNextSendClick = false;
+    sendPointerId = event.pointerId;
     sendPress.start(event);
+    window.addEventListener("pointerup", handleWindowSendPointerUp, { capture: true });
+    window.addEventListener("pointercancel", handleWindowSendPointerCancel, { capture: true });
   }
 
-  function handleSendPointerUp(event: PointerEvent): void {
-    event.preventDefault();
+  function finishSendPointer(): void {
+    clearSendPointerListeners();
+    sendPointerId = null;
     ignoreNextSendClick = true;
     sendPress.end();
     if (sendPress.consumeClick()) return;
     submit("steer");
+  }
+
+  function handleWindowSendPointerUp(event: PointerEvent): void {
+    if (sendPointerId !== null && event.pointerId !== sendPointerId) return;
+    event.preventDefault();
+    finishSendPointer();
+  }
+
+  function handleWindowSendPointerCancel(event: PointerEvent): void {
+    if (sendPointerId !== null && event.pointerId !== sendPointerId) return;
+    clearSendPointerListeners();
+    sendPointerId = null;
+    sendPress.end();
   }
 
   function handleSendClick(): void {
@@ -468,9 +495,7 @@
           size="icon-lg"
           onclick={handleSendClick}
           onpointerdown={handleSendPointerDown}
-          onpointerup={handleSendPointerUp}
-          onpointerleave={sendPress.end}
-          onpointercancel={sendPress.end}
+          onpointercancel={handleWindowSendPointerCancel}
           disabled={!hasSendable || !canSend}
           class={`shrink-0 rounded-[var(--radius-sm)] bg-[color:var(--color-accent)] text-[color:var(--color-bg)] transition-transform duration-100 active:opacity-80 disabled:bg-[color:var(--color-surface-2)] disabled:text-[color:var(--color-fg-faint)] disabled:opacity-100 ${holding ? "scale-95" : ""}`}
           aria-label={busy ? "Steer (hold to queue a follow-up)" : "Send"}
