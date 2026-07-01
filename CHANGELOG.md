@@ -2,6 +2,11 @@
 
 All notable changes to Pico.
 
+## 1.4.6 — 2026-07-01
+
+### Changed
+- Polish mobile host UI and gestures
+
 ## 1.4.5 — 2026-06-30
 
 ### Added
